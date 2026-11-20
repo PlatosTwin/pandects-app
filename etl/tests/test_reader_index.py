@@ -674,6 +674,313 @@ class BareSectionToArticleTests(unittest.TestCase):
         self.assertEqual(got, [("resolved", "s2"), ("external", None)])
 
 
+class StatusAndTargetRuleTests(unittest.TestCase):
+    """Enricher 0.10.0 rules on statuses and targets (reader_090 census, PROPOSALS.md rules 3, 5, 8-12)."""
+
+    def _status(self, xml: str) -> dict[str, tuple[str, str | None]]:
+        return {r["text"]: (r["status"], r.get("target")) for r in build_reader_index(xml)["xrefs"]}
+
+    def _all(self, xml: str) -> list[tuple[str, str, str | None]]:
+        return [(r["text"], r["status"], r.get("target")) for r in build_reader_index(xml)["xrefs"]]
+
+    # rule 3: a large bare section number is a statute or another document
+    def test_large_bare_section_numbers_are_external(self) -> None:
+        refs = self._status(
+            _doc(
+                _article("a1", "ARTICLE I Merger", _section("s11", "Section 1.1 Merger", "x"))
+                + _article(
+                    "a2",
+                    "ARTICLE II Refs",
+                    _section(
+                        "s21",
+                        "Section 2.1 Refs",
+                        "Appraisal rights under Section 262 apply. No payment is subject to Section 280G, "
+                        + "and the election under Section 338(h)(10) is made. Reports under Section 16 are filed.",
+                    ),
+                )
+            )
+        )
+        self.assertEqual(refs["Section 262"], ("external", None))
+        self.assertEqual(refs["Section 280G"], ("external", None))
+        self.assertEqual(refs["Section 338(h)(10)"], ("external", None))
+        # below 40: may be the agreement's own article, so it stays unresolved
+        self.assertEqual(refs["Section 16"], ("unresolved", None))
+
+    def test_large_bare_number_with_its_own_node_still_resolves(self) -> None:
+        flat = "".join(_article(f"f{n}", f"Section {n}. Item", "<text>(a) text.</text>") for n in (44, 45))
+        refs = self._status(
+            _doc(
+                _section("s40", "Section 40 Notices", "x")
+                + flat
+                + _article("f46", "Section 46. Refs", "<text>See Section 40, Section 45 and Section 44(a). Section 47 is a statute.</text>")
+            )
+        )
+        self.assertEqual(refs["Section 40"], ("resolved", "s40"))
+        self.assertEqual(refs["Section 45"], ("resolved", "a45"))
+        self.assertEqual(refs["Section 44(a)"], ("resolved", "s44(a)"))
+        self.assertEqual(refs["Section 47"], ("external", None))
+
+    def test_large_number_rule_leaves_other_heads_and_dotted_numbers(self) -> None:
+        refs = self._status(_doc(_section("s1", "Section 1.1 Refs", "See Article 52, clause 41 and Section 41.2.")))
+        self.assertEqual(refs["Article 52"], ("unresolved", None))
+        self.assertEqual(refs["clause 41"], ("unresolved", None))
+        self.assertEqual(refs["Section 41.2"], ("unresolved", None))
+
+    # rule 10: self markers beat statute and other-document tails
+    def _rule10(self, *texts: str) -> list[tuple[str, str, str | None]]:
+        return self._all(_doc(_section("s63", "Section 6.3 Filings", "(a) x.") + _section("s64", "Section 6.4 Refs", *texts)))
+
+    def test_this_and_hereof_keep_a_reference_internal(self) -> None:
+        got = self._rule10(
+            "The limits in this Section 6.3 apply to any registration of the Securities Act.",
+            "Section 6.3 hereof and any registration of the Securities Act apply.",
+            "This Section 6.3 under the Company Option Plan governs.",
+        )
+        self.assertEqual(got, [("Section 6.3", "resolved", "s6.3")] * 3)
+
+    def test_a_verb_before_the_act_keeps_a_reference_internal(self) -> None:
+        got = self._rule10("Section 6.3 shall not apply to the filings of the Exchange Act.")
+        self.assertEqual(got, [("Section 6.3", "resolved", "s6.3")])
+
+    def test_this_section_run_is_not_pushed_external_by_a_joined_run(self) -> None:
+        got = self._rule10("Under this Section 6.3 or Section 13 of the Exchange Act, the filing is made.")
+        self.assertEqual(got, [("Section 6.3", "resolved", "s6.3"), ("Section 13", "external", None)])
+
+    def test_statute_lists_and_other_documents_stay_external(self) -> None:
+        got = self._rule10(
+            "Reports under Section 15, Section 15B or Section 15C of the Exchange Act are filed.",
+            "Proxy rules in Section 14a-13 of the Exchange Act apply.",
+            "As provided in Section 6.3 of the Company Option Plan.",
+            "Section 6.3 or Section 13 of the Exchange Act applies.",
+        )
+        self.assertEqual([s for _, s, _ in got], ["external"] * 7)
+
+    def test_self_markers_do_not_apply_in_back_matter(self) -> None:
+        # a voting agreement's "this Section 4.3" is its own section, not the merger agreement's Section 4.3
+        back = (
+            "<text>EXHIBIT A</text><text>“Alpha” means a.</text><text>“Beta” means b.</text><text>“Gamma” means c.</text>"
+            + "<text>No proposal arising out of a breach of this Section 6.3 or Section 5.2(a) of the Merger Agreement.</text>"
+            + "<text>Section 6.3 shall not apply to the filings of the Exchange Act.</text>"
+        )
+        got = self._all(_doc(_section("s63", "Section 6.3 Filings", "(a) x."), back=back))
+        self.assertEqual([s for _, s, _ in got], ["external"] * 3)
+
+    # rule 9: a digit after a hyphen in a regulation number is not a list member
+    def test_regulation_numbers_are_one_reference(self) -> None:
+        xml = _doc(
+            _article("a3", "SECTION 3 Covenants", _section("s31", "3.1 Tax", "x"))
+            + _section(
+                "s2",
+                "Section 2.1 Refs",
+                "A reorganization within the meaning of Section 1.368-2(g) of the Treasury Regulations.",
+                "Liability under Section 1.1502-6 (or any similar provision) is excluded.",
+                "See Treasury Regulations Section 301.7701-3.",
+                "See Sections 2.1-3.1 and Section 2.1 - 3.",
+            )
+        )
+        got = self._all(xml)
+        self.assertEqual(
+            got,
+            [
+                ("Section 1.368-2(g)", "external", None),
+                ("Section 1.1502-6", "unresolved", None),
+                ("Section 301.7701-3", "external", None),
+                ("Sections 2.1", "resolved", "s2.1"),
+                ("3.1", "resolved", "s3.1"),
+                ("Section 2.1", "resolved", "s2.1"),
+                ("3", "resolved", "a3"),
+            ],
+        )
+
+    # rule 8: full attachment labels
+    def test_letter_hyphen_number_exhibits_are_one_label(self) -> None:
+        back = "<text>EXHIBIT C-1</text><text>Form of note.</text><text>Exhibit I-1</text><text>Form of letter.</text>"
+        got = self._all(_doc(_section("s1", "Section 1.1 Refs", "See Exhibit C-1, Exhibits I-1 and C-2, and Exhibits I-III."), back=back))
+        self.assertEqual(
+            got,
+            [
+                ("Exhibit C-1", "resolved", "x-exhibit-c-1"),
+                ("Exhibits I-1", "resolved", "x-exhibit-i-1"),
+                ("C-2", "unlocated_attachment", None),
+                ("Exhibits I", "unlocated_attachment", None),
+                ("III", "unlocated_attachment", None),
+            ],
+        )
+
+    def test_attachment_headings_keep_their_enumerators(self) -> None:
+        back = (
+            "<text>Annex 2.02(a)</text><text>Purchased assets.</text>"
+            "<text>Annex 2.02(b)</text><text>Excluded assets.</text>"
+            "<text>Exhibit B</text><text>Form of deed.</text>"
+        )
+        p = build_reader_index(_doc(_section("s1", "Section 1.1 Refs", "See Annex 2.02(a), Annex 2.02(b), Annex 2.02 and Exhibit B."), back=back))
+        got = [(r["text"], r["status"], r.get("target")) for r in p["xrefs"]]
+        self.assertEqual(
+            got,
+            [
+                ("Annex 2.02(a)", "resolved", "x-annex-2.02(a)"),
+                ("Annex 2.02(b)", "resolved", "x-annex-2.02(b)"),
+                ("Annex 2.02", "resolved", "x-annex-2.02(a)"),
+                ("Exhibit B", "resolved", "x-exhibit-b"),
+            ],
+        )
+        labels = [n["label"] for n in p["outline"] if n["kind"] == "attachment"]
+        self.assertEqual(labels, ["2.02(a)", "2.02(b)", "B"])
+
+    # rule 12: small tail fixes
+    def test_small_tail_fixes(self) -> None:
+        got = self._all(
+            _doc(
+                _article("a13", "SECTION 13 Reports", _section("s131", "13.1 Filings", "x"))
+                + _section("s22", "Section 2.2 Assets", "(a) x.")
+                + _section("s25", "Section 2.5 Liabilities", "x")
+                + _section("s71", "Section 7.1 Charter", "(c) x.")
+                + _section(
+                    "s9",
+                    "Section 9.1 Refs",
+                    "Reports under Sections 13 or 14 of the 1934 Act are filed.",
+                    "As set out in Section 7.1(c) of the Company’s Amended and Restated Certificate of Incorporation.",
+                    "Under Section 2.2 of Parent's Credit Agreement, and Sections 2.2 to 2.5, inclusive, of the Distribution Agreement.",
+                    "See 12 CFR Section 225.2 and Treas. Regs. Section 1.1502-6.",
+                    "Sections 2.2 to 2.5, inclusive, hereof apply. Sections 2.2 to 2.5, inclusive, apply.",
+                )
+            )
+        )
+        self.assertEqual([s for _, s, _ in got[:8]], ["external"] * 8)
+        self.assertEqual(got[8:], [("Sections 2.2", "resolved", "s2.2"), ("2.5", "resolved", "s2.5")] * 2)
+
+    def test_possessive_disclosure_schedule_is_a_disclosure_reference(self) -> None:
+        got = self._all(
+            _doc(
+                _section("s71", "Section 7.1 Contracts", "(c) x.")
+                + _section(
+                    "s9",
+                    "Section 9.1 Refs",
+                    "Except as set forth in Section 7.1(c) of Seller’s Disclosure Schedule, and Section 7.1 of Parent's "
+                    + "Disclosure Letter. Under Section 7.1 of Parent's Credit Agreement.",
+                )
+            )
+        )
+        self.assertEqual([s for _, s, _ in got], ["disclosure_schedule", "disclosure_schedule", "external"])
+
+    # rule 11: "Section N" links to ARTICLE N in an agreement that writes "this Section N" inside article N
+    def _self_style(self, signal: str, refs: str, back: str = "") -> list[tuple[str, str, str | None]]:
+        return self._all(
+            _doc(
+                _article("a7", "ARTICLE VII CONDITIONS", _section("s71", "Section 7.1 Conditions", "x"))
+                + _article("a8", "ARTICLE VIII TERMINATION", _section("s81", "Section 8.1 Termination", signal))
+                + _article("a9", "ARTICLE IX MISCELLANEOUS", _section("s91", "Section 9.1 Notices", refs)),
+                back=back,
+            )
+        )
+
+    def test_self_style_agreement_links_bare_sections_to_articles(self) -> None:
+        got = self._self_style(
+            "The rights under this Section 8 survive.",
+            "Termination under Section 8 hereof ends it. See Sections 7 and 8. Also Section 8 of the Voting Agreement, "
+            + "Section 8 of Revenue Procedure 2004-53 and Section 8.l above.",
+        )
+        self.assertEqual(
+            got,
+            [
+                ("Section 8", "resolved", "a8"),
+                ("Section 8", "resolved", "a8"),
+                ("Sections 7", "resolved", "a7"),
+                ("8", "unresolved", None),
+                ("Section 8", "external", None),
+                ("Section 8", "unresolved", None),
+                ("Section 8", "unresolved", None),
+            ],
+        )
+
+    def test_self_style_skips_statute_citations(self) -> None:
+        got = self._self_style(
+            "The rights under this Section 8 survive.",
+            "Arbitration under 9 U.S.C., Section 8 et seq. applies. See Health Code, Chapter II, Section 8 et seq. "
+            + "Registered form under Section 8f.103-1(c) of the Treasury Regulations. See Section 8.",
+        )
+        self.assertEqual([s for _, s, _ in got], ["resolved", "unresolved", "unresolved", "unresolved", "resolved"])
+
+    def test_self_style_needs_the_signal_inside_its_own_article(self) -> None:
+        got = self._self_style("The rights under Section 8 survive.", "As provided in this Section 8, and Section 8.")
+        self.assertEqual([s for _, s, _ in got], ["unresolved"] * 3)
+
+    def test_self_style_never_applies_in_back_matter(self) -> None:
+        back = (
+            "<text>EXHIBIT A</text><text>“Alpha” means the notice under Section 8.</text>"
+            + "<text>“Beta” means b.</text><text>“Gamma” means c.</text>"
+        )
+        got = self._self_style("The rights under this Section 8 survive.", "x", back=back)
+        self.assertEqual(got, [("Section 8", "resolved", "a8"), ("Section 8", "unresolved", None)])
+
+    # rule 5: nearest-scope tie-break for ambiguous clauses
+    def test_ambiguous_clause_takes_the_nearest_scope(self) -> None:
+        got = self._all(
+            _doc(
+                _section(
+                    "s42",
+                    "Section 4.2 Conduct",
+                    "(a) Parent shall not:",
+                    "(i) issue shares;",
+                    "(ii) sell assets, except as permitted by clause (i);",
+                    "(b) The Company shall not:",
+                    "(i) amend its charter;",
+                    "(ii) merge, other than as provided in clause (i) above;",
+                    "(c) Nothing in clause (i) of the Credit Agreement or clause (ii) of paragraph 2 of Annex C applies.",
+                )
+            )
+        )
+        self.assertEqual(
+            got,
+            [
+                ("clause (i)", "resolved", "s4.2(a)(i)"),
+                ("clause (i)", "resolved", "s4.2(b)(i)"),
+                ("clause (i)", "external", None),
+                # a clause of another document's paragraph: no tie-break
+                ("clause (ii)", "ambiguous", None),
+                ("paragraph 2", "unresolved", None),
+                ("Annex C", "unlocated_attachment", None),
+            ],
+        )
+        # gold fixture 869a5c84: "(other than clause (i) thereto)" is a clause of another document
+        got = self._all(
+            _doc(_section("s42", "Section 4.2 Conduct", "(a) x:", "(i) y.", "(ii) any transfer (other than clause (i) thereto).", "(b) z:", "(i) w."))
+        )
+        self.assertEqual(got, [("clause (i)", "ambiguous", None)])
+
+    def test_ambiguous_clause_outside_any_paragraph_stays_ambiguous(self) -> None:
+        got = self._all(
+            _doc(_section("s42", "Section 4.2 Conduct", "Subject to clause (i), the parties agree:", "(a) x:", "(i) y.", "(b) z:", "(i) w."))
+        )
+        self.assertEqual(got, [("clause (i)", "ambiguous", None)])
+
+    def test_qualifier_after_a_comma_or_a_list(self) -> None:
+        got = self._all(
+            _doc(
+                _section("s52", "Section 5.2 Covenants", "(a) items:", "(A) one.", "(D) four.")
+                + _section("s412", "Section 4.12 Plans", "(a) plans:", "(i) one.", "(xvi) sixteen.")
+                + _section(
+                    "s6",
+                    "Section 6.1 Refs",
+                    "Except clauses (A)-(D) of, the foregoing Section 5.2(a), none.",
+                    "Under clauses (i) through (xiii) or clause (xvi) of Section 4.12(a), none.",
+                )
+            )
+        )
+        self.assertEqual(
+            got,
+            [
+                ("clauses (A)", "resolved", "s5.2(a)(A)"),
+                ("(D)", "resolved", "s5.2(a)(D)"),
+                ("Section 5.2(a)", "resolved", "s5.2(a)"),
+                ("clauses (i)", "resolved", "s4.12(a)(i)"),
+                ("(xiii)", "section_fallback", "s4.12(a)"),
+                ("clause (xvi)", "resolved", "s4.12(a)(xvi)"),
+                ("Section 4.12(a)", "resolved", "s4.12(a)"),
+            ],
+        )
+
+
 class ReaderHealthShapeTests(unittest.TestCase):
     """Shapes the 2026-10-30 reader health report found the enricher missing (0.5.0)."""
 

@@ -171,6 +171,9 @@ ATTACHMENT_HEADING = re.compile(
     r"^(EXHIBIT|Exhibit|ANNEX|Annex|SCHEDULE|Schedule|APPENDIX|Appendix)\s+([A-Z0-9][A-Z0-9.\-]*)\b"
 )
 
+# the enumerators of an attachment heading's number: "Annex 2.02(a)", "Schedule 1.1(b)(ii)"
+ATTACHMENT_ENUMS = re.compile(r"(?:\([A-Za-z0-9]{1,6}\))+")
+
 _LOWER_ROMANS = frozenset(
     "i ii iii iv v vi vii viii ix x xi xii xiii xiv xv xvi xvii xviii xix xx".split()
 )
@@ -282,6 +285,10 @@ class _Outline:
     groups: set[str] = field(default_factory=set)  # lettered group keys: "8.1(A)"
     roman_sections: bool = False  # most sections are numbered "VIII.2" (_roman_scheme): "Section VIII.2(e)" resolves
     para_labels: dict[str, str] = field(default_factory=dict)  # "8.2.1" -> printed "VIII.2.1"
+    # the body writes "this Section 8" inside "ARTICLE VIII": its bare "Section N" can mean article N (_self_cites_article)
+    self_cited_articles: bool = False
+    # container -> (ordinal, depth, key) of its paragraph nodes, built on first use (_nearest_scope)
+    para_index: dict[str, list[tuple[int, int, str]]] | None = None
     ids: set[str] = field(default_factory=set)
     unnumbered_sections: int = 0
     positional_sections: int = 0  # sections numbered by position (_positional_numbers)
@@ -739,11 +746,18 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
             m = ATTACHMENT_HEADING.match(txt)
             if not m or len(txt) >= 120:
                 continue
-            key = f"{m.group(1).lower()} {m.group(2).lower().rstrip('.')}"
-            if key in ol.attachments:
+            num = m.group(2).lower().rstrip(".")
+            key = f"{m.group(1).lower()} {num}"
+            # "Annex 2.02(a)" keeps its enumerators, so "Annex 2.02(a)" and "Annex 2.02(b)" are two attachments;
+            # a bare "Annex 2.02" still finds the first of them
+            em = ATTACHMENT_ENUMS.match(txt, m.end(2)) if not m.group(2).endswith(".") else None
+            enums = em.group(0) if em else ""
+            full = key + enums.lower()
+            if full in ol.attachments or (not enums and key in ol.attachments):
                 continue
-            node = _Node(ol.unique_id("x-" + key.replace(" ", "-")), "attachment", key.split(" ", 1)[1].upper(), txt, {"s": tn.s, "t": tn.t})
-            ol.attachments[key] = node
+            node = _Node(ol.unique_id("x-" + full.replace(" ", "-")), "attachment", num.upper() + enums, txt, {"s": tn.s, "t": tn.t})
+            ol.attachments[full] = node
+            _ = ol.attachments.setdefault(key, node)
             ol.roots.append(node)
     # Subsections of a duplicated section or flat item can't say which copy they belong to
     dup = [n + "." for n, v in ol.sections.items() if len(v) > 1] + [n + "(" for n, v in ol.sections.items() if len(v) > 1]
@@ -1177,11 +1191,12 @@ def _sentence_initial(text: str, start: int) -> bool:
 STATUTE = re.compile(
     # "Section 4 para 1 and 2 AWG": German statutes cite paragraphs as "para"
     r"^\s*para\.?\s+\d|"
-    + r"^\s*(?:\([^)]*\)\s*)*,?\s*(?:of|under|pursuant to)\s+(?:the\s+)?(?:[A-Z]{3,6}\b|Code|DGCL|Exchange Act|Securities Act|HSR Act|ERISA|Treasury Regulations?|Regulation|Rule|Delaware|General Corporation Law|Investment Company Act|Internal Revenue Code|(?:[A-Z][A-Za-z]+\s+){1,4}(?:Act|Law|Code|Statutes?)\b|Title)",
+    + r"^\s*(?:\([^)]*\)\s*)*,?\s*(?:of|under|pursuant to)\s+(?:the\s+)?(?:[A-Z]{3,6}\b|Code|DGCL|Exchange Act|Securities Act|HSR Act|ERISA|Treasury Regulations?|Regulation|Rule|Delaware|General Corporation Law|Investment Company Act|Internal Revenue Code|(?:[A-Z][A-Za-z]+\s+){1,4}(?:Act|Law|Code|Statutes?)\b|(?:[A-Z][A-Za-z]+\s+){0,3}(?:1[89]|20)\d\d\s+Act\b|Title)",
 )
 DISCLOSURE = re.compile(
-    # "of the Seller’s Disclosure Letter", "item 1 of the ...", "Disclosure ----- Schedule" across a page break
-    r"^\s*(?:\([^)]*\)\s*)*(?:item\s+\d+\s+)?(?:of|to|in|under)\s+(?:the|such|any|each)\s+(?:[A-Z][\w\-’']*\s+){0,4}(?:(?i:disclosure[\s\-–—_]+(?:schedules?|letter|memorandum))|Schedules)\b",
+    # "of the Seller’s Disclosure Letter", "item 1 of the ...", "Disclosure ----- Schedule" across a page break;
+    # "of Seller’s Disclosure Schedule": a possessive name with no article (the same opening as OTHER_DOC)
+    r"^\s*(?:\([^)]*\)\s*)*(?:item\s+\d+\s+)?(?:of|to|in|under)\s+(?:(?:the|such|any|each)\s+|(?=[A-Z][\w\-]*[’']s\s))(?:[A-Z][\w\-’']*\s+){0,4}(?:(?i:disclosure[\s\-–—_]+(?:schedules?|letter|memorandum))|Schedules)\b",
 )
 DISCLOSURE_BEFORE = re.compile(r"(?i:disclosure)\s+(?:Schedules?|Letter|Memorandum)\s*$")
 LOWER_HEAD_OTHER = re.compile(r"^[\d:.()A-Za-z]*\s*(?:\([^)]*\)\s*)*,?\s*(?:of|under|pursuant\s+to)\s+(?:the\s+|such\s+|its\s+|their\s+)?(?!this\b|Agreement\b|hereof\b)[A-Z]")
@@ -1198,19 +1213,67 @@ SPLIT_DOT = re.compile(r"(?:\.[^\S\n]+|[^\S\n]\.[^\S\n]*)(\d{1,3}[A-Z]?)" + _ENU
 # "Section 9. 0 3(a)", "Section 2.0 4": the space falls after the zero of 9.03 or 2.04. No section number
 # ends in ".0", so a single digit after the space completes it.
 ZERO_SPLIT = re.compile(r"[^\S\n](\d)" + _ENUMS + _NOT_A_COUNT)
+# "-3" right after "1.368" (no space): the rest of a regulation number. "Sections 2.1-2.5" is still a range.
+REG_HYPHEN = re.compile(r"[\-‑]\d+[A-Z]?(?:\s?\([A-Za-z0-9]{1,6}\))*(?![\d\-‑]|\.\d)")
 COLON_NUMBER = re.compile(r":\d")
 LEFTOVER_ITEMS = re.compile(r"^(?:\s*,?\s*(?:and/or|and|or)?\s*\([A-Za-z0-9]{1,6}\))+")
+INCLUSIVE = re.compile(r"^\s*,?\s*inclusive\s*,?(?=\s*(?:of|to|in|under|hereof)\b)")
 THEREOF = re.compile(r"^\s*(?:\([^)]*\)\s*)*,?\s*thereof\b")
 ATTACHMENT_TAIL = re.compile(r"^\s*(?:\([^)]*\)\s*)*(?:of|in|to)\s+(?:the\s+|this\s+)?(?:Schedules?|Part|Annex|Appendix|Exhibit)\s+[A-Z0-9IVX]")
 SELF_DOC = re.compile(r"^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:the|this)\s+Agreement\b")
 SELF_DOC_FROM_EXHIBIT = re.compile(r"^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:the|this)\s+(?:Merger\s+)?Agreement\b")
 OTHER_DOC = re.compile(
-    r"^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:the|such|any|each)\s+(?!Agreement\b)(?:[A-Z][\w\-]*\s+){0,5}(?:Agreement|Letter|Plan|Certificate|Charter|Bylaws|Indenture|Note|Schedule|Statement|Articles)\b"
+    # "of the Company's Amended and Restated Certificate", "of Parent's Credit Agreement": a possessive name
+    r"^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:(?:the|such|any|each)\s+|(?=[A-Z][\w\-]*[’']s\s))(?!Agreement\b)(?:[A-Z][\w\-]*(?:[’']s?)?\s+){0,5}(?:Agreement|Letter|Plan|Certificate|Charter|Bylaws|Indenture|Note|Schedule|Statement|Articles)\b"
     + r"|^\s*(?:\([^)]*\)\s*)*(?:of|to|in)\s+(?:the|its|their|such)\s+(?:[a-z]+\s+){0,3}(?:bylaws|by-laws|charter|certificate of incorporation|articles of incorporation|operating agreement)\b"
-    + r"|^\s*(?:\([^)]*\)\s*)*(?:of|to|in)\s+(?:the|its|their|such)\s+(?:Amended\s+and\s+Restated\s+)?(?:Articles|Certificate)\s+of\s+(?:Incorporation|Association|Organization)\b",
+    + r"|^\s*(?:\([^)]*\)\s*)*(?:of|to|in)\s+(?:the|its|their|such)\s+(?:[A-Z][\w\-]*[’']s?\s+)?(?:Amended\s+and\s+Restated\s+)?(?:Articles|Certificate)\s+of\s+(?:Incorporation|Association|Organization)\b",
 )
+# Self markers: "this Section 6.3" and "Section 6.3 hereof" name the document's own section
+THIS_BEFORE = re.compile(r"(?i:\bthis)\s+$")
+HEREOF_TAIL = re.compile(r"^\s*(?:\([^)]*\)\s*)*,?\s*(?:hereof|herein|hereunder)\b")
+# "Section 14a-13 of the Exchange Act": an Act named after the reference. A verb before it means the Act
+# belongs to the rest of the sentence ("Section 6.3 shall not apply to filings under the Securities Act").
+ACT_LATER = re.compile(r"\bof\s+(?:the\s+)?(?:[A-Z][\w .\-()]{2,60}|(?:1[89]|20)\d\d\s+)\bAct\b")
+_VERB = re.compile(r"\b(?:shall|will|is|are|must|may|would|should|was|were|has|have|be|been)\b")
+
+
+# Tails that keep a reference in this agreement: none at all, "hereof", "of this Agreement", "above", "below"
+_SELF_TAIL = re.compile(
+    r"^[\s,]*(?:\([^)]*\)\s*)*,?\s*(?:here(?:of|to|in|under)\b|(?:of|to|in|under)\s+(?:this|the)\s+Agreement\b)"
+    + r"|(?i:^[\s,]*(?:above|below|hereinabove|hereinbelow|preceding|following)\b)"
+)
+# Tails that name something else: "of Revenue Procedure 2004-53", "of this Article", "to the Disclosure Letter",
+# "thereof"; and OCR continuations of the number ("Section 7.l", "Section 7,05", "Section 1-3")
+_OTHER_TAIL = re.compile(
+    r"^[\s,]*(?:\([^)]*\)\s*)*,?\s*(?:(?:of|under|pursuant\s+to)\s|there(?:of|to|in|under)\b"
+    + r"|(?:to|in)\s+(?:this\s+(?!Agreement\b)\w|(?:the|such|any|each|its|their)\s+[A-Z]|(?:Exhibit|Annex|Schedule|Appendix|Part)\s))"
+    + r"|^(?:[.,]{1,2}\s?\d|\.l|-\d)"
+    # "9 U.S.C., Section 1 et seq.": a statute; "Section 5f.103-1(c)": a letter glued to the number
+    + r"|^[\s,]*et\.?\s+seq\b|^[A-Za-z]\.\d"
+)
+
+
+# "clause (iii) of paragraph 2 of Annex C of the Commitment Letter", "clause (ii) of the Credit Agreement":
+# "clause (i) thereto": a clause of something other than this agreement's section
+CLAUSE_OF_OTHER = re.compile(
+    r"^\s*(?:\([^)]*\)\s*)*,?\s*there(?:of|to|in|under)\b"
+    + r"|^[^.;]{0,80}?\b(?:of|under|in)\s+(?:(?:the|such|any|each|its|their)\s+(?!Agreement\b)(?:[A-Z][\w\-’']*\s+){0,5}"
+    + r"(?:Agreement|Letter|Plan|Certificate|Charter|Bylaws|Indenture|Note|Schedule|Statement|Articles|Act|Code|Regulations?)\b"
+    + r"|(?:paragraph|Annex|Exhibit|Schedule|Appendix)\s)"
+)
+
+
+def _plain_tail(tail: str) -> bool:
+    return bool(_SELF_TAIL.match(tail)) or not _OTHER_TAIL.match(tail)
+
+
+def _act_later(tail: str) -> bool:
+    m = ACT_LATER.search(tail[:70])
+    return m is not None and not _VERB.search(tail, 0, m.end())
+
+
 # "Code Section 409A", "Treasury Regulations Section 1.368-2" (from the kirkland ingester)
-AUTHORITY_BEFORE = re.compile(r"(?:\b(?:Code|Regulations?|Reg\.|ERISA|Act|Rules?|Treas\.|Treasury|Statute|Law|IRC|U\.S\.C\.|C\.F\.R\.)|§)\s*$")
+AUTHORITY_BEFORE = re.compile(r"(?:\b(?:Code|Regulations?|Reg\.|ERISA|Act|Rules?|Treas\.|Treasury|Statute|Law|IRC|U\.S\.C\.|C\.F\.R\.|CFR|Regs\.)|§)\s*$")
 SEC_FORM = re.compile(r"^(?:\d{2}[A-Z](?:-\d+)?|TO|13E-3)$")
 # lowercase "section 3.5" and "article VI" are references too (rubric v1.4 lists the head words, not their case)
 # "Section 6.4Section 6.3(a)": a head glued to the number before it still starts a reference
@@ -1224,6 +1287,8 @@ GLUED_HEAD = re.compile(r"(?:Sections?|SECTIONS?|Articles?|ARTICLES?|Schedules?|
 REF_ITEM = re.compile(r"(\d+" + _SUFFIX + r"?(?:-\d+)?(?:\.\d+" + _SUFFIX + r"?)*(?:\s?\([A-Za-z0-9]{1,6}\))*|[IVXLC]+\b|[A-Z]\b(?:-\d+)?|\([A-Za-z0-9]{1,6}\)(?:\([A-Za-z0-9]{1,6}\))*)")
 # "Section VIII.2(e)": tried first for section, article, clause and paragraph heads only ("Exhibit C.2" is Exhibit C)
 ROMAN_ITEM = re.compile(r"(" + _ROMAN_NUM + r"(?:\.\d+" + _SUFFIX + r"?)+(?:\s?\([A-Za-z0-9]{1,6}\))*)")
+# "Exhibit C-1", "Exhibit I-1": tried first for attachment heads, so the label is not Roman "C" plus a range "-1"
+ATTACHMENT_ITEM = re.compile(r"([A-Z]-\d+)\b")
 # "(other than Sections 1.1, 6.2 (a)), 6.6 (f)": a list can step out of the parenthetical it started in
 RELATIVE_FOLLOW = re.compile(
     r"\s*(?:[,;.)]|$)|\s+(?:and|or|of|through|to|hereof|hereto|herein|thereof|above|below|shall|will|is|are|has|have|was|were|would|may|applies|apply)\b"
@@ -1231,7 +1296,11 @@ RELATIVE_FOLLOW = re.compile(
 # "Sections 4.1 (Organization; Subsidiaries), 4.2 (Authority) and 4.7": a caption or other parenthetical
 # (not an enumerator) may follow each item
 REF_JOIN = re.compile(r"(?:\s*\((?![A-Za-z0-9]{1,6}\))[^()]{2,200}\))?(?:\s*(?:\)?,\s*(?:and|or)?\s*|\s+(?:and|or|through|to|and/or)\s+|\s*[\-–]\s*))")
-QUALIFIED = re.compile(r"\s+(?:of|in)\s+(?:this\s+)?[Ss]ection\s+((?:\d+|" + _ROMAN_NUM + r"(?=\.\d))[A-Z]?(?:\.[^\S\n]?\d+[A-Z]?)*(?:\([A-Za-z0-9]{1,6}\))*)")
+# "clause (ii) of Section 4.2"; also "clauses (A)-(D) of, the foregoing Section 5.2(a)" and, after a list,
+# "clauses (i) through (xiii) or clause (xvi) of Section 4.12(a)"
+QUALIFIED = re.compile(
+    r"(?:\s*,?\s*(?:and|or|and/or)\s+clauses?\s+\([A-Za-z0-9]{1,6}\)(?:\s*(?:through|to|[\-–])\s*\([A-Za-z0-9]{1,6}\))?)?"
+    + r"\s*,?\s+(?:of|in)\s*,?\s+(?:the\s+foregoing\s+|this\s+)?[Ss]ection\s+((?:\d+|" + _ROMAN_NUM + r"(?=\.\d))[A-Z]?(?:\.[^\S\n]?\d+[A-Z]?)*(?:\([A-Za-z0-9]{1,6}\))*)")
 SECTION_TARGET = re.compile(r"(\d+[A-Z]?(?:\.\d+[A-Z]?)*)((?:\([A-Za-z0-9]+\))*)$")
 
 _HEAD_NORM = {"annexe": "annex", "appendice": "appendix"}
@@ -1299,12 +1368,19 @@ class _Ref:
     status: str = ""
     detail: str = ""
     qualified: bool = False  # "clause (ii) of Section 4.2": the section is printed next to it
+    lead: bool = False  # the first item of its run: it prints its own head ("Section 8")
+    this_before: bool = False  # "this Section 8"
+    plain_tail: bool = False  # no tail naming anything but this agreement, and no OCR continuation (".9", "-3")
+    other_tail: bool = False  # "clause (iii) of paragraph 2 of Annex C of the Commitment Letter"
 
 
-def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
+def _find_refs(text: str, in_exhibit: bool, back: bool = False) -> list[_Ref]:
+    # back: the text is in back matter, where "this Section 6.3" is an attached document's own section, so the
+    # self markers and the verb guard do not apply there (2026-11-20 corpus read: 24 of 26 such links were wrong)
     refs: list[_Ref] = []
     prev_run: list[_Ref] = []
     prev_end: int | None = None
+    prev_self = False
     # a paragraph with three or more all-caps heads is a table of contents, often of another document
     caps_toc = sum(1 for m in REF_HEAD.finditer(text) if m.group(1).isupper()) >= 3
     last_sec: list[_Ref] | None = None  # the latest section run, for a clause run's "thereof"
@@ -1324,6 +1400,13 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
                 last = run[-1]
                 last.target, last.end, last.base_end = f"{last.target}.{cm.group(1)}", cm.end(), cm.end()
                 pos = cm.end()
+                continue
+            # "Section 1.368-3", "Section 1.1502-6(a)": a regulation number, not "1.368" and a list member "3".
+            # The whole number fits no section, so it stays unresolved unless its tail makes it external.
+            if run and re.fullmatch(r"\d+[A-Z]?(?:\.\d+[A-Z]?)+", run[-1].target) and (rm := REG_HYPHEN.match(text, pos)):
+                last = run[-1]
+                last.target, last.end = last.target + re.sub(r"\s", "", rm.group(0)), rm.end()
+                pos = rm.end()
                 continue
             # "Section 1. 6(c)", "Section 9. 0 3(a)": a space inside the number; the reference is to
             # Section 1.6(c) and Section 9.03(a)
@@ -1345,7 +1428,7 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
                 item_pos = jm.end()
             # only consume a joiner when an item follows it: in "Section 3.14(a) to the Disclosure
             # Schedule" the "to" belongs to the tail, not to a range
-            im = (ROMAN_ITEM.match(text, item_pos) if head in _IN_DOCUMENT_HEADS else None) or REF_ITEM.match(text, item_pos)
+            im = (ROMAN_ITEM if head in _IN_DOCUMENT_HEADS else ATTACHMENT_ITEM).match(text, item_pos) or REF_ITEM.match(text, item_pos)
             if not im and head == "article":
                 im = SPELLED_ITEM.match(text, item_pos)
             if not im:
@@ -1386,9 +1469,13 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
         tail = re.sub(r"^\.(?=\s+(?:of|to|in|under)\b)", "", text[pos : pos + 90])
         # "Section 4.14(b), (c), (m) or (o) of the Code": items the run did not take still lead to the tail
         tail = LEFTOVER_ITEMS.sub("", tail, count=1)
+        # "Sections 2.2 to 2.5, inclusive, of the Distribution Agreement": the tail follows the "inclusive"
+        tail = INCLUSIVE.sub("", tail, count=1)
         before = text[max(0, hm.start() - 40) : hm.start()]
         lower_head = hm.group(1) in ("section", "sections", "article", "articles")
         self_doc = (SELF_DOC_FROM_EXHIBIT if in_exhibit else SELF_DOC).match(tail)
+        # "this Section 6.3", "Section 6.3 hereof": the document's own section, whatever the sentence names later
+        self_marker = not back and bool(THIS_BEFORE.search(before) or HEREOF_TAIL.match(tail))
         status = ""
         if COLON_NUMBER.match(text, pos):
             # "articles 7:17 DCC", "section 2:107a": civil-code numbering, never this agreement's
@@ -1401,10 +1488,10 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
             # "Seller Disclosure Schedule section 3.4(c)"; an index table's "Company Disclosure Schedule Section 2"
             # names a term and where it is defined
             status = "disclosure_schedule"
-        elif not self_doc and (
+        elif not self_doc and not self_marker and (
             STATUTE.match(tail)
             or OTHER_DOC.match(tail)
-            or re.search(r"\bof\s+(?:the\s+)?[A-Z][\w .\-()]{2,60}\bAct\b", tail[:70])
+            or (ACT_LATER.search(tail[:70]) is not None if back else _act_later(tail))
             # a lowercase "section 9 of the Decree", "article 15 of the DCC" is how other documents and foreign
             # statutes are cited; this agreement's own sections are capitalized or "of this Agreement"
             or (lower_head and LOWER_HEAD_OTHER.match(tail))
@@ -1443,15 +1530,23 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
                 r.status = "external"
         # "Section 355 or Section 361 of the Code": a run joined to an external run is external too
         # "Section 3.2(a) or Section 3.2(b) of the Company Schedules": the same for disclosure schedules
+        # A "this Section 6.3" run keeps its own status: "this Section 6.3 or Section 13 of the Exchange Act"
         if (
             prev_run
             and prev_end is not None
+            and not prev_self
             and run[0].status in ("external", "disclosure_schedule")
             and re.fullmatch(r"\s*(?:,\s*)?(?:and|or|and/or)?\s*", text[prev_end : hm.start()])
         ):
             for r in prev_run:
                 r.status = run[0].status
-        prev_run, prev_end = run, pos
+        other_tail = CLAUSE_OF_OTHER.match(tail) is not None
+        for r in run:
+            r.other_tail = other_tail
+        run[0].lead = True
+        run[0].this_before = THIS_BEFORE.search(before) is not None
+        run[0].plain_tail = _plain_tail(tail)
+        prev_run, prev_end, prev_self = run, pos, self_marker
         refs.extend(run)
     return refs
 
@@ -1469,6 +1564,66 @@ _ARTICLE_WORD = re.compile(r"^\s*(?:ARTICLE|Article|PART|Part)\b|^\s*" + _ROMAN_
 def _section_style_article(ol: _Outline, key: str) -> bool:
     """Article `key` can be cited as "Section 8": its heading prints "SECTION 8" or "8.", or it is flat."""
     return key in ol.flat_articles or not any(_ARTICLE_WORD.match(a.title) for a in ol.articles[key])
+
+
+def _nearest_scope(ol: _Outline, tn: _Text, cur: str, cands: list[str]) -> str | None:
+    """"clause (ii)" with several (ii) in the section: the one whose parent is the paragraph that holds the
+    reference, or one of that paragraph's ancestors. None unless exactly one candidate is left."""
+    if ol.para_index is None:
+        ol.para_index = {}
+        for key, node in ol.subs.items():
+            if "t" in node.anchor:
+                ol.para_index.setdefault(node.anchor["s"], []).append((node.anchor["t"], key.count("("), key))
+        for v in ol.para_index.values():
+            v.sort()
+    here = [key for t, _, key in ol.para_index.get(tn.s, []) if t <= tn.t]
+    chain = {cur}
+    k = here[-1] if here else ""
+    while k:
+        chain.add(k)  # "5.16.1(b)", then "5.16.1"
+        k = k[: k.rfind("(")] if "(" in k else ""
+    keep =[c for c in cands if c[: c.rfind("(")] in chain]
+    return keep[0] if len(keep) == 1 else None
+
+
+_THIS_SECTION = re.compile(r"(?i:\bthis\s+section)\s+\d")
+
+
+def _self_cites_article(texts: list[_Text], ol: _Outline) -> bool:
+    """Whether the body writes "this Section 8" inside a section 8.x of an "ARTICLE VIII" (no section 8): such an
+    agreement calls its articles "Section N", so its bare "Section N" may link to article N (census: 27 of 30)."""
+    for tn in texts:
+        if tn.region != "body" or not tn.section_key or not _THIS_SECTION.search(tn.text):
+            continue
+        art = _norm_num(tn.section_key.split(".", 1)[0])
+        if art not in ol.articles or ol.sections.get(art) or _section_style_article(ol, art):
+            continue
+        for r in _find_refs(tn.text, in_exhibit=False):
+            if r.lead and r.this_before and r.head == "section" and not r.status and re.fullmatch(r"\d+", r.target) and _norm_num(r.target) == art:
+                return True
+    return False
+
+
+def _self_cited_article(ref: _Ref, ol: _Outline, tn: _Text) -> bool:
+    """A body "Section 8" that prints its head, in an agreement that cites its articles that way, with no tail naming
+    another document and no OCR continuation of the number. Back matter never qualifies."""
+    return ol.self_cited_articles and tn.region == "body" and ref.head == "section" and ref.lead and ref.plain_tail
+
+
+_LARGE_BARE = re.compile(r"(\d+)[A-Z]?")
+# "Section 409A", "Section 262", "Section 338(h)(10)": a bare number this large with no node of its own is a
+# statute or another document (2026-11-20 census: 79 of 79 read). "Section 13" or "Section 16" of the Exchange
+# Act stays unresolved: small numbers are too often the agreement's own articles.
+_LARGE_BARE_MIN = 40
+
+
+def _is_large_bare_number(ref: _Ref, ol: _Outline, base: str, subs: str) -> bool:
+    """A bare "Section N", "Section N(a)" or "Section NA" with N >= 40 and no section, subsection or article N."""
+    m = _LARGE_BARE.fullmatch(base)
+    if ref.head != "section" or m is None or int(m.group(1)) < _LARGE_BARE_MIN:
+        return False
+    keys = {base, m.group(1)}
+    return not any(k in ol.articles or k in ol.sections or k in ol.subs or (k + subs) in ol.subs for k in keys)
 
 
 def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, str | None, list[str] | None]:
@@ -1506,7 +1661,7 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
             # "Section 8" in agreements whose top level is "SECTION 8" (or "8."), or a flat item.
             # Under "ARTICLE VIII" with sections 8.1, 8.2, a bare "Section 8" is a statute, another
             # document or an exhibit's own section, and seldom the article (0.8.0 sample: 3 of 28 right).
-            if "." not in base and not subs and base in ol.articles and _section_style_article(ol, base):
+            if "." not in base and not subs and base in ol.articles and (_section_style_article(ol, base) or _self_cited_article(ref, ol, tn)):
                 arts = ol.articles[base]
                 if len(arts) > 1:
                     return "ambiguous", None, [a.id for a in arts]
@@ -1516,6 +1671,8 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
                 if (one := _in_one_group(ol, base, subs)) is not None:
                     return "resolved", one.id, None
                 return "section_fallback", ol.articles[base][0].id, None
+            if _is_large_bare_number(ref, ol, base, subs):
+                return "external", None, None
             return "unresolved", None, None
         if len(nodes) > 1:
             return "ambiguous", None, [n.id for n in nodes]
@@ -1569,6 +1726,8 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
             if len(cands) == 1:
                 return "resolved", ol.subs[cands[0]].id, None
             if len(cands) > 1:
+                if not ref.other_tail and (one := _nearest_scope(ol, tn, cur, cands)) is not None:
+                    return "resolved", ol.subs[one].id, None
                 return "ambiguous", None, [ol.subs[k].id for k in cands]
         if t.startswith("(") and sec_text.count(t) >= 2:
             # an inline enumeration in the same section ("(i) ... (ii) ... clause (i) above");
@@ -1612,6 +1771,7 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
     root = ET.fromstring(xml)
     texts, by_el = _collect_texts(root)
     ol = _build_outline(root, by_el)
+    ol.self_cited_articles = _self_cites_article(texts, ol)
 
     # terms
     decls = _collect_declarations(root, texts, by_el)
@@ -1695,7 +1855,7 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
         is_heading = ATTACHMENT_HEADING.match(tn.text.strip()) is not None and len(tn.text.strip()) < 120
         lead = len(tn.text) - len(tn.text.lstrip())
         numbered_para = (tn.s, tn.t) in ol.numbered_paras
-        for r in _find_refs(tn.text, in_exhibit=in_exhibit):
+        for r in _find_refs(tn.text, in_exhibit=in_exhibit, back=tn.region == "backMatter"):
             if (is_heading or numbered_para) and r.start == lead:
                 continue  # the heading "Annex 3.7" or "Section 5.16.1 Payments" itself, not a reference to it
             status, target, cands = _resolve(r, ol, tn, sec_text)
