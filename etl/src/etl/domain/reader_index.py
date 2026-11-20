@@ -1305,6 +1305,20 @@ def _index_pairs(text: str) -> int:
     return pairs
 
 
+# A heading title after a section number: "Section 9.1 Amendments; Waivers.", "Section 8. Fees and Expenses.",
+# "Section 1.1 Definitions 1" (with a page number), or the whole paragraph. "Section 2.1 The Company shall" is not.
+_TITLE_WORD = r"[A-Z][\w’'&/\-]*[,;]?"
+_TITLE_SMALL = r"(?:of|and|or|the|to|for|in|on|by|with|a|an|upon|from|its|their|not|no)"
+_TITLE = rf"{_TITLE_WORD}(?:\s+(?:{_TITLE_WORD}|{_TITLE_SMALL}))*"
+BACK_HEADING_TITLE = re.compile(rf"[.:]?\s+(?:[-–—]\s*)?{_TITLE}\s*(?:[.:]|[-–—]|\s(?:[A-Z]{{1,2}}-)?\d{{1,3}}\s*$|$)")
+# A mixed-case table-of-contents entry: "Section 1.2 Interpretation 4" before the next entry or the end
+BACK_TOC_ENTRY = re.compile(
+    rf"(?:Sections?|SECTIONS?|Articles?|ARTICLES?)\s+[\dIVXLC]+(?:\.\d+)*\.?\s+{_TITLE}\.?\s+(?:[A-Z]{{1,2}}-)?\d{{1,3}}(?![\d.])"
+    + r"(?=\s+(?:Sections?|SECTIONS?|Articles?|ARTICLES?|Exhibits?|EXHIBITS?|Schedules?|SCHEDULES?|Annex|ANNEX)\b|\s*$)"
+)
+_BACK_TOC_MIN = 4
+
+
 @dataclass
 class _Segment:
     """A stretch of back matter that starts at an attachment heading (or at the start of back matter)."""
@@ -1446,9 +1460,14 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
         is_heading = ATTACHMENT_HEADING.match(tn.text.strip()) is not None and len(tn.text.strip()) < 120
         lead = len(tn.text) - len(tn.text.lstrip())
         numbered_para = (tn.s, tn.t) in ol.numbered_paras
+        back = tn.region == "backMatter"
+        if back and len(BACK_TOC_ENTRY.findall(tn.text)) >= _BACK_TOC_MIN:
+            continue  # "Section 1.1 Definitions 1 Section 1.2 Interpretation 4 ...": an attachment's table of contents
         for r in _find_refs(tn.text, in_exhibit=in_exhibit):
             if (is_heading or numbered_para) and r.start == lead:
                 continue  # the heading "Annex 3.7" or "Section 5.16.1 Payments" itself, not a reference to it
+            if back and r.start == lead and r.head in _IN_DOCUMENT_HEADS and BACK_HEADING_TITLE.match(tn.text, r.end):
+                continue  # "Section 9.1 Amendments." opening a back-matter paragraph: an attachment's own heading
             if r.status == "unresolved" and r.detail == "exhibit_local" and r.head in _ATTACHMENT_HEADS and seg is not None and seg.defines_terms:
                 # own numbering is about section numbers: "this Annex 3.7" or "Schedule A, attached hereto" in a
                 # segment that defines terms still names a filed attachment, as it did before

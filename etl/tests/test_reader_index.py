@@ -1221,5 +1221,40 @@ class BackMatterSegmentTests(unittest.TestCase):
         self.assertEqual(_index_pairs(toc), 0)
 
 
+    # Rule 2: back-matter headings and tables of contents are not references
+    def test_back_matter_headings_are_not_references(self) -> None:
+        back = _back(
+            "EXHIBIT D",
+            "Section 9.1 Amendments; Waivers. This agreement may be amended in writing.",
+            "Section 8. Fees and Expenses.",
+            "Section 1.1 Definitions 1",
+            "Section 2.1 The Company shall act as provided in Section 1.1 of the Merger Agreement.",
+            "Section 2.1 of the Merger Agreement applies.",
+        )
+        p = build_reader_index(_doc(MAIN, back=back))
+        texts = [(x["at"]["t"], x["text"]) for x in p["xrefs"]]
+        self.assertNotIn((1, "Section 9.1"), texts)
+        self.assertNotIn((2, "Section 8"), texts)
+        self.assertNotIn((3, "Section 1.1"), texts)
+        # a paragraph that opens with a real reference keeps it
+        self.assertIn((4, "Section 2.1"), texts)
+        self.assertIn((4, "Section 1.1"), texts)
+        self.assertIn((5, "Section 2.1"), texts)
+
+    def test_body_headings_are_unchanged(self) -> None:
+        main = MAIN + _section("s31", "Section 3.1 Other", "Section 2.1 Merger Sub. Merger Sub exists.")
+        x = _xrefs(build_reader_index(_doc(main)))
+        self.assertEqual(x["Section 2.1"]["target"], "s2.1")
+
+    def test_mixed_case_table_of_contents_in_back_matter(self) -> None:
+        toc = "Section 1.1 Definitions 1 Section 1.2 Interpretation 4 Section 2.1 Demand Registration 5 Section 2.2 Piggyback Rights 7"
+        p = build_reader_index(_doc(MAIN, back=_back("EXHIBIT D", toc, "Subject to Section 1.1, the Holder may act.")))
+        self.assertEqual([x["at"]["t"] for x in p["xrefs"]], [2])
+        # three entries are not enough
+        three = "Section 1.1 Definitions 1 Section 1.2 Interpretation 4 Section 2.1 Demand Registration 5"
+        p = build_reader_index(_doc(MAIN, back=_back("EXHIBIT D", three)))
+        self.assertEqual(len(p["xrefs"]), 3)
+
+
 if __name__ == "__main__":
     unittest.main()
