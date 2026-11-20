@@ -281,6 +281,7 @@ class _Outline:
     para_labels: dict[str, str] = field(default_factory=dict)  # "8.2.1" -> printed "VIII.2.1"
     ids: set[str] = field(default_factory=set)
     unnumbered_sections: int = 0
+    positional_sections: int = 0  # sections numbered by position (_positional_numbers)
 
     def unique_id(self, base: str) -> str:
         if base not in self.ids:
@@ -327,14 +328,231 @@ def _lettered_groups(texts: list[str]) -> bool:
     return len(letters) >= 2 and "".join(letters) == "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[: len(letters)]
 
 
+# "this Section 4.2" inside a section, "this Article IV" inside an article: the text's own statement of the number
+THIS_SECTION = re.compile(r"\bthis\s+(?:Section|SECTION)\s+(\d+[A-Z]?\.\d+[A-Z]?)(?![\d.]*\d)")
+THIS_ARTICLE = re.compile(r"\bthis\s+(?:Article|ARTICLE)\s+([IVXLC]+|\d+)\b")
+
+
+@dataclass
+class _Positional:
+    """Section numbers taken from the text and from position, for headings that print no usable number."""
+
+    sections: dict[ET.Element, str] = field(default_factory=dict)  # section element -> "4.2"
+    keys: set[str] = field(default_factory=set)
+    # Article element -> its number, only when the article headings cannot be used (then no other article counts)
+    articles: dict[ET.Element, str] = field(default_factory=dict)
+    printed: set[ET.Element] = field(default_factory=set)  # sections whose printed number stands
+    fits: int = 0  # fixed points that sit where counting from the fixed point before them puts them
+    misfits: int = 0  # fixed points that do not
+
+
+def _printed_article_key(title: str, expected: int) -> tuple[str, str] | None:
+    """(key, raw) of an article title's printed number."""
+    m = ARTICLE_NUM.match(title)
+    raw = (m.group(1) or m.group(2)) if m else _glued_roman(title, expected)
+    if not raw:
+        return None
+    as_int = _roman_to_int(raw) if not raw.isdigit() else None
+    return (str(as_int) if as_int else raw).upper(), raw
+
+
+def _majority(values: list[str]) -> str | None:
+    """The value that more than half of `values` share."""
+    if not values:
+        return None
+    top, n = Counter(values).most_common(1)[0]
+    return top if n * 2 > len(values) else None
+
+
+def _count_between(n: int, fixed: dict[int, int]) -> tuple[dict[int, int], set[int], int, int]:
+    """Numbers for items 0..n-1 of which some have a fixed number. A run of other items is counted on from the
+    fixed number before it (from 1 at the start); a run with a fixed number after it must end exactly one below
+    that number, else the run gets nothing.
+
+    Returns (number per item that got one, the items of the run after the last fixed number, fits, misfits).
+    """
+    out: dict[int, int] = dict(fixed)
+    run: list[int] = []
+    prev = fits = misfits = 0
+    for i in range(n):
+        if i not in fixed:
+            run.append(i)
+            continue
+        if fixed[i] == prev + len(run) + 1:
+            fits += 1
+            out.update({r: prev + j for j, r in enumerate(run, 1)})
+        else:
+            misfits += 1
+        prev, run = fixed[i], []
+    out.update({r: prev + j for j, r in enumerate(run, 1)})
+    return out, set(run), fits, misfits
+
+
+def _positional_numbers(root: ET.Element, by_el: dict[ET.Element, _Text], roman: bool) -> _Positional:
+    """Numbers for sections whose headings lost them ("Section i.. Merger.", "Closing.", ".1 Consideration", or
+    "Section 1.1" printed in every article).
+
+    Fixed points come first. A printed "N.M" in Article N that no other section prints stands. A section with no
+    such heading that says "this Section N.M" about itself (in most of its "this Section" phrases, and as the only
+    section to say so) is Section N.M. Between fixed points the sections are counted: the k-th after Section N.M
+    is N.(M+k), but only when the count arrives exactly one below the next fixed point. Otherwise a section is
+    missing or extra in the XML, and that stretch gets no numbers.
+
+    The stretch after an article's last fixed point (or a whole article with none) has no such check. It is
+    numbered only when the agreement shows that counting works in it: at least two self-stated numbers sit where
+    the count puts them, and at most one in five does not.
+
+    When the printed article numbers do not get that far, the same is tried with article numbers taken from the
+    text: an article is the one its sections name ("this Section 4.2", "this Article IV"), a unique printed number
+    stands otherwise, and the articles between are counted like sections. That numbering replaces the printed one
+    only if the check above then passes.
+    """
+    pos = _Positional()
+    body = root.find("body")
+    if body is None:
+        return pos
+    arts: list[tuple[ET.Element, list[ET.Element]]] = []
+
+    def collect(el: ET.Element, owner: list[ET.Element] | None) -> None:
+        for child in el:
+            if child.tag == "article":
+                arts.append((child, []))
+                collect(child, arts[-1][1])
+            elif child.tag == "section":
+                if owner is not None:
+                    owner.append(child)
+            elif child.tag != "text":
+                collect(child, owner)
+
+    collect(body, None)
+    if not arts:
+        return pos
+    printed: dict[ET.Element, str] = {}
+    count: Counter[str] = Counter()
+    said: dict[ET.Element, str | None] = {}
+    for _, secs in arts:
+        for sec in secs:
+            sn = _section_num(sec.get("title") or "", roman)
+            if sn:
+                printed[sec] = sn[0]
+                count[sn[0]] += 1
+            said[sec] = _majority(
+                [_norm_num(m.group(1)) for t in sec.iter("text") if t in by_el for m in THIS_SECTION.finditer(by_el[t].text)]
+            )
+    said_count = Counter(v for v in said.values() if v)
+
+    def plan(keys: list[str | None]) -> _Positional:
+        out = _Positional()
+        tail: list[tuple[ET.Element, str]] = []
+        fixed_keys: set[str] = set()
+        per_article: list[tuple[str, list[ET.Element], dict[int, int], set[int]]] = []
+        for (_, secs), key in zip(arts, keys):
+            if not key:
+                continue
+            own = re.compile(re.escape(key) + r"\.(\d+)")
+            fixed: dict[int, int] = {}
+            for i, sec in enumerate(secs):
+                num = printed.get(sec)
+                if num and count[num] == 1 and (m := own.fullmatch(num)):
+                    fixed[i] = int(m.group(1))
+                    out.printed.add(sec)
+                    fixed_keys.add(num)
+            per_article.append((key, secs, fixed, set()))
+        for key, secs, fixed, stated in per_article:
+            own = re.compile(re.escape(key) + r"\.(\d+)")
+            for i, sec in enumerate(secs):
+                num = said[sec]
+                if i not in fixed and num and said_count[num] == 1 and num not in fixed_keys and (m := own.fullmatch(num)):
+                    fixed[i] = int(m.group(1))
+                    stated.add(i)
+        for key, _, fixed, _ in per_article:
+            fixed_keys.update(f"{key}.{n}" for n in fixed.values())
+        for key, secs, fixed, stated in per_article:
+            numbers, after_last, fits, misfits = _count_between(len(secs), fixed)
+            # Printed numbers that follow each other say nothing about counting; a stated or a counted one does
+            checked = [i for i in fixed if i in stated or (i > 0 and i - 1 not in fixed)]
+            good = sum(1 for i in checked if numbers.get(i - 1, 0) == fixed[i] - 1 or (i == 0 and fixed[i] == 1))
+            out.fits += good
+            out.misfits += len(checked) - good
+            for i, n in numbers.items():
+                sec, num = secs[i], f"{key}.{n}"
+                if sec in out.printed or (i not in fixed and num in fixed_keys):
+                    continue
+                if i in after_last:
+                    tail.append((sec, num))
+                elif num not in out.keys:
+                    out.sections[sec] = num
+                    out.keys.add(num)
+        if out.fits >= 2 and out.misfits * 5 <= out.fits:
+            for sec, num in tail:
+                if num not in out.keys:
+                    out.sections[sec] = num
+                    out.keys.add(num)
+        return out
+
+    by_print: list[str | None] = []
+    seen: set[str] = set()
+    last = 0
+    for art, _ in arts:
+        pk = _printed_article_key(art.get("title") or "", last + 1)
+        key = pk[0] if pk and pk[0].isdigit() and pk[0] not in seen else None
+        if key:
+            seen.add(key)
+            last = int(key)
+        by_print.append(key)
+    pos = plan(by_print)
+    if (pos.fits >= 2 and pos.misfits * 5 <= pos.fits) or len(arts) < 3:
+        return pos
+
+    # Article numbers from the text
+    stated_art: list[str | None] = []
+    for art, secs in arts:
+        named = [n.split(".")[0] for sec in secs if (n := said[sec])]
+        for t in art.iter("text"):
+            if t in by_el:
+                for m in THIS_ARTICLE.finditer(by_el[t].text):
+                    as_int = _roman_to_int(m.group(1)) if not m.group(1).isdigit() else int(m.group(1))
+                    if as_int:
+                        named.append(str(as_int))
+        top = _majority(named)
+        stated_art.append(top if top and top.isdigit() else None)
+    stated_n = Counter(k for k in stated_art if k)
+    printed_n = Counter(k for k in by_print if k)
+    fixed_art: dict[int, int] = {}
+    for i, key in enumerate(stated_art):
+        if key and stated_n[key] == 1:
+            fixed_art[i] = int(key)
+    for i, key in enumerate(by_print):
+        if i not in fixed_art and key and printed_n[key] == 1 and stated_n[key] == 0:
+            fixed_art[i] = int(key)
+    numbers, _, _, _ = _count_between(len(arts), fixed_art)
+    by_text: list[str | None] = [str(numbers[i]) if i in numbers else None for i in range(len(arts))]
+    if by_text == by_print:
+        return pos
+    alt = plan(by_text)
+    if alt.fits >= 2 and alt.misfits * 5 <= alt.fits:
+        alt.articles = {art: key for (art, _), key in zip(arts, by_text) if key}
+        return alt
+    return pos
+
+
 def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline:
     ol = _Outline()
     ol.roman_sections = _roman_scheme(root)
+    pos = _positional_numbers(root, by_el, ol.roman_sections)
+    ol.positional_sections = len(pos.sections)
+    renumbered: dict[ET.Element, tuple[str, str] | None] = {}  # body sections, once any number is inferred
 
     def add_section(sec: ET.Element, parent: list[_Node]) -> None:
         stitle = sec.get("title") or ""
         uuid = sec.get("uuid")
-        sn = _section_num(stitle, ol.roman_sections)
+        inferred = pos.sections.get(sec)
+        sn = (inferred, inferred) if inferred else _section_num(stitle, ol.roman_sections)
+        # A printed number that an inferred one took, or one printed under articles numbered by position
+        if sn and not inferred and (sn[0] in pos.keys or (pos.articles and sec not in pos.printed)):
+            sn = None
+        if pos.sections:
+            renumbered[sec] = sn
         if not sn or not uuid:
             ol.unnumbered_sections += 1
             return
@@ -432,12 +650,13 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
         for child in el:
             if child.tag == "article":
                 title = child.get("title") or ""
-                m = ARTICLE_NUM.match(title)
                 uuid = child.get("uuid")
-                raw = (m.group(1) or m.group(2)) if m else _glued_roman(title, last_article[0] + 1)
-                if raw and uuid:
-                    as_int = _roman_to_int(raw) if not raw.isdigit() else None
-                    key = (str(as_int) if as_int else raw).upper()
+                if pos.articles:
+                    pk = (pos.articles[child], pos.articles[child]) if child in pos.articles else None
+                else:
+                    pk = _printed_article_key(title, last_article[0] + 1)
+                if pk and uuid:
+                    key, raw = pk
                     if key.isdigit():
                         last_article[0] = int(key)
                     node = _Node(ol.unique_id(f"a{key}"), "article", raw, title, {"s": uuid})
@@ -465,6 +684,10 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
     body = root.find("body")
     if body is not None:
         walk(body, ol.roots)
+    if renumbered:  # the texts of those sections: "clause (b)" and a term's "in Section ..." go by the new number
+        for tn in by_el.values():
+            if tn.section_el in renumbered:
+                tn.section_key, tn.section_label = renumbered[tn.section_el] or (None, None)
 
     back = root.find("backMatter")
     if back is not None:
@@ -1415,6 +1638,7 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
         "body_section_level_rate": round((body_counts["resolved"] + body_counts["section_fallback"]) / body_internal, 4) if body_internal else None,
         "sections_numbered": sum(len(v) for v in ol.sections.values()),
         "sections_unnumbered": ol.unnumbered_sections,
+        "sections_positional": ol.positional_sections,
         "duplicate_section_numbers": sorted(k for k, v in ol.sections.items() if len(v) > 1),
         "subsections": len(ol.subs),
         "attachments_located": len(ol.attachments),
