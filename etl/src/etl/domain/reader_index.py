@@ -145,8 +145,11 @@ def text_hash(xml: str) -> str:
 
 # ---------------------------------------------------------------- outline
 
+# "III. REPRESENTATIONS AND WARRANTIES" is article III too: a Roman number (I-XXXIX), a period and a capital,
+# with no "ARTICLE" before it, still goes to group 1
 ARTICLE_NUM = re.compile(
-    r"^\s*(?:ARTICLE|Article|PART|Part|SECTION|Section)\s+([IVXLC]+|\d+|[A-Z])\b|^\s*(\d+)\s*[.:]?\s+\D",
+    r"^\s*(?:(?:ARTICLE|Article|PART|Part|SECTION|Section)\s+|(?=" + _ROMAN_NUM + r"\.\s+[A-Z]))([IVXLC]+|\d+|[A-Z])\b"
+    + r"|^\s*(\d+)\s*[.:]?\s+\D",
 )
 # "Section VIII.2": some agreements number sections under their Roman article number
 SECTION_NUM = re.compile(

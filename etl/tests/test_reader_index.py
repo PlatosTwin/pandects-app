@@ -216,6 +216,18 @@ class RoundTwoRuleTests(unittest.TestCase):
         x = _round_two("The DGCL, including Section 262 and clause (i) thereof, applies.")
         self.assertNotIn("target", x["clause (i)"])
 
+    def test_roman_article_title_without_the_word_article(self) -> None:
+        xml = _doc(
+            _article("r1", "I. THE MERGER", _section("r11", "1.1 The Merger.", "The Merger occurs."))
+            + _article("r3", "III. REPRESENTATIONS AND WARRANTIES", _section("r31", "3.1 Organization.", "Subject to this Article III and Article I."))
+            + _article("r4", "IV. other", "")
+        )
+        p = build_reader_index(xml)
+        self.assertEqual([n["id"] for n in p["outline"]], ["a1", "a3"])
+        x = _xrefs(p)
+        self.assertEqual((x["Article III"]["status"], x["Article III"].get("target")), ("resolved", "a3"))
+        self.assertEqual(x["Article I"].get("target"), "a1")
+
     def test_late_section_of_another_document_does_not_qualify(self) -> None:
         x = _round_two("A default under clause (ii) of the first sentence of Section 5.2(b) of the Credit Agreement.")
         self.assertNotIn("target", x["clause (ii)"])
