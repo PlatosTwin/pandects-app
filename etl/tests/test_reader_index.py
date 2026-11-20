@@ -1318,6 +1318,20 @@ class BackMatterSegmentTests(unittest.TestCase):
             [(r["text"], r["status"], r.get("target")) for r in x if r["text"] in ("Exhibit A", "Exhibit B", "Annex A") and r["at"]["t"] > 1],
             [("Exhibit A", "unresolved", None), ("Exhibit A", "unresolved", None), ("Annex A", "unresolved", None), ("Exhibit B", "resolved", "x-exhibit-b")],
         )
+
+    def test_attachment_names_hereto_resolve_when_printed_after(self) -> None:
+        # gold fixture b25fc0d0: an amendment in Exhibit E cites "Schedule A, attached hereto", printed right after it
+        back = _back(
+            "EXHIBIT A",
+            "FORM OF AMENDMENT",
+            "The terms are described on Schedule A, attached hereto. The charter is attached hereto as Exhibit A.",
+            "SCHEDULE A",
+            "TERMS",
+        )
+        x = _xrefs(build_reader_index(_doc(MAIN, back=back)))
+        self.assertEqual(x["Schedule A"]["target"], "x-schedule-a")
+        self.assertEqual(x["Exhibit A"]["status"], "unresolved")
+
     # Rule 7: a UK "clause 9.2" inside a Schedule is the agreement's clause
     UK = _article("c9", "9 WARRANTIES", _section("s92", "9.2 Limits", "x"))
 
@@ -1342,19 +1356,16 @@ class BackMatterSegmentTests(unittest.TestCase):
         x = _xrefs(build_reader_index(_doc(self.UK, back=back)))
         self.assertEqual(x["clause 9.2"]["status"], "unresolved")
 
-    def test_attachment_names_hereto_resolve_when_printed_after(self) -> None:
-        # gold fixture b25fc0d0: an amendment in Exhibit E cites "Schedule A, attached hereto", printed right after it
-        back = _back(
-            "EXHIBIT A",
-            "FORM OF AMENDMENT",
-            "The terms are described on Schedule A, attached hereto. The charter is attached hereto as Exhibit A.",
-            "SCHEDULE A",
-            "TERMS",
-        )
-        x = _xrefs(build_reader_index(_doc(MAIN, back=back)))
-        self.assertEqual(x["Schedule A"]["target"], "x-schedule-a")
-        self.assertEqual(x["Exhibit A"]["status"], "unresolved")
-
+    def test_uk_clause_in_a_schedule_stays_local_when_it_is_the_schedules_own(self) -> None:
+        own = _back("SCHEDULE 6", "WARRANTIES", "9.3 Contracts", "(a) agreements (other than those under this clause 9.3) are listed.")
+        x = _xrefs(build_reader_index(_doc(self.UK, back=own)))
+        self.assertEqual(x["clause 9.3"]["status"], "unresolved")
+        tail = _back("SCHEDULE 3", "TAX", "1.1 No liability arises if excluded under clause 9.2 of the Tax Covenant.", "1.2 Or under clause 9.2 of this agreement.")
+        x = build_reader_index(_doc(self.UK, back=tail))["xrefs"]
+        self.assertEqual([(r["status"], r.get("target")) for r in x if r["text"] == "clause 9.2"], [("unresolved", None), ("resolved", "s9.2")])
+        deed = _back("SCHEDULE 7", "TAX DEED", "1.1 This Deed is made by the Covenantor.", "7.1 If the Covenantor pays under clause 9.2, this clause 7 applies.")
+        x = _xrefs(build_reader_index(_doc(self.UK, back=deed)))
+        self.assertEqual(x["clause 9.2"]["status"], "unresolved")
 
 
 if __name__ == "__main__":

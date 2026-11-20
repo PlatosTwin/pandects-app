@@ -1342,6 +1342,11 @@ _HERETO_BEFORE = re.compile(r"\bhere(?:to|with)\s+(?:as\s+)?$", re.IGNORECASE)
 _HERETO_AFTER = re.compile(r"\s*(?:\([^)]*\)\s*)*,?\s*(?:(?:attached|annexed|appended)\s+)?here(?:to|with)\b", re.IGNORECASE)
 _OWN_ATTACHMENT_TAIL = re.compile(r"\s*(?:\([^)]*\)\s*)*(?:of|to)\s+(?:this\s+(?![Aa]greement\b|AGREEMENT\b)[A-Za-z]|the\s+Company['’]s\b)")
 _SCHEDULE_HEAD = re.compile(r"(?:SCHEDULE|Schedule)\b")
+# A deed or covenant set out in a schedule ("this Deed", "this Tax Covenant") numbers its own clauses
+_OWN_DEED = re.compile(r"\b[Tt]his\s+(?:[A-Z][a-z]+\s+)?(?:Deed|deed|Covenant|covenant)\b")
+_THIS_BEFORE = re.compile(r"\bthis\s+$", re.IGNORECASE)
+# "clause 2.1 of the Tax Covenant", "clause 4.2 of this Deed": another document; "of this agreement" is not
+_OTHER_DOC_TAIL = re.compile(r"\s*(?:\([^)]*\)\s*)*,?\s*(?:of|in|under|to)\s+(?:this|the)\s+(?![Aa]greement\b|AGREEMENT\b)(?:[A-Z]|deed\b)")
 
 
 @dataclass
@@ -1352,6 +1357,7 @@ class _Segment:
     glossary: bool = False  # the agreement's own definitions: a bare "Section 5.4" there is the agreement's
     own_numbered: bool = False  # its paragraphs carry their own section numbers: an attached document
     defines_terms: bool = False  # three or more paragraphs open with a quoted term
+    deed: bool = False  # it calls itself "this Deed" or "this Covenant": its "clause 2.1" is its own
 
 
 def _back_segments(texts: list[_Text]) -> dict[int, _Segment]:
@@ -1385,6 +1391,7 @@ def _back_segments(texts: list[_Text]) -> dict[int, _Segment]:
         # Agreement"): a few numbered paragraphs after a hundred definitions do not make it an attached document
         seg.own_numbered = own >= _OWN_NUMBERING_MIN and own * _OWN_NUMBERING_RATIO >= entries
         seg.defines_terms = entries >= _GLOSSARY_MIN_ENTRIES
+        seg.deed = any(_OWN_DEED.search(tn.text) for tn in seg_texts)
         # an index of the agreement's defined terms ("Closing Date Section 2.2") cites the agreement too
         index = any(_index_pairs(tn.text) >= _INDEX_MIN_PAIRS for tn in seg_texts)
         seg.glossary = (seg.defines_terms or index) and not seg.own_numbered
@@ -1526,8 +1533,13 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
                 # "attached hereto as Exhibit A" unless that attachment is printed after the reference (the
                 # attachment's own exhibit, printed next to it); before it, it is the agreement's or the attachment itself
                 r.status = r.detail = ""
-            if r.status == "unresolved" and r.detail == "exhibit_local" and r.head == "clause" and seg is not None and _SCHEDULE_HEAD.match(seg.head) and _DOTTED.match(r.target):
-                # UK drafting: a schedule numbers its own items as paragraphs and cites the agreement's "clause 9.2"
+            if (
+                r.status == "unresolved" and r.detail == "exhibit_local" and r.head == "clause" and seg is not None and _SCHEDULE_HEAD.match(seg.head) and _DOTTED.match(r.target)
+                and not seg.deed and not _THIS_BEFORE.search(tn.text, 0, r.start) and not _OTHER_DOC_TAIL.match(tn.text, r.end)
+            ):
+                # UK drafting: a schedule numbers its own items as paragraphs and cites the agreement's "clause 9.2".
+                # Not "this clause 9.3" (the schedule's own), a deed or covenant set out in the schedule, or a tail
+                # that names another document ("clause 2.1 of the Tax Covenant")
                 r.status = r.detail = ""
             status, target, cands = _resolve(r, ol, tn, sec_text)
             if status == "resolved" and r.head in ("clause", "paragraph") and r.target.startswith("(") and tn.s in definition_containers:
