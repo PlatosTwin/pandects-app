@@ -189,6 +189,22 @@ class RoundTwoRuleTests(unittest.TestCase):
         x = _round_two("Under the Lease, Sections 5.2 and 3.22 thereof apply.")
         self.assertEqual(x["Sections 5.2"]["status"], "unresolved")
 
+    def test_section_printed_after_a_clause_list(self) -> None:
+        x = _round_two("The covenants in clauses (i) through (xxi) of Section 5.2(b) apply.")
+        self.assertEqual((x["clauses (i)"]["status"], x["clauses (i)"].get("target")), ("resolved", "s5.2(b)(i)"))
+        x = _round_two("Those proposals in clauses (D), (E) and (J), of Section 5.2(b), in each case, need a vote.")
+        self.assertEqual((x["clauses (D)"]["status"], x["clauses (D)"].get("target")), ("section_fallback", "s5.2(b)"))
+        x = _round_two("A breach of clause (ii) of the first sentence of Section 5.2(b) counts.")
+        self.assertEqual((x["clause (ii)"]["status"], x["clause (ii)"].get("target")), ("resolved", "s5.2(b)(ii)"))
+        x = _round_two("The amounts in clauses (i) through (xxi) above of this Section 3.22 are paid.")
+        self.assertEqual(x["clauses (i)"].get("target"), "s3.22")
+
+    def test_late_section_of_another_document_does_not_qualify(self) -> None:
+        x = _round_two("A default under clause (ii) of the first sentence of Section 5.2(b) of the Credit Agreement.")
+        self.assertNotIn("target", x["clause (ii)"])
+        x = _round_two("Payments under clause (ii) and the fees of Counsel under Section 5.2 apply.")
+        self.assertNotIn("target", x["clause (ii)"])
+
 
 class XrefTests(unittest.TestCase):
     def test_statuses(self) -> None:

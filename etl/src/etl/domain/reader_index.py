@@ -976,6 +976,28 @@ _IN_DOCUMENT_HEADS = frozenset({"section", "article", "clause", "paragraph"})
 # "Sections 8.2 and 9.1 thereof", but not "Section 3.22 (except for paragraph (g) thereof)": there the "thereof"
 # sits inside a parenthetical about Section 3.22 itself, so a skipped parenthetical may not hold another "("
 THEREOF_AFTER = re.compile(r"^\s*(?:\([^()]*\)\s*)*,?\s*thereof\b")
+# The section printed after a clause list the run did not take whole: "clauses (i) through (xxi) of Section 6.3(b)",
+# "clauses (D), (E) and (J), of Section 8.2(b)", "clause (x) of the fourth sentence of Section 5.2",
+# "clause (A) in the proviso of Section 9.01(b)(i)", "clauses (i) through (vii) above of this Section 12.5(a)"
+_E = r"\([A-Za-z0-9]{1,6}\)"
+LATE_QUALIFIED = re.compile(
+    r"(?:\s*,?\s*(?:and/or|and|or|through|to|[\-–])?\s*(?:clauses?\s+|paragraphs?\s+)?" + _E + r"(?:\s?" + _E + r")*)*"
+    + r"\s*,?\s*(?:(?:above|below)\s+)?(?:in\s+each\s+case\s*,?\s*)?(?:of|in)\s+"
+    + r"(?:the\s+(?:(?:first|second|third|fourth|fifth|sixth|last|final|penultimate|preceding|introductory|lead-in)\s+)?"
+    + r"(?:sentence|paragraph|proviso|provisos)\s+(?:of|in|to)\s+)?(?:this\s+)?[Ss]ection\s+"
+    + r"((?:\d+|" + _ROMAN_NUM + r"(?=\.\d))[A-Z]?(?:\.\d+[A-Z]?)+(?:\([A-Za-z0-9]{1,6}\))*)"
+)
+
+
+def _late_qualifier(text: str, pos: int) -> re.Match[str] | None:
+    """The section that a clause run names after the rest of its list, unless that section is another document's."""
+    m = LATE_QUALIFIED.match(text, pos)
+    if m is None or m.end() - pos > 300:
+        return None
+    after = text[m.end() : m.end() + 90]
+    if STATUTE.match(after) or OTHER_DOC.match(after) or DISCLOSURE.match(after) or ATTACHMENT_TAIL.match(after):
+        return None
+    return m
 
 
 @dataclass
@@ -1118,6 +1140,7 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
             if status == "unresolved" and not r.detail:
                 r.detail = "exhibit_local"
         qm = QUALIFIED.match(tail)
+        qm = qm or (_late_qualifier(text, pos) if run[0].head in ("clause", "paragraph") else None)
         if qm and run[0].head in ("clause", "paragraph"):
             for r in run:
                 if r.target.startswith("(") and not r.status:
