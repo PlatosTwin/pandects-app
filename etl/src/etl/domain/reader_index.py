@@ -402,7 +402,8 @@ def _positional_numbers(root: ET.Element, by_el: dict[ET.Element, _Text], roman:
     numbered only when the agreement shows that counting works in it: at least two self-stated numbers sit where
     the count puts them, and at most one in five does not.
 
-    When the printed article numbers do not get that far, the same is tried with article numbers taken from the
+    When the printed article numbers do not get that far (an article prints no usable number, or most printed
+    section numbers do not fit the article they sit in), the same is tried with article numbers taken from the
     text: an article is the one its sections name ("this Section 4.2", "this Article IV"), a unique printed number
     stands otherwise, and the articles between are counted like sections. That numbering replaces the printed one
     only if the check above then passes.
@@ -503,6 +504,10 @@ def _positional_numbers(root: ET.Element, by_el: dict[ET.Element, _Text], roman:
     pos = plan(by_print)
     if (pos.fits >= 2 and pos.misfits * 5 <= pos.fits) or len(arts) < 3:
         return pos
+    # Every article prints its own number and most printed section numbers stand in it: the printed numbers do
+    # get that far. A few "this Section 6.6" phrases that count one article less are stale drafting, not lost numbers.
+    if all(by_print) and 2 * len(pos.printed) > len(printed):
+        return pos
 
     # Article numbers from the text
     stated_art: list[str | None] = []
@@ -522,11 +527,22 @@ def _positional_numbers(root: ET.Element, by_el: dict[ET.Element, _Text], roman:
     for i, key in enumerate(stated_art):
         if key and stated_n[key] == 1:
             fixed_art[i] = int(key)
+    stated_pts = sorted(fixed_art.items())
     for i, key in enumerate(by_print):
-        if i not in fixed_art and key and printed_n[key] == 1 and stated_n[key] == 0:
-            fixed_art[i] = int(key)
+        if i in fixed_art or not key or printed_n[key] != 1 or stated_n[key]:
+            continue
+        # A printed article number stands only where counting from the stated ones agrees with it ("1 ARTICLE",
+        # "3 ARTICLE", "5 ARTICLE" printed for Articles I, II, III does not)
+        before = [p for p in stated_pts if p[0] < i]
+        after = [p for p in stated_pts if p[0] > i]
+        if before and int(key) != before[-1][1] + i - before[-1][0]:
+            continue
+        if after and int(key) != after[0][1] - (after[0][0] - i):
+            continue
+        fixed_art[i] = int(key)
     numbers, _, _, _ = _count_between(len(arts), fixed_art)
-    by_text: list[str | None] = [str(numbers[i]) if i in numbers else None for i in range(len(arts))]
+    twice = {n for n, c in Counter(numbers.values()).items() if c > 1}
+    by_text: list[str | None] = [str(numbers[i]) if i in numbers and numbers[i] not in twice else None for i in range(len(arts))]
     if by_text == by_print:
         return pos
     alt = plan(by_text)

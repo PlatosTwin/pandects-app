@@ -250,6 +250,41 @@ class PositionalSectionTests(unittest.TestCase):
         self.assertEqual(p["stats"]["sections_positional"], 0)
         self.assertEqual(sorted(_sections_by_id(p)), ["s1.1", "s3.1", "s3.2"])
 
+    def test_complete_printed_numbers_outrank_stale_self_references(self) -> None:
+        xml = _doc(
+            _article("a1", "1. A", _section("s1", "1.1 One.", "x"))
+            + _article("a2", "2. B", _section("s2", "2.1 One.", "x"))
+            + _article("a3", "3. C", _section("s3", "3.1 One.", "x") + _section("s4", "3.2 Two.", "x"))
+            + _article(
+                "a4",
+                "4. D",
+                _section("s5", "4.1 One.", "x")
+                + _section("s6", "4.2 Two.", "under this Section 3.2")
+                + _section("s7", "4.3 Three.", "See Section 4.2.")
+                + _section("s8", "4.4 Four.", "under this Section 3.4"),
+            )
+        )
+        p = build_reader_index(xml)
+        # A draft that once lacked Article C still says "this Section 3.2"; the headings print their numbers
+        self.assertEqual(p["stats"]["sections_positional"], 0)
+        self.assertEqual([n["id"] for n in p["outline"]], ["a1", "a2", "a3", "a4"])
+        self.assertEqual(_xrefs(p)["Section 4.2"]["target"], "s4.2")
+
+    def test_garbled_printed_article_numbers_stand_only_where_the_count_agrees(self) -> None:
+        xml = _doc(
+            _article("a1", "1 ARTICLE THE MERGER", _section("s1", "Merger.", "x"))
+            + _article("a2", "3 ARTICLE CONVERSION", _section("s2", "Conversion.", "under this Section 2.1"))
+            + _article("a3", "5 ARTICLE DISCLOSURE", _section("s3", "Schedules.", "x"))
+            + _article(
+                "a4",
+                "7 ARTICLE REPRESENTATIONS",
+                _section("s4", "Organization.", "this Section 4.1") + _section("s5", "Authority.", "Subject to Article III, this Section 4.2"),
+            )
+        )
+        p = build_reader_index(xml)
+        self.assertEqual([(n["id"], n["title"]) for n in p["outline"]][:3], [("a1", "1 ARTICLE THE MERGER"), ("a2", "3 ARTICLE CONVERSION"), ("a3", "5 ARTICLE DISCLOSURE")])
+        self.assertEqual(_xrefs(p)["Article III"]["target"], "a3")
+
     def test_disclosure_schedule_item_is_not_a_numbered_paragraph(self) -> None:
         xml = _doc(
             _article(
