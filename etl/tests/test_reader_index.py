@@ -442,6 +442,33 @@ class StatusAndTargetRuleTests(unittest.TestCase):
         )
         self.assertEqual([s for _, s, _ in got], ["external"] * 7)
 
+    # rule 9: a digit after a hyphen in a regulation number is not a list member
+    def test_regulation_numbers_are_one_reference(self) -> None:
+        xml = _doc(
+            _article("a3", "SECTION 3 Covenants", _section("s31", "3.1 Tax", "x"))
+            + _section(
+                "s2",
+                "Section 2.1 Refs",
+                "A reorganization within the meaning of Section 1.368-2(g) of the Treasury Regulations.",
+                "Liability under Section 1.1502-6 (or any similar provision) is excluded.",
+                "See Treasury Regulations Section 301.7701-3.",
+                "See Sections 2.1-3.1 and Section 2.1 - 3.",
+            )
+        )
+        got = self._all(xml)
+        self.assertEqual(
+            got,
+            [
+                ("Section 1.368-2(g)", "external", None),
+                ("Section 1.1502-6", "unresolved", None),
+                ("Section 301.7701-3", "external", None),
+                ("Sections 2.1", "resolved", "s2.1"),
+                ("3.1", "resolved", "s3.1"),
+                ("Section 2.1", "resolved", "s2.1"),
+                ("3", "resolved", "a3"),
+            ],
+        )
+
 
 class ReaderHealthShapeTests(unittest.TestCase):
     """Shapes the 2026-10-30 reader health report found the enricher missing (0.5.0)."""

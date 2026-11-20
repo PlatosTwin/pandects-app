@@ -935,6 +935,8 @@ SPLIT_DOT = re.compile(r"(?:\.[^\S\n]+|[^\S\n]\.[^\S\n]*)(\d{1,3}[A-Z]?)" + _ENU
 # "Section 9. 0 3(a)", "Section 2.0 4": the space falls after the zero of 9.03 or 2.04. No section number
 # ends in ".0", so a single digit after the space completes it.
 ZERO_SPLIT = re.compile(r"[^\S\n](\d)" + _ENUMS + _NOT_A_COUNT)
+# "-3" right after "1.368" (no space): the rest of a regulation number. "Sections 2.1-2.5" is still a range.
+REG_HYPHEN = re.compile(r"[\-‑]\d+[A-Z]?(?:\s?\([A-Za-z0-9]{1,6}\))*(?![\d\-‑]|\.\d)")
 COLON_NUMBER = re.compile(r":\d")
 LEFTOVER_ITEMS = re.compile(r"^(?:\s*,?\s*(?:and/or|and|or)?\s*\([A-Za-z0-9]{1,6}\))+")
 THEREOF = re.compile(r"^\s*(?:\([^)]*\)\s*)*,?\s*thereof\b")
@@ -1025,6 +1027,13 @@ def _find_refs(text: str, in_exhibit: bool) -> list[_Ref]:
                 last = run[-1]
                 last.target, last.end, last.base_end = f"{last.target}.{cm.group(1)}", cm.end(), cm.end()
                 pos = cm.end()
+                continue
+            # "Section 1.368-3", "Section 1.1502-6(a)": a regulation number, not "1.368" and a list member "3".
+            # The whole number fits no section, so it stays unresolved unless its tail makes it external.
+            if run and re.fullmatch(r"\d+[A-Z]?(?:\.\d+[A-Z]?)+", run[-1].target) and (rm := REG_HYPHEN.match(text, pos)):
+                last = run[-1]
+                last.target, last.end = last.target + re.sub(r"\s", "", rm.group(0)), rm.end()
+                pos = rm.end()
                 continue
             # "Section 1. 6(c)", "Section 9. 0 3(a)": a space inside the number; the reference is to
             # Section 1.6(c) and Section 9.03(a)
