@@ -1960,7 +1960,8 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
 
     back_segments = _back_segments(texts)
     body_text = " ".join(t.text for t in texts if t.region == "body")
-    uk_clauses = len(_CLAUSE_DOTTED.findall(body_text)) >= len(_SECTION_DOTTED.findall(body_text))
+    n_clauses = len(_CLAUSE_DOTTED.findall(body_text))
+    uk_clauses = n_clauses > 0 and n_clauses >= len(_SECTION_DOTTED.findall(body_text))  # a body with neither is not UK drafting
     nodes_by_id: dict[str, _Node] = {}
     stack = list(ol.roots)
     while stack:

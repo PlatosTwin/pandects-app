@@ -720,6 +720,16 @@ class ReviewFixTests(unittest.TestCase):
         self.assertEqual(len([n for n in p["outline"] if n["kind"] == "attachment"]), 2)
         self.assertEqual(p["stats"]["attachments_located"], 2)
 
+    # F6: a body with no "clause N.M" (and no "Section N.M") is not UK drafting
+    def test_body_without_dotted_clauses_is_not_uk_drafting(self) -> None:
+        back = "<text>SCHEDULE 4</text><text>LIMITATIONS</text><text>1.1 The Warranties are given under clause 9.2.</text><text>2.1 Limits.</text>"
+        body = _article("c9", "9 WARRANTIES", _section("s92", "9.2 Limits", "x"))
+        x = _xrefs(build_reader_index(_doc(body, back=back)))
+        self.assertEqual((x["clause 9.2"]["status"], x["clause 9.2"].get("target")), ("unresolved", None))
+        body = _article("c9", "9 WARRANTIES", _section("s92", "9.2 Limits", "x, subject to clause 9.1."))
+        x = _xrefs(build_reader_index(_doc(body, back=back)))
+        self.assertEqual(x["clause 9.2"]["target"], "s9.2")
+
 
 class StatusAndTargetRuleTests(unittest.TestCase):
     """Enricher 0.10.0 rules on statuses and targets (reader_090 census, PROPOSALS.md rules 3, 5, 8-12)."""
@@ -2000,7 +2010,7 @@ class BackMatterSegmentTests(unittest.TestCase):
         self.assertEqual(x["Exhibit A"]["status"], "unresolved")
 
     # Rule 7: a UK "clause 9.2" inside a Schedule is the agreement's clause
-    UK = _article("c9", "9 WARRANTIES", _section("s92", "9.2 Limits", "x"))
+    UK = _article("c9", "9 WARRANTIES", _section("s92", "9.2 Limits", "x, subject to clause 9.1."))
 
     def test_uk_clause_in_a_schedule_resolves(self) -> None:
         back = _back(
