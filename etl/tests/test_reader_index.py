@@ -2598,6 +2598,12 @@ class AttachmentParentTests(unittest.TestCase):
         sentence = "“Net Working Capital” has the meaning specified in Exhibit C-1."
         self.assertEqual(self._all(sentence, _back("EXHIBIT C – AMENDMENT TO SITE LICENSE AGREEMENT")), [("Exhibit C-1", "unlocated_attachment", None)])
 
+    def test_a_shared_drafting_word_is_not_enough(self) -> None:
+        # "Assets" and "Subject" are in both, but they name no document: A-1 lists mineral interests
+        sentence = "Nothing will reduce the use of the Assets subject thereto below the Net Revenue Interest shown in Exhibit A-1."
+        got = self._all(sentence, _back("EXHIBIT A", "EXCLUDED ASSETS SUBJECT TO ASSIGNMENT"))
+        self.assertEqual(got, [("Exhibit A-1", "unlocated_attachment", None)])
+
     def test_own_node_wins_and_a_filed_sibling_blocks_the_parent(self) -> None:
         sentence = "The officer certificates attached as Exhibits C-1 and C-2 hereto."
         back = _back("EXHIBIT C", "FORM OF TAX CERTIFICATES", "EXHIBIT C-1", "Officer certificate of the Company.")

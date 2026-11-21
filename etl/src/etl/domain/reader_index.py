@@ -1914,7 +1914,11 @@ _TITLE_STOPWORDS = frozenset(
     "form forms exhibit exhibits annex annexes schedule schedules appendix appendices attached hereto agreement "
     "agreements letter letters document documents copy omitted intentionally page pages follow following "
     "this that with from into such each party parties hereof herein thereof between among amended restated "
-    "company parent buyer seller purchaser merger closing corporation".split()
+    "company parent buyer seller purchaser merger closing corporation corp limited holding "
+    # drafting words that name no document (0.10.0 reads: "second", "subject", "stock", "corp" and "asset" made the
+    # only bad links)
+    "first second third fourth subject stock share number certain matter period time term date amount section "
+    "article other general provision applicable respect asset".split()
 )
 _SUFFIXED_LABEL = re.compile(r"([A-Z0-9][A-Z0-9.]*)-\d+")
 _SENTENCE_END = re.compile(r"[.;](?=\s|$)")
@@ -1934,7 +1938,8 @@ def _attachment_parent(ref: _Ref, ol: _Outline, tn: _Text, t: str) -> _Node | No
     Form of Stockholder Representation Letter". Without that check the parent is often another document: "a sublease
     in the form of Exhibits L-1 and L-2" filed as K-1 and K-2 next to "Exhibit L / Tax-Exempt Bond Agreement", or a
     license agreement's own Exhibit C under an agreement whose Exhibits C-1 to C-3 were not filed (0.10.0 read:
-    20 of 32 such parent links right, 18 of 18 right with the check).
+    20 of 32 such 0.9.0 parent links right, 18 of 18 right with the check; dry run over the corpus: 57 body links
+    added, all read, 54 better, 3 neutral, none worse).
     """
     m = _SUFFIXED_LABEL.fullmatch(t.upper())
     if not m:
