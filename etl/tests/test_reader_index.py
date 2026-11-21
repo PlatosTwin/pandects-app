@@ -2571,5 +2571,38 @@ class BackMatterSegmentTests(unittest.TestCase):
         self.assertEqual({r["status"] for r in x if r["text"] == "clause 9.2"}, {"unresolved"})
 
 
+class AttachmentParentTests(unittest.TestCase):
+    """X1: "Exhibit L-1" with no node L-1 links the one heading "Exhibit L" that holds the forms, when its title fits."""
+
+    def _all(self, sentence: str, back: str) -> list[tuple[str, str, str | None]]:
+        p = build_reader_index(_doc(MAIN + _article("a3", "ARTICLE III COVENANTS", _section("s31", "Section 3.1 Legends", sentence)), back=back))
+        return [(x["text"], x["status"], x.get("target")) for x in p["xrefs"] if x["at"]["s"] == "s31"]
+
+    def test_forms_under_one_parent_heading_link_the_parent(self) -> None:
+        sentence = "The recipient delivers a stockholder representation letter substantially in the form attached hereto as Exhibit L-1 or L-2."
+        got = self._all(sentence, _back("Exhibit L", "Form of Stockholder Representation Letter", "Exhibit M", "Form of Termination Agreement"))
+        self.assertEqual(got, [("Exhibit L-1", "resolved", "x-exhibit-l"), ("L-2", "resolved", "x-exhibit-l")])
+
+    def test_title_on_the_heading_line_counts(self) -> None:
+        sentence = "A counterpart to the offer letters in the form attached hereto as Exhibit C-1 through C-2."
+        got = self._all(sentence, _back("Exhibit C – Executive Offer Letters", "Exhibit D – Amended and Restated Sublease"))
+        self.assertEqual(got, [("Exhibit C-1", "resolved", "x-exhibit-c"), ("C-2", "resolved", "x-exhibit-c")])
+
+    def test_forms_filed_under_other_numbers_stay_unlocated(self) -> None:
+        # the printed L-1 and L-2 were filed as K-1 and K-2; Exhibit L is another document
+        sentence = "Transferor and GPI enter into a sublease or lease assignment in the form of one of Exhibits L-1 and L-2, as applicable."
+        back = _back("Exhibit K-1", "Form of Sublease", "Exhibit K-2", "Form of Lease Assignment", "Exhibit L", "TAX-EXEMPT BOND AGREEMENT")
+        self.assertEqual(self._all(sentence, back), [("Exhibits L-1", "unlocated_attachment", None), ("L-2", "unlocated_attachment", None)])
+
+    def test_parent_of_another_subject_stays_unlocated(self) -> None:
+        sentence = "“Net Working Capital” has the meaning specified in Exhibit C-1."
+        self.assertEqual(self._all(sentence, _back("EXHIBIT C – AMENDMENT TO SITE LICENSE AGREEMENT")), [("Exhibit C-1", "unlocated_attachment", None)])
+
+    def test_own_node_wins_and_a_filed_sibling_blocks_the_parent(self) -> None:
+        sentence = "The officer certificates attached as Exhibits C-1 and C-2 hereto."
+        back = _back("EXHIBIT C", "FORM OF TAX CERTIFICATES", "EXHIBIT C-1", "Officer certificate of the Company.")
+        self.assertEqual(self._all(sentence, back), [("Exhibits C-1", "resolved", "x-exhibit-c-1"), ("C-2", "unlocated_attachment", None)])
+
+
 if __name__ == "__main__":
     unittest.main()

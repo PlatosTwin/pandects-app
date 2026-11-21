@@ -285,6 +285,8 @@ class _Outline:
     # (container, ordinal) of paragraphs that became dotted subsection nodes ("5.16.1 ...")
     numbered_paras: set[tuple[str, int]] = field(default_factory=set)
     attachments: dict[str, _Node] = field(default_factory=dict)  # "exhibit a" -> node
+    # attachment node id -> the content words of its title ("EXHIBIT L" + "Form of Stockholder Representation Letter")
+    attachment_words: dict[str, set[str]] = field(default_factory=dict)
     groups: set[str] = field(default_factory=set)  # lettered group keys: "8.1(A)"
     roman_sections: bool = False  # most sections are numbered "VIII.2" (_roman_scheme): "Section VIII.2(e)" resolves
     para_labels: dict[str, str] = field(default_factory=dict)  # "8.2.1" -> printed "VIII.2.1"
@@ -752,12 +754,17 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
 
     back = root.find("backMatter")
     if back is not None:
+        titled: _Node | None = None  # the last attachment heading, while its title may go on in the next text
         for t_el in back.iter("text"):
             tn = by_el.get(t_el)
             if tn is None:
                 continue
             txt = tn.text.strip()
             m = ATTACHMENT_HEADING.match(txt)
+            if titled is not None:
+                if not m and len(txt) < 120:  # "EXHIBIT C" then "FORM OF TAX CERTIFICATES"
+                    ol.attachment_words[titled.id] |= _content_words(txt)
+                titled = None
             if not m or len(txt) >= 120:
                 continue
             num = m.group(2).lower().rstrip(".")
@@ -767,12 +774,16 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
             em = ATTACHMENT_ENUMS.match(txt, m.end(2)) if not m.group(2).endswith(".") else None
             enums = em.group(0) if em else ""
             full = key + enums.lower()
-            if full in ol.attachments:
+            if full in ol.attachments:  # the same attachment again (a list of exhibits, then the exhibit): more title
+                titled = ol.attachments[full]
+                ol.attachment_words[titled.id] |= _content_words(txt[m.end(2) :])
                 continue
             node = _Node(ol.unique_id("x-" + full.replace(" ", "-")), "attachment", num.upper() + enums, txt, {"s": tn.s, "t": tn.t})
             ol.attachments[full] = node
             _ = ol.attachments.setdefault(key, node)
             ol.roots.append(node)
+            ol.attachment_words[node.id] = _content_words(txt[m.end(2) :])
+            titled = node
     # Subsections of a duplicated section or flat item can't say which copy they belong to
     dup = [n + "." for n, v in ol.sections.items() if len(v) > 1] + [n + "(" for n, v in ol.sections.items() if len(v) > 1]
     dup += [k + "(" for k in ol.flat_articles if len(ol.articles[k]) > 1]
@@ -1898,6 +1909,53 @@ def _roman_section_article(ref: _Ref, ol: _Outline, tn: _Text) -> _Node | None:
     return arts[0]
 
 
+# words that name no particular document, so a shared one says nothing about which attachment is meant
+_TITLE_STOPWORDS = frozenset(
+    "form forms exhibit exhibits annex annexes schedule schedules appendix appendices attached hereto agreement "
+    "agreements letter letters document documents copy omitted intentionally page pages follow following "
+    "this that with from into such each party parties hereof herein thereof between among amended restated "
+    "company parent buyer seller purchaser merger closing corporation".split()
+)
+_SUFFIXED_LABEL = re.compile(r"([A-Z0-9][A-Z0-9.]*)-\d+")
+_SENTENCE_END = re.compile(r"[.;](?=\s|$)")
+
+
+def _content_words(text: str) -> set[str]:
+    """Lowercase words of four letters or more, a plural "s" removed, without _TITLE_STOPWORDS."""
+    words = {w[:-1] if w.endswith("s") and not w.endswith("ss") else w for w in re.findall(r"[a-z]{4,}", text.lower())}
+    return words - _TITLE_STOPWORDS - {w[:-1] for w in _TITLE_STOPWORDS if w.endswith("s")}
+
+
+def _attachment_parent(ref: _Ref, ol: _Outline, tn: _Text, t: str) -> _Node | None:
+    """X1: "Exhibit L-1 or L-2" where the filing has one heading "Exhibit L" that holds both forms.
+
+    Only when the filing has no "Exhibit L-m" at all (then the printed forms are filed under their own numbers) and
+    the sentence names the parent's subject: "a stockholder representation letter ... Exhibit L-1" and "Exhibit L /
+    Form of Stockholder Representation Letter". Without that check the parent is often another document: "a sublease
+    in the form of Exhibits L-1 and L-2" filed as K-1 and K-2 next to "Exhibit L / Tax-Exempt Bond Agreement", or a
+    license agreement's own Exhibit C under an agreement whose Exhibits C-1 to C-3 were not filed (0.10.0 read:
+    20 of 32 such parent links right, 18 of 18 right with the check).
+    """
+    m = _SUFFIXED_LABEL.fullmatch(t.upper())
+    if not m:
+        return None
+    base = f"{ref.head} {m.group(1).lower()}"
+    parent = ol.attachments.get(base)
+    if parent is None or any(k.startswith(base + "-") for k in ol.attachments):
+        return None
+    words = ol.attachment_words.get(parent.id)
+    if not words:
+        return None
+    # the reference's own sentence: back to the last ". " or "; " and on to the next
+    left = tn.text[max(0, ref.start - 300) : ref.start]
+    ends = list(_SENTENCE_END.finditer(left))
+    left = left[ends[-1].end() :] if ends else left
+    right = tn.text[ref.end : ref.end + 300]
+    if (e := _SENTENCE_END.search(right)) is not None:
+        right = right[: e.start()]
+    return parent if words & _content_words(left + " " + right) else None
+
+
 def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, str | None, list[str] | None]:
     """Returns (status, target id, ambiguous candidates)."""
     if ref.status == "unresolved" and ref.detail == "exhibit_local" and _names_other(ref):
@@ -2017,6 +2075,8 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
         node = ol.attachments.get(f"{ref.head} {t.lower()}")
         if node is not None:
             return "resolved", node.id, None
+        if (parent := _attachment_parent(ref, ol, tn, t)) is not None:
+            return "resolved", parent.id, None
         if ref.head == "schedule" and re.fullmatch(r"\d+(?:\.\d+)+(?:\([A-Za-z0-9]+\))*", t):
             return "disclosure_schedule", None, None
         return "unlocated_attachment", None, None
