@@ -1802,6 +1802,14 @@ class RoundTwoLeadRuleTests(unittest.TestCase):
             ],
         )
 
+    def test_l2_needs_a_roman_heading(self) -> None:
+        xml = _doc(
+            _article("a4", "4. Escrow Accounts", _section("s41", "4.1 Escrow", "x"))
+            + _article("a23", "23. Other", _section("s231", "23.1 Refs", "Claims under this Section IV (Escrow) are paid."))
+        )
+        x = _xrefs(build_reader_index(xml))
+        self.assertNotIn("target", x["Section IV"])
+
     # L6: "K&S", "D&O", "U.S." are names, not single-letter items
     def test_l6_ampersand_and_dotted_initials_are_not_items(self) -> None:
         refs = self._all("Under the Schedule D&amp;O policy, Section U.S. Holder rules and Schedules K&amp;S Draft, see Exhibit A, B and C and Article IV.")

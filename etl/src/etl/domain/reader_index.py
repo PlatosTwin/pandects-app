@@ -1702,6 +1702,10 @@ def _roman_section_article(ref: _Ref, ol: _Outline, tn: _Text) -> _Node | None:
     arts = ol.articles.get(str(n)) if n else None
     if not arts or len(arts) != 1 or not _ROMAN_BARE_NEXT.match(ref.after):
         return None
+    # the heading prints the Roman number too: "4. Escrow Accounts" under a Roman "Section IV" part is not it
+    # (2026-11-20 corpus read: 5 of 30 such links were wrong)
+    if not re.fullmatch(r"[IVXLC]+", arts[0].label):
+        return None
     if not (re.match(r"\s*(?:SECTION|Section)\b", arts[0].title) or ref.this_before):
         return None
     clause = re.split(r"[;]|\.(?:\s|$)", ref.after, maxsplit=1)[0]
