@@ -1401,8 +1401,13 @@ The largest body transitions are external to external (text) 38,042; external to
 - **R4:** L6 dropped "Article I&II"; it keeps its link again. 0 changes on the subset (unit test).
 - **R5:** a court's "Disclosure Statement" ("Section 3.1(b) of the Disclosure Statement Order") is not a disclosure schedule: 2 references in 1 agreement go from disclosure_schedule to external, 2 improved of 2. "Section A of Power Disclosure Letter" (a party name with no article) is a disclosure schedule: 113 references in 50 agreements (about 920 in the corpus, an estimate), 83 wrong links removed and 30 external to disclosure_schedule; all 113 read as improved.
 
+**Third review and fixes T1, T2.** The reviewer then read the delta d1f53067..e557f0df (B1 to B3, R1 to R5) on synthetic XML (`reader_0100/review_fixes/REVIEW_third.md`). B1, B2 and the R fixes were clean, and no new regular expression took more than 2 ms on hostile strings of up to 20,000 characters.
+- **T1:** B3 linked "clause (a) of the first sentence of this Section", "clause (a) of the preceding sentence" and "clause (a) of such letter" to the section's paragraph (a). B3 now keeps the old inline count when the tail names a sentence, a proviso, a paragraph or "such" document (`_B3_OTHER_TAIL`), when the section's own lead-in lists the item outside references (`_lead_loose`), and when a spaced item ends a section reference before a lowercase word ("Section 4.2 (a) the Company shall", `_ref_spans`).
+- **T2:** R1 tested the lead-in by plain substring, so "Subject to Section 6.4(i), Parent shall:" blocked the right link for "clause (i) of Section 6.5". R1 now counts the item only outside the lead-in's own references.
+- Measured on the 117 subset agreements that hold a B3 link: 0 body links removed, 0 added, 0 back-matter changes (`T12_summary.json`). Two drafts removed 7 right links; all 7 were read and each cause was fixed before the final version.
+
 **Known limits:**
-- R1 and R4 change nothing on the subset; only their unit tests exercise them.
+- R1, R4, T1 and T2 change nothing on the subset; only their unit tests exercise them.
 - One known wrong B3 link class remains: "such paragraphs (a) or (b)" in a continuation paragraph under 1.1(a) (c44021fa) means Annex I's paragraphs, and the own-paragraph guard does not see it. It is 1 of the 15 sampled rows that remain.
 - Inline items of a sentence have no node to link to: 41 of 60 unlinked references in the blind sample.
 - One reader labeled all blind-sample rows, and patterns 2 and 3 were sized from reads of 12 and 15.
