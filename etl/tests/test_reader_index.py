@@ -886,6 +886,13 @@ class SecondReviewFixTests(unittest.TestCase):
         self.assertEqual(self._one("See Section 4.7 of Parent.")[0][1], "unresolved")
         self.assertEqual(self._one("See Section 4.7 of the Company Charter.")[0][1], "external")
         self.assertEqual(self._one("See Section 4.7 of the Company’s Bylaws.")[0][1], "external")
+        # R3 sample: a party name that starts a document name
+        self.assertEqual(self._one("Purchase rights end under Section 19(c) of the Company 423 Plan.")[0][1], "external")
+        self.assertEqual(self._one("Perform the fifth sentence of Section 2(a) of the Parent/HIM Agreement.")[0][1], "external")
+
+    def test_qualified_clause_of_section_thereof_stays_external(self) -> None:
+        got = self._one("The Confidentiality Agreement continues, notwithstanding clause (i) of Section 16 thereof.")
+        self.assertEqual(got[0][:2], ("clause (i)", "external"))
 
     # R4: "Article I&II" keeps its link; "Schedule C&D" and "D&O" stay names
     def test_roman_ampersand_roman_is_a_reference(self) -> None:

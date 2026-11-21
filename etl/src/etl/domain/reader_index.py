@@ -1795,7 +1795,8 @@ NAMED_OTHER_TAIL = re.compile(
 _PARTY_ONLY_TAIL = re.compile(
     r"^\s*(?:\([^()]*\)\s*)*(?:of|under|pursuant\s+to)\s+(?:the\s+)?"
     + r"(?:Company|Parent|Buyers?|Sellers?|Purchasers?|Acquirors?|Acquirers?|Merger\s+Sub|Merger\s+Subsidiary|Guarantors?|Investors?|Stockholders?|Shareholders?)"
-    + r"(?![\w\-’']|\s+(?:[A-Z]|of\b))"
+    # not "of the Company 423 Plan", "of the Parent/HIM Agreement", "of the Company’s Bylaws"
+    + r"(?![\w\-’'/&]|\s*[/&]|\s+(?:[A-Z0-9]|of\b))"
 )
 
 
@@ -1810,6 +1811,8 @@ def _names_other(ref: _Ref) -> bool:
         if qm is None:
             return False
         t = t[qm.end() :]
+        if ref.head in ("section", "article", "clause") and THEREOF_AFTER.match(t):
+            return True  # "clause (i) of Section 16 thereof": the section of a document named before
     return (
         ref.head in ("section", "article", "clause")
         and not _PARTY_ONLY_TAIL.match(t)
