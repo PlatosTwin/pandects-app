@@ -1404,6 +1404,7 @@ class _Ref:
     after: str = ""  # the text from the end of this item to 60 characters past the end of its run
     parent_enum: str = ""  # "clause (ii) of subparagraph (a) above": "(a)", the paragraph that holds the clause
     own_para: bool = False  # B1: "this clause (b)" resolved to the paragraph that holds it
+    loose: int = -1  # B3: how often the item occurs in its paragraph outside every reference and the leading number
 
 
 def _section_range_end(base: str, hyphen: str, before: str) -> str | None:
@@ -1677,6 +1678,29 @@ def _definitions_scope_ok(ref: _Ref, ol: _Outline, tn: _Text, target: str, key_b
     return parent != tn.section_key and _nearest_scope(ol, tn, tn.section_key, [key]) == key
 
 
+def _mark_loose(found: list[_Ref], text: str) -> None:
+    """B3: for each bare clause item, count its occurrences in the paragraph outside every reference span and outside
+    the paragraph's leading enumerators ("(a)(ii)" opening the paragraph)."""
+    items = {r.target for r in found if r.head in ("clause", "paragraph") and r.target.startswith("(")}
+    if not items:
+        return
+    spans = [(r.start, r.end) for r in found]
+    pm = ENUM_PREFIX.match(text)
+    if pm:
+        spans.append((0, pm.end()))
+    loose: dict[str, int] = {}
+    for t in items:
+        n, i = 0, text.find(t)
+        while i >= 0:
+            if not any(a <= i and i + len(t) <= b for a, b in spans):
+                n += 1
+            i = text.find(t, i + 1)
+        loose[t] = n
+    for r in found:
+        if r.head in ("clause", "paragraph") and r.target in loose:
+            r.loose = loose[r.target]
+
+
 def _nearest_scope(ol: _Outline, tn: _Text, cur: str, cands: list[str]) -> str | None:
     """"clause (ii)" with several (ii) in the section: the one whose parent is the paragraph that holds the
     reference, or one of that paragraph's ancestors. None unless exactly one candidate is left."""
@@ -1908,7 +1932,14 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
             # made the count below call it an inline item
             ref.own_para = True
             return "resolved", own.id, None
-        if t.startswith("(") and tn.text.count(t) >= 2:
+        # B3: "except as set forth in clause (b) below", printed twice, is not an inline item; the item counts as inline
+        # only when it occurs outside every reference and the paragraph's own leading number, or the tail names a
+        # definition, a rule or another document ("clause (i) of the definition of ...")
+        if ref.loose >= 0 and not ref.other_tail and not _DEF_OR_RULE_TAIL.match(ref.tail):
+            inline = ref.loose >= 1
+        else:
+            inline = tn.text.count(t) >= 2
+        if t.startswith("(") and inline:
             # "clauses (i) and (iii) through (v)" inside a paragraph that enumerates (i)...(v)
             # itself, typical of definitions: the items are inline, not subsections
             ref.detail = "inline"
@@ -2195,6 +2226,7 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
         numbered_para = (tn.s, tn.t) in ol.numbered_paras
         back = tn.region == "backMatter"
         found = _find_refs(tn.text, in_exhibit=in_exhibit, back=back)
+        _mark_loose(found, tn.text)
         if back and len(BACK_TOC_ENTRY.findall(tn.text)) >= _BACK_TOC_MIN:
             # "Section 1.1 Definitions 1 Section 1.2 Interpretation 4 ...": an attachment's table of contents, unless
             # its titles are the agreement's own (the agreement's contents or a list of its disclosure schedules)

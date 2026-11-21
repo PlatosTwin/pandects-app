@@ -718,9 +718,10 @@ class BodyClauseGuardTests(unittest.TestCase):
         )
         self.assertEqual(self._all(xml)[0][:2], ("clause (c)", "unresolved"))
 
-    def test_bare_clause_without_this_is_unchanged(self) -> None:
+    def test_bare_clause_in_own_paragraph(self) -> None:
+        # no "this": B1 does not apply; B3 no longer counts the paragraph's leading "(b)", so the one node links
         xml = _doc(_section("s31", "Section 3.1 Assets", "(a) inventory;", "(b) equipment and the items in clause (b);"))
-        self.assertEqual(self._all(xml)[0][:2], ("clause (b)", "unresolved"))
+        self.assertEqual(self._all(xml), [("clause (b)", "resolved", "s3.1(b)")])
 
     # B2: a definitions section keeps a clause link inside the reference's own scope chain
     _DEFS = (
@@ -760,6 +761,41 @@ class BodyClauseGuardTests(unittest.TestCase):
         texts = ("(a) Terms:", "(i) first.", "(ii) “Beta” means b. “Gamma” means c. “Delta” means d. “Epsilon” means e. “Zeta” means f.", "(iii) the items in clause (i) above.")
         xml = _doc(_section("s11", "Section 1.1 Definitions", *texts))
         self.assertEqual(self._all(xml), [("clause (i)", "resolved", "s1.1(a)(i)")])
+
+    # B3: an item cited twice is not an inline item; one that also occurs outside the references still is
+    def test_clause_cited_twice_links(self) -> None:
+        xml = _doc(
+            _section(
+                "s412",
+                "Section 4.12 Taxes",
+                "(a) Except as set forth in clause (b) below, all Taxes are paid and, except as set forth in clause (b) below, filed.",
+                "(b) No audit is pending.",
+            )
+        )
+        self.assertEqual(self._all(xml), [("clause (b)", "resolved", "s4.12(b)"), ("clause (b)", "resolved", "s4.12(b)")])
+
+    def test_inline_item_stays_unlinked(self) -> None:
+        xml = _doc(
+            _section(
+                "s412",
+                "Section 4.12 Taxes",
+                "(a) The Company shall (i) file and (ii) pay, provided that clause (i) applies only to returns.",
+                "(b) No audit is pending.",
+                "(i) one.",
+            )
+        )
+        self.assertEqual(self._all(xml)[0][:2], ("clause (i)", "unresolved"))
+
+    def test_definition_tail_keeps_old_count(self) -> None:
+        xml = _doc(
+            _section(
+                "s412",
+                "Section 4.12 Liens",
+                "(a) Liens in clause (b) of the definition of Permitted Liens and clause (b) of the definition of Permitted Liens.",
+                "(b) No audit is pending.",
+            )
+        )
+        self.assertEqual([x[1] for x in self._all(xml)], ["unresolved", "unresolved"])
 
 
 class ReviewFixTests(unittest.TestCase):
