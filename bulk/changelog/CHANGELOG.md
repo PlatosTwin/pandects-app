@@ -11,7 +11,7 @@ the MCP surface. Machine-readable version:
 
 ## Unreleased
 
-2 changes: 1 notable, 1 minor.
+3 changes: 1 notable, 2 minor.
 
 ### Notable (1)
 
@@ -39,7 +39,15 @@ the MCP surface. Machine-readable version:
 
   **Refs:** #280, #285, #286, #287
 
-### Minor (1)
+### Minor (2)
+
+- **API:** ReaderOutlineNode has a new optional boolean field, inferred, for outline numbers the filed text does not print.
+
+  The reader-index endpoint returns the outline of an agreement as nodes. A node now carries inferred: true when the filed text does not print its number and the reader index took the number from the agreement's own references and section order (see the reader_index entry above). The field is absent on every other node, and on every node of a payload built before enricher 0.10.0. The OpenAPI schema lists it as an optional property of ReaderOutlineNode.
+
+  **Migration:** No action is needed, unless a client rejects unknown properties on outline nodes. Such a client must allow the optional field before the next data release.
+
+  **Refs:** #288
 
 - **API:** The API and the MCP tools serve an agreement only when its latest XML has passed validation.
 
