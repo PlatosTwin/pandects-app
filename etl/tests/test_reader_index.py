@@ -722,6 +722,45 @@ class BodyClauseGuardTests(unittest.TestCase):
         xml = _doc(_section("s31", "Section 3.1 Assets", "(a) inventory;", "(b) equipment and the items in clause (b);"))
         self.assertEqual(self._all(xml)[0][:2], ("clause (b)", "unresolved"))
 
+    # B2: a definitions section keeps a clause link inside the reference's own scope chain
+    _DEFS = (
+        "(a) Defined terms: “Alpha” means a. “Beta” means b. “Gamma” means c. “Delta” means d. “Epsilon” means e.",
+        "(b) Limits.",
+        "(i) Losses are capped.",
+        "(ii) Deductible applies.",
+        "(iii) Losses may be aggregated for purposes of clause (i).",
+    )
+
+    def test_definitions_section_keeps_scoped_clause(self) -> None:
+        xml = _doc(_section("s102", "Section 10.2 Indemnification", *self._DEFS))
+        self.assertEqual(self._all(xml), [("clause (i)", "resolved", "s10.2(b)(i)")])
+
+    def test_definitions_section_drops_definition_tail(self) -> None:
+        texts = (*self._DEFS[:4], "(iii) Liens in clause (i) of the definition of Permitted Liens are excluded.")
+        xml = _doc(_section("s102", "Section 10.2 Indemnification", *texts))
+        self.assertEqual(self._all(xml)[0][:2], ("clause (i)", "unresolved"))
+
+    def test_definitions_section_drops_top_level_item(self) -> None:
+        # the section's own "(b)" is in every definition's scope chain, so it proves nothing
+        texts = (*self._DEFS[:2], "(c) “Zeta” means the items in clause (b).")
+        xml = _doc(_section("s102", "Section 10.2 Indemnification", *texts))
+        self.assertEqual(self._all(xml)[0][:2], ("clause (b)", "unresolved"))
+
+    def test_definitions_section_drops_link_across_a_declaration(self) -> None:
+        # a definition paragraph between the target and the reference: the node may be another definition's item
+        texts = (
+            "(a) Terms:",
+            "(i) first.",
+            "“Beta” means b. “Gamma” means c. “Delta” means d. “Epsilon” means e. “Zeta” means f.",
+            "(ii) the items in clause (i) above.",
+        )
+        xml = _doc(_section("s11", "Section 1.1 Definitions", *texts))
+        self.assertEqual(self._all(xml)[0][:2], ("clause (i)", "unresolved"))
+        # an item that declares a term in passing does not break the scope
+        texts = ("(a) Terms:", "(i) first.", "(ii) “Beta” means b. “Gamma” means c. “Delta” means d. “Epsilon” means e. “Zeta” means f.", "(iii) the items in clause (i) above.")
+        xml = _doc(_section("s11", "Section 1.1 Definitions", *texts))
+        self.assertEqual(self._all(xml), [("clause (i)", "resolved", "s1.1(a)(i)")])
+
 
 class ReviewFixTests(unittest.TestCase):
     """Fixes from the code review of enricher 0.10.0 (2026-11-20)."""

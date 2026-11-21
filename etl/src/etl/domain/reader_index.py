@@ -1648,6 +1648,35 @@ def _own_paragraph(ref: _Ref, ol: _Outline, tn: _Text, t: str) -> _Node | None:
     return ol.subs[keys[0]] if len(keys) == 1 else None
 
 
+# B2: "clauses (v) or (vi) of the definition of Permitted Liens", "clause (i) of Rule 13a-15", "of the Code": the
+# clause belongs to a definition, a rule or a statute, not to the paragraph that holds the reference
+_DEF_OR_RULE_TAIL = re.compile(
+    r"^\s*(?:\([^()]*\)\s*)*,?\s*(?:of|in|under|to)\s+(?:the\s+|such\s+|that\s+|any\s+)?(?:(?:definitions?|defined\s+terms?|terms?|meaning)\b|[\"“]|(?:Rule|Regulations?|Code|Act)\b)"
+)
+
+
+def _definitions_scope_ok(ref: _Ref, ol: _Outline, tn: _Text, target: str, key_by_id: dict[str, str], decl_ts: dict[str, list[int]]) -> bool:
+    """B2: a clause resolved in a definitions section keeps its link when the reference sits in a paragraph the outline
+    recorded, the target's parent is a paragraph (not the section) in that paragraph's own scope chain, no definition
+    paragraph (one that declares a term and opens with no item number) lies between the target and the reference, and
+    no tail names a definition, a rule or another document."""
+    key = key_by_id.get(target)
+    if key is None or ref.other_tail or _DEF_OR_RULE_TAIL.match(ref.tail) or not tn.section_key:
+        return False
+    if not any(pt == tn.t for pt, _, _ in _para_index(ol).get(tn.s, [])):
+        return False
+    # a later definition's "(c)" repeats a key the outline already holds, so the node may belong to another definition
+    # ("sub-paragraphs (b) or (c) above" went to the "Control" definition's (c), 2026-11-21 read)
+    tt = ol.subs[key].anchor.get("t")
+    if tt is None or ol.subs[key].anchor.get("s") != tn.s:
+        return False
+    lo, hi = min(tt, tn.t), max(tt, tn.t)
+    if any(lo < d <= hi for d in decl_ts.get(tn.s, ())):
+        return False
+    parent = key[: key.rfind("(")]
+    return parent != tn.section_key and _nearest_scope(ol, tn, tn.section_key, [key]) == key
+
+
 def _nearest_scope(ol: _Outline, tn: _Text, cur: str, cands: list[str]) -> str | None:
     """"clause (ii)" with several (ii) in the section: the one whose parent is the paragraph that holds the
     reference, or one of that paragraph's ancestors. None unless exactly one candidate is left."""
@@ -2121,6 +2150,12 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
     # so a bare "clause (i)" there is never a subsection of the section
     decl_count = Counter(d.tn.s for d in decls)
     definition_containers = {c for c, n in decl_count.items() if n >= _DEFINITIONS_SECTION_MIN_DECLS}
+    key_by_id = {n.id: k for k, n in ol.subs.items()}
+    # B2: paragraphs that open with a declared term ("“Control” means"), not an item that declares one in passing
+    decl_ts: dict[str, list[int]] = {}
+    for d in decls:
+        if not ENUM_PREFIX.match(d.tn.text):
+            decl_ts.setdefault(d.tn.s, []).append(d.tn.t)
     for tn in texts:
         if tn.region not in _INDEXED_REGIONS:
             continue
@@ -2198,7 +2233,10 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
                 # "clause 2.1 above"; and only when the agreement itself cites "clause N.M" at least as often as "Section N.M"
                 r.status = r.detail = ""
             status, target, cands = _resolve(r, ol, tn, sec_text)
-            if status == "resolved" and r.head in ("clause", "paragraph") and r.target.startswith("(") and tn.s in definition_containers and not r.own_para:
+            if (
+                status == "resolved" and r.head in ("clause", "paragraph") and r.target.startswith("(") and tn.s in definition_containers and not r.own_para
+                and not (target and _definitions_scope_ok(r, ol, tn, target, key_by_id, decl_ts))
+            ):
                 status, target, r.detail = "unresolved", None, "inline"
             # a relative "(b)" or a qualified "clause (ii)" has no printed number of its own: keep its span
             end = r.base_end if status == "section_fallback" and not (r.qualified or r.relative) else r.end
