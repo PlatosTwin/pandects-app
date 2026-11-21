@@ -5,7 +5,7 @@ import { decodeXmlEntities } from "@/lib/text-utils";
 import { logger } from "@/lib/logger";
 import { prefersReducedMotion } from "@/lib/scroll";
 import { TOCItem } from "@shared/agreement";
-import type { ReaderOutlineNode } from "@/lib/reader-index";
+import { INFERRED_NUMBER_NOTE, type ReaderOutlineNode } from "@/lib/reader-index";
 
 interface TableOfContentsProps {
   xmlContent: string;
@@ -246,18 +246,24 @@ export function TableOfContents({
     if (!subs || subs.length === 0) return null;
     return (
       <ul className="ml-9 mt-0.5 space-y-px border-l border-border pl-2" aria-label="Subsections">
-        {subs.map((sub) => (
-          <li key={sub.id}>
-            <button
-              type="button"
-              className="w-full truncate rounded-md px-2 py-1 text-left text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              onClick={() => onSubsectionClick?.(sub.id)}
-              title={decodeXmlEntities(sub.title)}
-            >
-              {decodeXmlEntities(sub.title) || sub.label}
-            </button>
-          </li>
-        ))}
+        {subs.map((sub) => {
+          const title = decodeXmlEntities(sub.title);
+          // With no printed words (anonymous mode) the number stands alone; one
+          // the filing does not print is bracketed, as an editor's addition.
+          const markInferred = !title && sub.inferred;
+          return (
+            <li key={sub.id}>
+              <button
+                type="button"
+                className="w-full truncate rounded-md px-2 py-1 text-left text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => onSubsectionClick?.(sub.id)}
+                title={markInferred ? INFERRED_NUMBER_NOTE : title}
+              >
+                {title || (markInferred ? `[${sub.label}]` : sub.label)}
+              </button>
+            </li>
+          );
+        })}
       </ul>
     );
   };

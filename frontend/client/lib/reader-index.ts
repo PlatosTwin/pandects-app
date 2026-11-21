@@ -130,6 +130,13 @@ function indexOutline(nodes: ReaderOutlineNode[], overlay: ReaderOverlay, parent
   }
 }
 
+/**
+ * Shown with an outline number the filing does not print (`inferred`). Older
+ * payloads lack the field, so nothing is shown for them.
+ */
+export const INFERRED_NUMBER_NOTE =
+  "The filed text does not print this number. It comes from the agreement's own references and section order.";
+
 /** Statuses whose `target` is a place in this agreement the reader can jump to. */
 export function isLinkedXref(xref: ReaderXref): boolean {
   return (xref.status === "resolved" || xref.status === "section_fallback") && Boolean(xref.target);

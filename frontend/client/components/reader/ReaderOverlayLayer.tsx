@@ -10,6 +10,7 @@ import {
   anchorKey,
   declLocation,
   excerpt,
+  INFERRED_NUMBER_NOTE,
   type ReaderOutlineNode,
   type ReaderOverlay,
   type ReaderXref,
@@ -383,6 +384,7 @@ function XrefCard({
           {xref.text} was not found as its own subsection; this links to the section.
         </p>
       ) : null}
+      {node.inferred ? <p className="text-xs text-muted-foreground">{INFERRED_NUMBER_NOTE}</p> : null}
       {preview ? (
         <p className="leading-relaxed text-foreground">
           {preview.text}
