@@ -620,7 +620,7 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
         lead = [tn.text for t_el in sec.iter("text") if (tn := by_el.get(t_el)) is not None and (first is None or tn.t < first)]
         if lead:
             ol.lead_text[uuid] = " ".join(lead)
-        printed ={num: label} | {k: v for k, v in ol.para_labels.items() if k.startswith(num + ".")}
+        printed = {num: label} | {k: v for k, v in ol.para_labels.items() if k.startswith(num + ".")}
         if any(k != v for k, v in printed.items()):
             prefixes = sorted(printed, key=len, reverse=True)
             relabel = list(node.children)
@@ -1703,6 +1703,15 @@ def _definitions_scope_ok(ref: _Ref, ol: _Outline, tn: _Text, target: str, key_b
 _LATER_SECTION = re.compile(r"[^.;]{0,200}?\b(?:of|in|under)\s+(?:this\s+)?(?:Section|Article)\s+\d")
 
 
+def _self_link(ref: _Ref, node: _Node, tn: _Text, t: str) -> bool:
+    """B3 guard: the node is anchored at the reference's own paragraph, that paragraph's leading enumerators include
+    the item, and no "this" comes before the reference (B1 handles "this clause (b)")."""
+    if ref.this_before or node.anchor.get("s") != tn.s or node.anchor.get("t") != tn.t:
+        return False
+    pm = ENUM_PREFIX.match(tn.text)
+    return pm is not None and t[1:-1] in ENUM_TOKEN.findall(pm.group(1))
+
+
 def _mark_loose(found: list[_Ref], text: str) -> None:
     """B3: for each bare clause item, count its occurrences in the paragraph outside every reference span and outside
     the paragraph's leading enumerators ("(a)(ii)" opening the paragraph)."""
@@ -1997,16 +2006,26 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
             return "unresolved", None, None
         if cur and t.startswith("("):
             cands = [k for k in ol.subs if k.startswith(cur + "(") and k.endswith(t) and k not in ol.groups]
+            chosen: str | None = None
             if len(cands) == 1:
-                return "resolved", ol.subs[cands[0]].id, None
-            if len(cands) > 1:
+                chosen = cands[0]
+            elif len(cands) > 1:
                 if ref.parent_enum:
                     # the tail names the clause's parent: take that parent's clause, never the nearest one
                     hits = [k for k in cands if k[: k.rfind("(")].endswith(ref.parent_enum)]
                     if len(hits) == 1:
-                        return "resolved", ol.subs[hits[0]].id, None
-                elif not ref.other_tail and (one := _nearest_scope(ol, tn, cur, cands)) is not None:
-                    return "resolved", ol.subs[one].id, None
+                        chosen = hits[0]
+                elif not ref.other_tail:
+                    chosen = _nearest_scope(ol, tn, cur, cands)
+            if chosen is not None:
+                if relaxed and _self_link(ref, ol.subs[chosen], tn, t):
+                    # B3 guard: a bare "clause (a)" inside paragraph (a), with no "this", that would link the paragraph
+                    # to itself: "such paragraphs (a) or (b)" meant Annex I's, "a combination of clauses (a) and (b)" the
+                    # sentence's own alternatives (2026-11-21 read). Keep the old inline reading.
+                    ref.detail = "inline"
+                    return "unresolved", None, None
+                return "resolved", ol.subs[chosen].id, None
+            if len(cands) > 1:
                 if relaxed:
                     ref.detail = "inline"
                     return "unresolved", None, None
