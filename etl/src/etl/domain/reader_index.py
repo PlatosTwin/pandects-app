@@ -262,9 +262,12 @@ class _Node:
     title: str
     anchor: dict[str, Any]
     children: list[_Node] = field(default_factory=list)
+    inferred: bool = False  # the number comes from _positional_numbers, not from the printed heading
 
     def to_json(self) -> dict[str, Any]:
         out: dict[str, Any] = {"id": self.id, "kind": self.kind, "label": self.label, "title": self.title, "anchor": self.anchor}
+        if self.inferred:
+            out["inferred"] = True  # only then, so the payloads of other agreements do not change
         if self.children:
             out["children"] = [c.to_json() for c in self.children]
         return out
@@ -601,7 +604,7 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
             ol.unnumbered_sections += 1
             return
         num, label = sn
-        node = _Node(ol.unique_id(f"s{num}"), "section", label, stitle, {"s": uuid})
+        node = _Node(ol.unique_id(f"s{num}"), "section", label, stitle, {"s": uuid}, inferred=bool(inferred))
         parent.append(node)
         ol.sections.setdefault(num, []).append(node)
         if len(ol.sections[num]) > 1:
@@ -706,7 +709,7 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
                     key, raw = pk
                     if key.isdigit():
                         last_article[0] = int(key)
-                    node = _Node(ol.unique_id(f"a{key}"), "article", raw, title, {"s": uuid})
+                    node = _Node(ol.unique_id(f"a{key}"), "article", raw, title, {"s": uuid}, inferred=bool(pos.articles))
                     parent.append(node)
                     ol.articles.setdefault(key, []).append(node)
                     # flat: no <section> inside, and no "1.1 ..." paragraphs a parse left untagged

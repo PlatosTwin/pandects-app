@@ -720,6 +720,18 @@ class ReviewFixTests(unittest.TestCase):
         self.assertEqual(len([n for n in p["outline"] if n["kind"] == "attachment"]), 2)
         self.assertEqual(p["stats"]["attachments_located"], 2)
 
+    # F3: a section numbered by position says so; a printed one does not carry the field at all
+    def test_inferred_numbers_are_marked(self) -> None:
+        xml = _doc(
+            _article("a1", "ARTICLE I A", _section("s1", "Section 1.1 A", "x") + _section("s2", "B.", "y") + _section("s3", "Section 1.3 C", "z"))
+            + _article("a2", "ARTICLE II B", _section("s4", "Section 2.1 A", "x") + _section("s5", "Closing.", "y") + _section("s6", "Section 2.3 C", "z"))
+        )
+        p = build_reader_index(xml)
+        secs = _sections_by_id(p)
+        self.assertEqual({k: v.get("inferred") for k, v in secs.items()}, {"s1.1": None, "s1.2": True, "s1.3": None, "s2.1": None, "s2.2": True, "s2.3": None})
+        self.assertNotIn("inferred", p["outline"][0])
+        self.assertNotIn("inferred", build_reader_index(BASIC)["outline"][1]["children"][0])
+
     # F6: a body with no "clause N.M" (and no "Section N.M") is not UK drafting
     def test_body_without_dotted_clauses_is_not_uk_drafting(self) -> None:
         back = "<text>SCHEDULE 4</text><text>LIMITATIONS</text><text>1.1 The Warranties are given under clause 9.2.</text><text>2.1 Limits.</text>"
