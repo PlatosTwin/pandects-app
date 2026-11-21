@@ -122,7 +122,7 @@ unreleased:
     checks outline nodes against a closed schema must allow the new optional boolean field
     inferred. A consumer that stores outline node ids should read them again for the 672
     agreements whose outline changed.
-  refs: ['#280', '#285', '#286']
+  refs: ['#280', '#285', '#286', '#287']
 - type: api
   severity: minor
   summary: 'The API and the MCP tools serve an agreement only when its latest XML has passed validation.'

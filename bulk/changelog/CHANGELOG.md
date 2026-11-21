@@ -37,7 +37,7 @@ the MCP surface. Machine-readable version:
 
   **Migration:** No action is needed for most consumers. The reader-index endpoint's ETag includes the enricher version, so a client that caches payloads fetches the new ones. A consumer that checks outline nodes against a closed schema must allow the new optional boolean field inferred. A consumer that stores outline node ids should read them again for the 672 agreements whose outline changed.
 
-  **Refs:** #280, #285, #286
+  **Refs:** #280, #285, #286, #287
 
 ### Minor (1)
 
