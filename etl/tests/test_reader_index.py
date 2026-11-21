@@ -887,6 +887,14 @@ class SecondReviewFixTests(unittest.TestCase):
         self.assertEqual(self._one("See Section 4.7 of the Company Charter.")[0][1], "external")
         self.assertEqual(self._one("See Section 4.7 of the Company’s Bylaws.")[0][1], "external")
 
+    # R4: "Article I&II" keeps its link; "Schedule C&D" and "D&O" stay names
+    def test_roman_ampersand_roman_is_a_reference(self) -> None:
+        xml = _doc(
+            _article("a1", "ARTICLE I A", _section("s11", "Section 1.1 A", "x"))
+            + _article("a2", "ARTICLE II B", _section("s21", "Section 2.1 B", "See Article I&amp;II. Schedule C&amp;D applies. Under the D&amp;O policy."))
+        )
+        self.assertEqual(self._all(xml), [("Article I", "resolved", "a1")])
+
     def test_printed_outline_is_byte_identical(self) -> None:
         import json
 
