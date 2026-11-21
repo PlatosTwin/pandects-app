@@ -1427,6 +1427,7 @@ The status is `resolved` to the parent node. Code: `_attachment_parent`, `_conte
 - **Failed first hypothesis.** The first version needed only that no "X-m" node exists at all. In a read of 32 body rows where 0.9.0 linked the parent, that link was right in 20 and wrong in 12 (`exhibit_parent_read.tsv`), and this version kept the 12 wrong links.
 - **Three versions** were measured over a prefilter of 1,539 agreements. v1 added 88 body links, and a draw of 30 had 6 regressed. v2 added drafting words to the stopwords: 61 body links, 4 regressed in a fresh read. v3, the final version, adds 57 body links in 23 agreements and 20 back-matter links in 10 agreements, all from unlocated_attachment to resolved. A control run of main's code on the same 1,539 agreements gave 0 changes.
 - **Read.** All 57 body links were read: 54 improved, 3 neutral, 0 regressed (`exhibit_parent/sample.tsv`).
+- **Tightened after review.** An independent review (`reader_0100/review_fixes/REVIEW_fourth.md`) showed that one shared ordinary word could link a wrong parent in a future filing: "Certificate of Merger in the form of Exhibit A-1" against "EXHIBIT A / FORM OF AMENDED AND RESTATED CERTIFICATE OF INCORPORATION", a shared party name, or a first body line read as the title. The final rule adds three checks. The text after the heading counts as a title only when it is all capitals, starts with "Form of", or is short with no sentence verb. A generic document noun (certificate, agreement, letter, notice, opinion, plan, schedule, statement, consent, release, note) cannot be the only shared word. A party name (a capitalized word before a capitalized entity suffix, "Acme Holdings") does not count. Eight variants were scored against the 57 labeled rows (`tight_variants.tsv`). The chosen one blocks the four review inputs and keeps 50 of the 54 improved rows and the 3 neutral rows; it loses 4 right links of one agreement, tied only by "certificate". The rule now adds 53 body links and 18 back-matter links in 29 agreements (`tight_changes.tsv`).
 
 **Nearest paragraph fallback.** "Section 6.4(e)(ii)" with no node for the full label now links the deepest printed ancestor paragraph that has a node (6.4(e)), with status `section_fallback`. Before, it fell back to the section. Code: the paragraph-fallback block in `_resolve`, the `_Ref.para_fallback` flag and `_Outline.dup_subs`.
 - **Guards.** Every level down to the chosen paragraph must be a single paragraph: not a lettered group, and not a key printed twice in its section (`dup_subs`). Relative items and qualified forms are unchanged.
@@ -1437,7 +1438,8 @@ The status is `resolved` to the parent node. Code: `_attachment_parent`, `_conte
 **Rebuild.** The local index was rebuilt again with both rules. The changelog entry holds the totals of that last rebuild; the figures in the "Why" paragraph are from the rebuild before it.
 
 **Known limits:**
-- The stopword list was tuned on the rows that were read.
+- The stopword list was tuned on the rows that were read, and so were the generic nouns and the title test.
+- The nearest paragraph fallback does not cover dotted paragraph bases: "Section 5.16.1(a)(ii)" still links 5.16.1.
 - 2 right "Annex C" links of the 32 rows read are not restored.
 - In 2dea7d5d, "D-2" lands on the "EXHIBIT D - 1" heading, because the heading pattern reads "EXHIBIT D - 2" as "D".
 - The paragraph fallback links the printed paragraph even when the filing cites the wrong one (014c422a).
