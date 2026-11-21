@@ -1261,6 +1261,12 @@ CLAUSE_OF_OTHER = re.compile(
     + r"(?:Agreement|Letter|Plan|Certificate|Charter|Bylaws|Indenture|Note|Schedule|Statement|Articles|Act|Code|Regulations?)\b"
     + r"|(?:paragraph|Annex|Exhibit|Schedule|Appendix)\s)"
 )
+# "clause (ii) of subparagraph (a) above", "clause (B) of paragraph (b)(i)": the clause sits under a named
+# enumerator of the same section. Not when that enumerator belongs to something named after it ("of paragraph (a)
+# of Exhibit B", "of clause (a) thereof"): then the clause gets no nearest-scope tie-break either.
+_NAMED_ENUM = r"^\s*,?\s*(?:of|in|under)\s+(?:the\s+)?(?:sub-?)?(?:paragraph|clause|section)\s*((?:\([A-Za-z0-9]{1,6}\)\s?)++)"
+NAMED_ENUM = re.compile(_NAMED_ENUM)
+PARENT_ENUM = re.compile(_NAMED_ENUM + r"(?!\s*,?\s*(?:of|in|under|to|there(?:of|to|in|under))\b)")
 
 
 def _plain_tail(tail: str) -> bool:
@@ -1376,6 +1382,7 @@ class _Ref:
     this_before: bool = False  # "this Section 8"
     plain_tail: bool = False  # no tail naming anything but this agreement, and no OCR continuation (".9", "-3")
     other_tail: bool = False  # "clause (iii) of paragraph 2 of Annex C of the Commitment Letter"
+    parent_enum: str = ""  # "clause (ii) of subparagraph (a) above": "(a)", the paragraph that holds the clause
 
 
 def _find_refs(text: str, in_exhibit: bool, back: bool = False) -> list[_Ref]:
@@ -1544,9 +1551,11 @@ def _find_refs(text: str, in_exhibit: bool, back: bool = False) -> list[_Ref]:
         ):
             for r in prev_run:
                 r.status = run[0].status
-        other_tail = CLAUSE_OF_OTHER.match(tail) is not None
+        pm = PARENT_ENUM.match(tail)
+        other_tail = CLAUSE_OF_OTHER.match(tail) is not None or (pm is None and NAMED_ENUM.match(tail) is not None)
         for r in run:
             r.other_tail = other_tail
+            r.parent_enum = re.sub(r"\s", "", pm.group(1)) if pm else ""
         run[0].lead = True
         run[0].this_before = THIS_BEFORE.search(before) is not None
         run[0].plain_tail = _plain_tail(tail)
@@ -1730,6 +1739,12 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
             if len(cands) == 1:
                 return "resolved", ol.subs[cands[0]].id, None
             if len(cands) > 1:
+                if ref.parent_enum:
+                    # the tail names the clause's parent: take that parent's clause, never the nearest one
+                    hits = [k for k in cands if k[: k.rfind("(")].endswith(ref.parent_enum)]
+                    if len(hits) == 1:
+                        return "resolved", ol.subs[hits[0]].id, None
+                    return "ambiguous", None, [ol.subs[k].id for k in cands]
                 if not ref.other_tail and (one := _nearest_scope(ol, tn, cur, cands)) is not None:
                     return "resolved", ol.subs[one].id, None
                 return "ambiguous", None, [ol.subs[k].id for k in cands]

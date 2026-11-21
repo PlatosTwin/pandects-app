@@ -696,6 +696,23 @@ class ReviewFixTests(unittest.TestCase):
         self._all(_doc(_section("s1", "Section 1.1 Payments", "(a) see clause (a)" + " " * 3000 + "x.")))
         self.assertLess(time.perf_counter() - t0, 0.5)
 
+    # F2: a clause whose tail names its parent paragraph takes that paragraph's clause, not the nearest one
+    def test_clause_of_named_subparagraph_takes_that_parent(self) -> None:
+        def run(text: str) -> list[tuple[str, str, str | None]]:
+            return self._all(
+                _doc(_section("s51", "Section 5.1 Caps", "(a) caps:", "(i) one;", "(ii) two;", "(b) more:", "(i) three;", "(ii) four;", text))
+            )
+
+        for tail in ("subparagraph (a) above", "subsection (a)", "sub-clause (a)", "clause (a)", "paragraph (a)"):
+            self.assertEqual(run(f"(iii) the cap in clause (ii) of {tail} applies.")[0], ("clause (ii)", "resolved", "s5.1(a)(ii)"), tail)
+        # no unique (iii) under (c): as before the tie-break, ambiguous
+        self.assertEqual(run("(iii) the cap in clause (ii) of paragraph (c) applies.")[0][1], "ambiguous")
+        # the enumerator belongs to something named after it: no parent, no tie-break
+        self.assertEqual(run("(iii) the cap in clause (ii) of paragraph (a) of Exhibit B applies.")[0][1], "ambiguous")
+        self.assertEqual(run("(iii) the cap in clause (ii) of clause (a)(i) thereof applies.")[0][1], "ambiguous")
+        # no named parent: the nearest scope still applies
+        self.assertEqual(run("(iii) the cap in clause (ii) applies.")[0], ("clause (ii)", "resolved", "s5.1(b)(ii)"))
+
 
 class StatusAndTargetRuleTests(unittest.TestCase):
     """Enricher 0.10.0 rules on statuses and targets (reader_090 census, PROPOSALS.md rules 3, 5, 8-12)."""
