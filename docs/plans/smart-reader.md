@@ -1324,7 +1324,7 @@ Rules 3, 10, 9, 8, 12, 11 and 5 change the status of a reference (external, disc
 
 ### 10.20 Enricher 0.10.0: combined check, review and what stays open (2026-11-20)
 
-**Combined dry diff of the 17 rules.** The 17 rules of sections 10.15 to 10.18 were merged at integration commit 75276a83 and compared with the stored 0.9.0 index (`reader_080/rebuild_diff.py --dry`, files in `reader_0100/combined_int1/`). The run covered all 12,198 agreements with 0 failures. 11,406 agreements change; the outline changes in 658 and terms in 91. This diff does not include the rules of section 10.19 or the review fixes below. The measured totals of the full rebuild are in the changelog entry.
+**Combined dry diff of the 17 rules.** The 17 rules of sections 10.15 to 10.18 were merged at integration commit 75276a83 and compared with the stored 0.9.0 index (`reader_080/rebuild_diff.py --dry`, files in `reader_0100/combined_int1/`). The run covered all 12,198 agreements with 0 failures. 11,406 agreements change; the outline changes in 658 and terms in 91. This diff does not include the rules of section 10.19 or the review fixes below. The measured totals of the last full rebuild, which also includes the two fallback rules of section 10.22, are in the changelog entry.
 
 | Where the reference is printed | Links added | Links removed | Links moved | Status or text only | Agreements |
 |---|---|---|---|---|---|
@@ -1412,6 +1412,36 @@ The largest body transitions are external to external (text) 38,042; external to
 - One reader labeled all blind-sample rows, and patterns 2 and 3 were sized from reads of 12 and 15.
 
 **Open item.** The `inferred` field is in the stored payload, but not yet in the API schema (`backend/schemas/public_api.py`, `backend/openapi/ui-openapi.json`, whose `ReaderOutlineNode` has `additionalProperties: false`) or the frontend types. The frontend also does not map a spelled label such as "ONE" to 1 (`normalizeOutlineLabel`). These changes touch `backend/` and `frontend/`, which deploy to production. They wait for the owner's go-ahead and should land before the December data release.
+
+### 10.22 Enricher 0.10.0: final rebuild sample and two fallback rules (2026-11-20)
+
+**Why.** After PR 286, the local index was rebuilt in full at 0.10.0: 12,198 agreements, 0 failures, 11,653 agreements changed (`reader_0100/rebuild_0100/`). Against 0.9.0, body references gain 30,908 links, lose 2,527 and move 512. Back-matter references gain 23,639 and lose 69,707. A read of 60 changed body references from 60 agreements (seed 20261122) found 57 improved, 2 regressed and 1 neutral. Both regressions were lost attachment links. "the form attached hereto as Exhibit L-1 or L-2" and "officer certificates attached as Exhibits C-1 and C-2" each name a filing that has one heading, "Exhibit L" or "EXHIBIT C", for both forms. Rule 8 (section 10.16) now reads the full label "L-1", finds no node for it and drops the old link. A third row, "Section 6.4(e)(ii)", linked only Section 6.4, although a 6.4(e) node exists. These rows led to the two rules below, which are part of enricher 0.10.0.
+
+**Exhibit parent fallback.** A reference to "Exhibit L-1" now links to the attachment node "Exhibit L" when all of these hold:
+- the label has the form "X-n" and no node for it exists;
+- a node "X" of the same kind exists, and no node "X-…" exists;
+- the parent's title shares a content word with the reference's own sentence.
+
+The status is `resolved` to the parent node. Code: `_attachment_parent`, `_content_words` (lowercase words of four letters or more, without `_TITLE_STOPWORDS`) and `_Outline.attachment_words`.
+- **Failed first hypothesis.** The first version needed only that no "X-m" node exists at all. In a read of 32 body rows where 0.9.0 linked the parent, that link was right in 20 and wrong in 12 (`exhibit_parent_read.tsv`), and this version kept the 12 wrong links.
+- **Three versions** were measured over a prefilter of 1,539 agreements. v1 added 88 body links, and a draw of 30 had 6 regressed. v2 added drafting words to the stopwords: 61 body links, 4 regressed in a fresh read. v3, the final version, adds 57 body links in 23 agreements and 20 back-matter links in 10 agreements, all from unlocated_attachment to resolved. A control run of main's code on the same 1,539 agreements gave 0 changes.
+- **Read.** All 57 body links were read: 54 improved, 3 neutral, 0 regressed (`exhibit_parent/sample.tsv`).
+- **Tightened after review.** An independent review (`reader_0100/review_fixes/REVIEW_fourth.md`) showed that one shared ordinary word could link a wrong parent in a future filing: "Certificate of Merger in the form of Exhibit A-1" against "EXHIBIT A / FORM OF AMENDED AND RESTATED CERTIFICATE OF INCORPORATION", a shared party name, or a first body line read as the title. The final rule adds three checks. The text after the heading counts as a title only when it is all capitals, starts with "Form of", or is short with no sentence verb. A generic document noun (certificate, agreement, letter, notice, opinion, plan, schedule, statement, consent, release, note) cannot be the only shared word. A party name (a capitalized word before a capitalized entity suffix, "Acme Holdings") does not count. Eight variants were scored against the 57 labeled rows (`tight_variants.tsv`). The chosen one blocks the four review inputs and keeps 50 of the 54 improved rows and the 3 neutral rows; it loses 4 right links of one agreement, tied only by "certificate". The rule now adds 53 body links and 18 back-matter links in 29 agreements (`tight_changes.tsv`).
+
+**Nearest paragraph fallback.** "Section 6.4(e)(ii)" with no node for the full label now links the deepest printed ancestor paragraph that has a node (6.4(e)), with status `section_fallback`. Before, it fell back to the section. Code: the paragraph-fallback block in `_resolve`, the `_Ref.para_fallback` flag and `_Outline.dup_subs`.
+- **Guards.** Every level down to the chosen paragraph must be a single paragraph: not a lettered group, and not a key printed twice in its section (`dup_subs`). Relative items and qualified forms are unchanged.
+- **Span.** The linked text keeps the whole citation "Section 6.4(e)(ii)". The reader's note for `section_fallback` says the citation "was not found as its own subsection", so the full text stays visible.
+- **Counts.** A dry run covered 10,109 candidate agreements: every agreement with a stored `section_fallback` reference whose target is a section, plus the exhibit candidates. 30,416 body references in 7,185 agreements and 1,256 back-matter references in 441 agreements move from the section to a paragraph, with 0 status changes and 0 links lost. A control run of main's code on 300 of them gave 0 changes.
+- **Read.** 30 changed references from 30 agreements (seed 20261121): 27 improved, 2 neutral, 1 regressed. The regressed row (014c422a) follows a drafting error in the filing: "pursuant to Section 2.1(a)(i)" where the consideration is in 2.1(c)(ii).
+
+**Rebuild.** The local index was rebuilt again with both rules. The changelog entry holds the totals of that last rebuild; the figures in the "Why" paragraph are from the rebuild before it.
+
+**Known limits:**
+- The stopword list was tuned on the rows that were read, and so were the generic nouns and the title test.
+- The nearest paragraph fallback does not cover dotted paragraph bases: "Section 5.16.1(a)(ii)" still links 5.16.1.
+- 2 right "Annex C" links of the 32 rows read are not restored.
+- In 2dea7d5d, "D-2" lands on the "EXHIBIT D - 1" heading, because the heading pattern reads "EXHIBIT D - 2" as "D".
+- The paragraph fallback links the printed paragraph even when the filing cites the wrong one (014c422a).
 
 ## 11. Decisions (2026-10-22)
 
