@@ -844,6 +844,22 @@ class SecondReviewFixTests(unittest.TestCase):
         self.assertEqual((flags["s1.2(a)"], flags["s1.2(a)(i)"]), (True, True))
         self.assertEqual((flags["s1.1(a)"], flags["s1.3(a)"]), (None, None))
 
+    # R3: L1 judges a qualified clause by the text after its section, and a tail naming only a party is not a document
+    def _one(self, sentence: str) -> list[tuple[str, str, str | None]]:
+        return self._all(_doc(_section("s11", "Section 1.1 A", "x") + _section("s12", "Section 1.2 B", sentence)))
+
+    def test_qualified_clause_into_missing_section_matches_its_section(self) -> None:
+        got = self._one("Subject to clause (a) of Section 4.2 and Section 4.2, the price is paid.")
+        self.assertEqual([x[1] for x in got], ["unresolved", "unresolved", "unresolved"])
+        got = self._one("See clause (a) of Section 4.2 of the Escrow Agreement.")
+        self.assertEqual([x[1] for x in got], ["external", "external"])
+
+    def test_party_tail_is_not_another_document(self) -> None:
+        self.assertEqual(self._one("The representations in Section 4.7 of the Company are true.")[0][1], "unresolved")
+        self.assertEqual(self._one("See Section 4.7 of Parent.")[0][1], "unresolved")
+        self.assertEqual(self._one("See Section 4.7 of the Company Charter.")[0][1], "external")
+        self.assertEqual(self._one("See Section 4.7 of the Company’s Bylaws.")[0][1], "external")
+
     def test_printed_outline_is_byte_identical(self) -> None:
         import json
 
@@ -2063,7 +2079,7 @@ class RoundTwoLeadRuleTests(unittest.TestCase):
                 ("Section VIII", "unresolved", None),
                 ("Section IX", "resolved", "a9"),
                 ("Section IX", "unresolved", None),
-                ("Section VIII", "external", None),  # L1b: "of the Seller" names something else
+                ("Section VIII", "unresolved", None),  # R3: "of the Seller" names a party, not a document
             ],
         )
 

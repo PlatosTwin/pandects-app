@@ -1780,11 +1780,28 @@ NAMED_OTHER_TAIL = re.compile(
 )
 
 
+# R3: "Section 4.7 of the Company", "of Parent": the tail names a party, and no document of that party follows
+_PARTY_ONLY_TAIL = re.compile(
+    r"^\s*(?:\([^()]*\)\s*)*(?:of|under|pursuant\s+to)\s+(?:the\s+)?"
+    + r"(?:Company|Parent|Buyers?|Sellers?|Purchasers?|Acquirors?|Acquirers?|Merger\s+Sub|Merger\s+Subsidiary|Guarantors?|Investors?|Stockholders?|Shareholders?)"
+    + r"(?![\w\-’']|\s+(?:[A-Z]|of\b))"
+)
+
+
 def _names_other(ref: _Ref) -> bool:
-    """L1: the run's tail names another document or a statute, and no self marker says it is this agreement's."""
+    """L1: the run's tail names another document or a statute, and no self marker says it is this agreement's. Not for a
+    qualified clause ("clause (a) of Section 4.2 and Section 4.2 ...": the tail is the section's, R3) or a tail that
+    names only a party ("Section 4.7 of the Company", R3)."""
     t = ref.tail
+    if ref.qualified:
+        # judge the text after the printed section: "clause (a) of Section 4.2 of the Escrow Agreement" still names one
+        qm = QUALIFIED.match(t)
+        if qm is None:
+            return False
+        t = t[qm.end() :]
     return (
         ref.head in ("section", "article", "clause")
+        and not _PARTY_ONLY_TAIL.match(t)
         and not ref.self_marker
         and NAMED_OTHER_TAIL.match(t) is not None
         and not (DISCLOSURE.match(t) or ATTACHMENT_TAIL.match(t) or THEREOF_AFTER.match(t))
