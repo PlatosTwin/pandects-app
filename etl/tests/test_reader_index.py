@@ -827,6 +827,48 @@ class SecondReviewFixTests(unittest.TestCase):
         )
         self.assertEqual(self._all(xml), [("clause (i)", "resolved", "s6.4(a)(i)"), ("Section 6.4", "resolved", "s6.4")])
 
+    # R2: paragraph nodes under an inferred section are inferred too; printed outlines do not change
+    def test_inferred_section_marks_its_paragraphs(self) -> None:
+        xml = _doc(
+            _article("a1", "ARTICLE I A", _section("s1", "Section 1.1 A", "(a) x") + _section("s2", "B.", "(a) y", "(i) z") + _section("s3", "Section 1.3 C", "(a) z"))
+        )
+        p = build_reader_index(xml)
+        secs = _sections_by_id(p)
+        self.assertEqual(secs["s1.2"].get("inferred"), True)
+        flags = {}
+        stack = list(p["outline"])
+        while stack:
+            n = stack.pop()
+            flags[n["id"]] = n.get("inferred")
+            stack.extend(n.get("children", []))
+        self.assertEqual((flags["s1.2(a)"], flags["s1.2(a)(i)"]), (True, True))
+        self.assertEqual((flags["s1.1(a)"], flags["s1.3(a)"]), (None, None))
+
+    def test_printed_outline_is_byte_identical(self) -> None:
+        import json
+
+        xml = _doc(_article("a1", "ARTICLE I A", _section("s1", "Section 1.1 A", "(a) x", "(i) y") + _section("s2", "Section 1.2 B", "(a) z")))
+        got = json.dumps(build_reader_index(xml)["outline"], sort_keys=True)
+        self.assertNotIn('"inferred"', got)
+        self.assertEqual(
+            got,
+            json.dumps(
+                [
+                    {"anchor": {"s": "a1"}, "children": [
+                        {"anchor": {"s": "s1"}, "children": [
+                            {"anchor": {"s": "s1", "t": 0}, "children": [
+                                {"anchor": {"s": "s1", "t": 1}, "id": "s1.1(a)(i)", "kind": "sub", "label": "1.1(a)(i)", "title": "(i) y"}],
+                             "id": "s1.1(a)", "kind": "sub", "label": "1.1(a)", "title": "(a) x"}],
+                         "id": "s1.1", "kind": "section", "label": "1.1", "title": "Section 1.1 A"},
+                        {"anchor": {"s": "s2"}, "children": [
+                            {"anchor": {"s": "s2", "t": 0}, "id": "s1.2(a)", "kind": "sub", "label": "1.2(a)", "title": "(a) z"}],
+                         "id": "s1.2", "kind": "section", "label": "1.2", "title": "Section 1.2 B"}],
+                     "id": "a1", "kind": "article", "label": "I", "title": "ARTICLE I A"}
+                ],
+                sort_keys=True,
+            ),
+        )
+
 
 class ReviewFixTests(unittest.TestCase):
     """Fixes from the code review of enricher 0.10.0 (2026-11-20)."""

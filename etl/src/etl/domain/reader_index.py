@@ -779,6 +779,13 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
         prefixes = tuple(dup)
         ol.subs = {k: v for k, v in ol.subs.items() if not k.startswith(prefixes)}
         ol.groups = {k for k in ol.groups if k in ol.subs}
+    # R2: a paragraph node under an inferred section or article carries the inferred number in its label ("1.2(a)")
+    stack = [(n, False) for n in ol.roots]
+    while stack:
+        n, inherited = stack.pop()
+        if n.kind == "sub" and inherited:
+            n.inferred = True
+        stack.extend((c, n.inferred) for c in n.children)
     return ol
 
 
