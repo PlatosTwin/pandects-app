@@ -1658,6 +1658,10 @@ _LARGE_BARE = re.compile(r"(\d+)[A-Z]?")
 _LARGE_BARE_MIN = 40
 
 
+# L9 guard: "of Section 6.01.(a)", "of this Section 8.4 (b)": the qualifier continues past the number QUALIFIED read
+_QUALIFIER_GOES_ON = re.compile(r"[^.;]{0,80}?\b[Ss]ection\s+\d+[A-Z]?(?:\.\d+[A-Z]?)*(?:\.\s?|\s)\(")
+
+
 def _is_large_bare_number(ref: _Ref, ol: _Outline, base: str, subs: str) -> bool:
     """A bare "Section N", "Section N(a)" or "Section NA" with N >= 40 and no section, subsection or article N."""
     m = _LARGE_BARE.fullmatch(base)
@@ -1796,7 +1800,11 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
         if ref.qualified:
             # L9: "clauses (i) through (xxiii) of this Section 6.4" where (i) sits under 6.4(a): the one descendant
             # of the printed section that ends in the clause
-            if re.fullmatch(r"\([A-Za-z0-9]+\)", subs):
+            # Not when the clause is an inline item of the reference's own paragraph ("the foregoing clauses (i)-(iii)
+            # in this Section 2.6"), or the printed section goes on past the part read ("Section 6.01.(a)",
+            # "Section 8.4 (b) (i)"): 2 of 30 such links in the first corpus read went to the wrong paragraph
+            inline = tn.section_key == base and tn.text.count(subs) >= 2
+            if re.fullmatch(r"\([A-Za-z0-9]+\)", subs) and not inline and not _QUALIFIER_GOES_ON.match(ref.tail):
                 deep = [k for k in ol.subs if k.startswith(base + "(") and k.endswith(subs) and k not in ol.groups]
                 if len(deep) == 1:
                     return "resolved", ol.subs[deep[0]].id, None

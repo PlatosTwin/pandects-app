@@ -1865,6 +1865,14 @@ class RoundTwoLeadRuleTests(unittest.TestCase):
                 ("clause (x)", "section_fallback", "s6.4"),
             ],
         )
+        refs = self._all(
+            "Except as set forth in clauses (ii) through (iii) of Section 6.4.(a), nothing applies.",
+            main=main,
+        )
+        self.assertEqual([g for t, _, g in refs if t.startswith("clauses")], ["s6.4"])
+        inline = main.replace("<text>(A) merge.</text>", "<text>(c) The remedy for (i) claims, (ii) consents or (iii) targets is the escrow, waiving the foregoing clauses (i)-(iii) in this Section 6.4.</text>")
+        p = build_reader_index(_doc(inline))
+        self.assertEqual([x.get("target") for x in p["xrefs"] if x["text"].startswith("clauses")], ["s6.4"])
 
     # L8: "Sections 7.16-17" is a range of two sections, not a regulation number
     def test_l8_short_hyphen_range_links_both_ends(self) -> None:
