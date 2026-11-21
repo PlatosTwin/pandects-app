@@ -759,7 +759,7 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
             em = ATTACHMENT_ENUMS.match(txt, m.end(2)) if not m.group(2).endswith(".") else None
             enums = em.group(0) if em else ""
             full = key + enums.lower()
-            if full in ol.attachments or (not enums and key in ol.attachments):
+            if full in ol.attachments:
                 continue
             node = _Node(ol.unique_id("x-" + full.replace(" ", "-")), "attachment", num.upper() + enums, txt, {"s": tn.s, "t": tn.t})
             ol.attachments[full] = node
@@ -1226,7 +1226,6 @@ REG_HYPHEN = re.compile(r"[\-â€‘]\d+[A-Z]?(?:\s?\([A-Za-z0-9]{1,6}\))*(?![\d\-â€
 COLON_NUMBER = re.compile(r":\d")
 LEFTOVER_ITEMS = re.compile(r"^(?:\s*,?\s*(?:and/or|and|or)?\s*\([A-Za-z0-9]{1,6}\))+")
 INCLUSIVE = re.compile(r"^\s*,?\s*inclusive\s*,?(?=\s*(?:of|to|in|under|hereof)\b)")
-THEREOF = re.compile(r"^\s*(?:\([^)]*\)\s*)*,?\s*thereof\b")
 ATTACHMENT_TAIL = re.compile(r"^\s*(?:\([^)]*\)\s*)*(?:of|in|to)\s+(?:the\s+|this\s+)?(?:Schedules?|Part|Annex|Appendix|Exhibit)\s+[A-Z0-9IVX]")
 # L5: "Section 2 of Exhibit B to the Escrow Agreement", "item 3 of Annex A to the Commitment Letter": an attachment
 # of another document. "of Schedule 1 to the Company Disclosure Schedule" is the disclosure schedule.
@@ -1644,14 +1643,14 @@ def _nearest_scope(ol: _Outline, tn: _Text, cur: str, cands: list[str]) -> str |
     return keep[0] if len(keep) == 1 else None
 
 
-_THIS_SECTION = re.compile(r"(?i:\bthis\s+section)\s+\d")
+_SELF_SECTION_CITE = re.compile(r"(?i:\bthis\s+section)\s+\d")
 
 
 def _self_cites_article(texts: list[_Text], ol: _Outline) -> bool:
     """Whether the body writes "this Section 8" inside a section 8.x of an "ARTICLE VIII" (no section 8): such an
     agreement calls its articles "Section N", so its bare "Section N" may link to article N (census: 27 of 30)."""
     for tn in texts:
-        if tn.region != "body" or not tn.section_key or not _THIS_SECTION.search(tn.text):
+        if tn.region != "body" or not tn.section_key or not _SELF_SECTION_CITE.search(tn.text):
             continue
         art = _norm_num(tn.section_key.split(".", 1)[0])
         if art not in ol.articles or ol.sections.get(art) or _section_style_article(ol, art):
@@ -1967,7 +1966,6 @@ _OWN_ATTACHMENT_TAIL = re.compile(r"\s*(?:\([^)]*\)\s*)*(?:of|to)\s+(?:this\s+(?
 _SCHEDULE_HEAD = re.compile(r"(?:SCHEDULE|Schedule)\b")
 # A deed or covenant set out in a schedule ("this Deed", "this Tax Covenant") numbers its own clauses
 _OWN_DEED = re.compile(r"\b[Tt]his\s+(?:[A-Z][a-z]+\s+)?(?:Deed|deed|Covenant|covenant)\b")
-_THIS_BEFORE = re.compile(r"\bthis\s+$", re.IGNORECASE)
 # "clause 2.1 of the Tax Covenant", "clause 4.2 of this Deed": another document; "of this agreement" is not
 _OTHER_DOC_TAIL = re.compile(r"\s*(?:\([^)]*\)\s*)*,?\s*(?:of|in|under|to),?\s+(?:this|the)\s+(?![Aa]greement\b|AGREEMENT\b)(?:[A-Z]|deed\b)")
 # "clause 2.1 above": the schedule's own paragraph
@@ -2168,7 +2166,7 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
                 r.status = r.detail = ""
             if (
                 r.status == "unresolved" and r.detail == "exhibit_local" and r.head == "clause" and seg is not None and _SCHEDULE_HEAD.match(seg.head) and _DOTTED.match(r.target)
-                and not seg.deed and not _THIS_BEFORE.search(tn.text, 0, r.start) and not _OTHER_DOC_TAIL.match(tn.text, r.end)
+                and not seg.deed and not THIS_BEFORE.search(tn.text, 0, r.start) and not _OTHER_DOC_TAIL.match(tn.text, r.end)
                 and not _ABOVE_BELOW.match(tn.text, r.end) and uk_clauses
             ):
                 # UK drafting: a schedule numbers its own items as paragraphs and cites the agreement's "clause 9.2".
