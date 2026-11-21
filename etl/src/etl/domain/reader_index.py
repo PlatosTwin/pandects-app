@@ -262,9 +262,12 @@ class _Node:
     title: str
     anchor: dict[str, Any]
     children: list[_Node] = field(default_factory=list)
+    inferred: bool = False  # the number comes from _positional_numbers, not from the printed heading
 
     def to_json(self) -> dict[str, Any]:
         out: dict[str, Any] = {"id": self.id, "kind": self.kind, "label": self.label, "title": self.title, "anchor": self.anchor}
+        if self.inferred:
+            out["inferred"] = True  # only then, so the payloads of other agreements do not change
         if self.children:
             out["children"] = [c.to_json() for c in self.children]
         return out
@@ -604,7 +607,7 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
             ol.unnumbered_sections += 1
             return
         num, label = sn
-        node = _Node(ol.unique_id(f"s{num}"), "section", label, stitle, {"s": uuid})
+        node = _Node(ol.unique_id(f"s{num}"), "section", label, stitle, {"s": uuid}, inferred=bool(inferred))
         parent.append(node)
         ol.sections.setdefault(num, []).append(node)
         if len(ol.sections[num]) > 1:
@@ -709,7 +712,7 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
                     key, raw = pk
                     if key.isdigit():
                         last_article[0] = int(key)
-                    node = _Node(ol.unique_id(f"a{key}"), "article", raw, title, {"s": uuid})
+                    node = _Node(ol.unique_id(f"a{key}"), "article", raw, title, {"s": uuid}, inferred=bool(pos.articles))
                     parent.append(node)
                     ol.articles.setdefault(key, []).append(node)
                     # flat: no <section> inside, and no "1.1 ..." paragraphs a parse left untagged
@@ -1272,6 +1275,12 @@ CLAUSE_OF_OTHER = re.compile(
     + r"(?:Agreement|Letter|Plan|Certificate|Charter|Bylaws|Indenture|Note|Schedule|Statement|Articles|Act|Code|Regulations?)\b"
     + r"|(?:paragraph|Annex|Exhibit|Schedule|Appendix)\s)"
 )
+# "clause (ii) of subparagraph (a) above", "clause (B) of paragraph (b)(i)": the clause sits under a named
+# enumerator of the same section. Not when that enumerator belongs to something named after it ("of paragraph (a)
+# of Exhibit B", "of clause (a) thereof"): then the clause gets no nearest-scope tie-break either.
+_NAMED_ENUM = r"^\s*,?\s*(?:of|in|under)\s+(?:the\s+)?(?:sub-?)?(?:paragraph|clause|section)\s*((?:\([A-Za-z0-9]{1,6}\)\s?)++)"
+NAMED_ENUM = re.compile(_NAMED_ENUM)
+PARENT_ENUM = re.compile(_NAMED_ENUM + r"(?!\s*,?\s*(?:of|in|under|to|there(?:of|to|in|under))\b)")
 
 
 def _plain_tail(tail: str) -> bool:
@@ -1327,9 +1336,13 @@ THEREOF_AFTER = re.compile(r"^\s*(?:\([^()]*\)\s*)*,?\s*thereof\b")
 # "clauses (D), (E) and (J), of Section 8.2(b)", "clause (x) of the fourth sentence of Section 5.2",
 # "clause (A) in the proviso of Section 9.01(b)(i)", "clauses (i) through (vii) above of this Section 12.5(a)"
 _E = r"\([A-Za-z0-9]{1,6}\)"
+# The item repeat is possessive and holds no inner repeat: "clause (a) (b) (c) ... (k) are paid" failed after
+# exponential backtracking (each space between items could go to several \s). The rest starts "of" or "in", never
+# "(", so the items never need to give anything back. Each run of spaces is taken possessively by one \s*+, since
+# what follows it never starts with a space; three \s* in a row made a long run of spaces cubic.
 LATE_QUALIFIED = re.compile(
-    r"(?:\s*,?\s*(?:and/or|and|or|through|to|[\-–])?\s*(?:clauses?\s+|paragraphs?\s+)?" + _E + r"(?:\s?" + _E + r")*)*"
-    + r"\s*,?\s*(?:(?:above|below)\s+)?(?:in\s+each\s+case\s*,?\s*)?(?:of|in)\s+"
+    r"(?:\s*+(?:,\s*+)?(?:(?:and/or|and|or|through|to|[\-–])\s*+)?(?:clauses?\s+|paragraphs?\s+)?" + _E + r")*+"
+    + r"\s*+(?:,\s*+)?(?:(?:above|below)\s+)?(?:in\s+each\s+case\s*+(?:,\s*+)?)?(?:of|in)\s+"
     + r"(?:the\s+(?:(?:first|second|third|fourth|fifth|sixth|last|final|penultimate|preceding|introductory|lead-in)\s+)?"
     + r"(?:sentence|paragraph|proviso|provisos)\s+(?:of|in|to)\s+)?(?:this\s+)?[Ss]ection\s+"
     + r"((?:\d+|" + _ROMAN_NUM + r"(?=\.\d))[A-Z]?(?:\.\d+[A-Z]?)+(?:\([A-Za-z0-9]{1,6}\))*)"
@@ -1390,6 +1403,7 @@ class _Ref:
     tail: str = ""  # the text after the run (90 characters, stray items dropped), shared by its members
     self_marker: bool = False  # "this Section 6.3", "Section 6.3 hereof" (body only, rule 10)
     after: str = ""  # the text from the end of this item to 60 characters past the end of its run
+    parent_enum: str = ""  # "clause (ii) of subparagraph (a) above": "(a)", the paragraph that holds the clause
 
 
 def _section_range_end(base: str, hyphen: str, before: str) -> str | None:
@@ -1581,10 +1595,11 @@ def _find_refs(text: str, in_exhibit: bool, back: bool = False) -> list[_Ref]:
         ):
             for r in prev_run:
                 r.status = run[0].status
-        other_tail = CLAUSE_OF_OTHER.match(tail) is not None
+        pm = PARENT_ENUM.match(tail)
+        other_tail = CLAUSE_OF_OTHER.match(tail) is not None or (pm is None and NAMED_ENUM.match(tail) is not None)
         for r in run:
             r.other_tail = other_tail
-        for r in run:
+            r.parent_enum = re.sub(r"\s", "", pm.group(1)) if pm else ""
             r.tail, r.self_marker, r.after = tail, self_marker, text[r.end : pos + 60]
         run[0].lead = True
         run[0].this_before = THIS_BEFORE.search(before) is not None
@@ -1852,6 +1867,12 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
             if len(cands) == 1:
                 return "resolved", ol.subs[cands[0]].id, None
             if len(cands) > 1:
+                if ref.parent_enum:
+                    # the tail names the clause's parent: take that parent's clause, never the nearest one
+                    hits = [k for k in cands if k[: k.rfind("(")].endswith(ref.parent_enum)]
+                    if len(hits) == 1:
+                        return "resolved", ol.subs[hits[0]].id, None
+                    return "ambiguous", None, [ol.subs[k].id for k in cands]
                 if not ref.other_tail and (one := _nearest_scope(ol, tn, cur, cands)) is not None:
                     return "resolved", ol.subs[one].id, None
                 return "ambiguous", None, [ol.subs[k].id for k in cands]
@@ -2067,7 +2088,8 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
 
     back_segments = _back_segments(texts)
     body_text = " ".join(t.text for t in texts if t.region == "body")
-    uk_clauses = len(_CLAUSE_DOTTED.findall(body_text)) >= len(_SECTION_DOTTED.findall(body_text))
+    n_clauses = len(_CLAUSE_DOTTED.findall(body_text))
+    uk_clauses = n_clauses > 0 and n_clauses >= len(_SECTION_DOTTED.findall(body_text))  # a body with neither is not UK drafting
     nodes_by_id: dict[str, _Node] = {}
     stack = list(ol.roots)
     while stack:
@@ -2191,7 +2213,7 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
         "sections_positional": ol.positional_sections,
         "duplicate_section_numbers": sorted(k for k, v in ol.sections.items() if len(v) > 1),
         "subsections": len(ol.subs),
-        "attachments_located": len(ol.attachments),
+        "attachments_located": len({n.id for n in ol.attachments.values()}),  # aliases ("annex 2.02") are not nodes
     }
     return {
         "schema": PAYLOAD_SCHEMA,

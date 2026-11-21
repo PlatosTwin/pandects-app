@@ -674,6 +674,75 @@ class BareSectionToArticleTests(unittest.TestCase):
         self.assertEqual(got, [("resolved", "s2"), ("external", None)])
 
 
+class ReviewFixTests(unittest.TestCase):
+    """Fixes from the code review of enricher 0.10.0 (2026-11-20)."""
+
+    def _all(self, xml: str) -> list[tuple[str, str, str | None]]:
+        return [(r["text"], r["status"], r.get("target")) for r in build_reader_index(xml)["xrefs"]]
+
+    # F1: a long run of spaced enumerators made LATE_QUALIFIED backtrack exponentially
+    def test_spaced_enumerator_run_is_fast(self) -> None:
+        import time
+
+        items = " ".join(f"({i})" for i in range(1, 31))
+        xml = _doc(_section("s1", "Section 1.1 Payments", f"(a) the amounts in clause {items} are paid. See clause {items} of Section 1.1."))
+        t0 = time.perf_counter()
+        got = self._all(xml)
+        self.assertLess(time.perf_counter() - t0, 0.5)
+        self.assertEqual(got[0][:2], ("clause (1)", "unresolved"))
+        self.assertEqual(got[1], ("clause (1)", "section_fallback", "s1.1"))
+        # a long run of spaces after a clause was cubic (three \s* in a row)
+        t0 = time.perf_counter()
+        self._all(_doc(_section("s1", "Section 1.1 Payments", "(a) see clause (a)" + " " * 3000 + "x.")))
+        self.assertLess(time.perf_counter() - t0, 0.5)
+
+    # F2: a clause whose tail names its parent paragraph takes that paragraph's clause, not the nearest one
+    def test_clause_of_named_subparagraph_takes_that_parent(self) -> None:
+        def run(text: str) -> list[tuple[str, str, str | None]]:
+            return self._all(
+                _doc(_section("s51", "Section 5.1 Caps", "(a) caps:", "(i) one;", "(ii) two;", "(b) more:", "(i) three;", "(ii) four;", text))
+            )
+
+        for tail in ("subparagraph (a) above", "subsection (a)", "sub-clause (a)", "clause (a)", "paragraph (a)"):
+            self.assertEqual(run(f"(iii) the cap in clause (ii) of {tail} applies.")[0], ("clause (ii)", "resolved", "s5.1(a)(ii)"), tail)
+        # no unique (iii) under (c): as before the tie-break, ambiguous
+        self.assertEqual(run("(iii) the cap in clause (ii) of paragraph (c) applies.")[0][1], "ambiguous")
+        # the enumerator belongs to something named after it: no parent, no tie-break
+        self.assertEqual(run("(iii) the cap in clause (ii) of paragraph (a) of Exhibit B applies.")[0][1], "ambiguous")
+        self.assertEqual(run("(iii) the cap in clause (ii) of clause (a)(i) thereof applies.")[0][1], "ambiguous")
+        # no named parent: the nearest scope still applies
+        self.assertEqual(run("(iii) the cap in clause (ii) applies.")[0], ("clause (ii)", "resolved", "s5.1(b)(ii)"))
+
+    # F4: an alias key ("annex 2.02" for "Annex 2.02(a)") is not another located attachment
+    def test_attachments_located_counts_nodes_not_aliases(self) -> None:
+        back = "<text>ANNEX 2.02(a)</text><text>Purchased assets.</text><text>ANNEX 2.02(b)</text><text>Excluded assets.</text>"
+        p = build_reader_index(_doc(_section("s1", "Section 1.1 Refs", "See Annex 2.02."), back=back))
+        self.assertEqual(len([n for n in p["outline"] if n["kind"] == "attachment"]), 2)
+        self.assertEqual(p["stats"]["attachments_located"], 2)
+
+    # F3: a section numbered by position says so; a printed one does not carry the field at all
+    def test_inferred_numbers_are_marked(self) -> None:
+        xml = _doc(
+            _article("a1", "ARTICLE I A", _section("s1", "Section 1.1 A", "x") + _section("s2", "B.", "y") + _section("s3", "Section 1.3 C", "z"))
+            + _article("a2", "ARTICLE II B", _section("s4", "Section 2.1 A", "x") + _section("s5", "Closing.", "y") + _section("s6", "Section 2.3 C", "z"))
+        )
+        p = build_reader_index(xml)
+        secs = _sections_by_id(p)
+        self.assertEqual({k: v.get("inferred") for k, v in secs.items()}, {"s1.1": None, "s1.2": True, "s1.3": None, "s2.1": None, "s2.2": True, "s2.3": None})
+        self.assertNotIn("inferred", p["outline"][0])
+        self.assertNotIn("inferred", build_reader_index(BASIC)["outline"][1]["children"][0])
+
+    # F6: a body with no "clause N.M" (and no "Section N.M") is not UK drafting
+    def test_body_without_dotted_clauses_is_not_uk_drafting(self) -> None:
+        back = "<text>SCHEDULE 4</text><text>LIMITATIONS</text><text>1.1 The Warranties are given under clause 9.2.</text><text>2.1 Limits.</text>"
+        body = _article("c9", "9 WARRANTIES", _section("s92", "9.2 Limits", "x"))
+        x = _xrefs(build_reader_index(_doc(body, back=back)))
+        self.assertEqual((x["clause 9.2"]["status"], x["clause 9.2"].get("target")), ("unresolved", None))
+        body = _article("c9", "9 WARRANTIES", _section("s92", "9.2 Limits", "x, subject to clause 9.1."))
+        x = _xrefs(build_reader_index(_doc(body, back=back)))
+        self.assertEqual(x["clause 9.2"]["target"], "s9.2")
+
+
 class StatusAndTargetRuleTests(unittest.TestCase):
     """Enricher 0.10.0 rules on statuses and targets (reader_090 census, PROPOSALS.md rules 3, 5, 8-12)."""
 
@@ -2130,7 +2199,7 @@ class BackMatterSegmentTests(unittest.TestCase):
         self.assertEqual(x["Exhibit A"]["status"], "unresolved")
 
     # Rule 7: a UK "clause 9.2" inside a Schedule is the agreement's clause
-    UK = _article("c9", "9 WARRANTIES", _section("s92", "9.2 Limits", "x"))
+    UK = _article("c9", "9 WARRANTIES", _section("s92", "9.2 Limits", "x, subject to clause 9.1."))
 
     def test_uk_clause_in_a_schedule_resolves(self) -> None:
         back = _back(
