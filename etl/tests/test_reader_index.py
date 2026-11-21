@@ -1877,6 +1877,8 @@ class RoundTwoLeadRuleTests(unittest.TestCase):
             main=main,
         )
         self.assertEqual(refs[:2], [("Sections 7.16", "resolved", "s7.16"), ("17", "resolved", "s7.17")])
+        items = self._all("The Persons set forth in Section 1.1-5 of the Disclosure Schedule and Section 4.1-2 to the Disclosure Letter.", main=main)
+        self.assertEqual([t for t, _, _ in items], ["Section 1.1-5", "Section 4.1-2"])  # one schedule item each
         texts = [t for t, _, _ in refs]
         for t in ("Section 7.16-17", "Section 1.368-2(g)", "Schedule 1.1-2", "Section 54.4980B-9", "Section 7.16-07"):
             self.assertIn(t, texts)

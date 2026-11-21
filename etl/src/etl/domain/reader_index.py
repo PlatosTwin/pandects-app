@@ -1434,9 +1434,11 @@ def _find_refs(text: str, in_exhibit: bool, back: bool = False) -> list[_Ref]:
             # The whole number fits no section, so it stays unresolved unless its tail makes it external.
             if run and re.fullmatch(r"\d+[A-Z]?(?:\.\d+[A-Z]?)+", run[-1].target) and (rm := REG_HYPHEN.match(text, pos)):
                 last = run[-1]
-                if head == "section" and (end := _section_range_end(last.target, rm.group(0), text[max(0, hm.start() - 40) : hm.start()])):
+                end = _section_range_end(last.target, rm.group(0), text[max(0, hm.start() - 40) : hm.start()]) if head == "section" else None
+                stop = rm.start() + 1 + len(end.split(".")[1]) if end else 0
+                # "Section 1.1-5 of the Disclosure Schedule" is one schedule item, numbered "1.1-5"
+                if end and not DISCLOSURE.match(LEFTOVER_ITEMS.sub("", text[stop : stop + 90], count=1)):
                     # L8: "Sections 7.16-17 (Taxes)" is a range, 7.16 through 7.17; the second member prints only "17"
-                    stop = rm.start() + 1 + len(end.split(".")[1])
                     run.append(_Ref(head, end, rm.start() + 1, stop, stop))
                     pos = stop
                     continue
