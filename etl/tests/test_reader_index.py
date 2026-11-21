@@ -713,6 +713,13 @@ class ReviewFixTests(unittest.TestCase):
         # no named parent: the nearest scope still applies
         self.assertEqual(run("(iii) the cap in clause (ii) applies.")[0], ("clause (ii)", "resolved", "s5.1(b)(ii)"))
 
+    # F4: an alias key ("annex 2.02" for "Annex 2.02(a)") is not another located attachment
+    def test_attachments_located_counts_nodes_not_aliases(self) -> None:
+        back = "<text>ANNEX 2.02(a)</text><text>Purchased assets.</text><text>ANNEX 2.02(b)</text><text>Excluded assets.</text>"
+        p = build_reader_index(_doc(_section("s1", "Section 1.1 Refs", "See Annex 2.02."), back=back))
+        self.assertEqual(len([n for n in p["outline"] if n["kind"] == "attachment"]), 2)
+        self.assertEqual(p["stats"]["attachments_located"], 2)
+
 
 class StatusAndTargetRuleTests(unittest.TestCase):
     """Enricher 0.10.0 rules on statuses and targets (reader_090 census, PROPOSALS.md rules 3, 5, 8-12)."""

@@ -2084,7 +2084,7 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
         "sections_positional": ol.positional_sections,
         "duplicate_section_numbers": sorted(k for k, v in ol.sections.items() if len(v) > 1),
         "subsections": len(ol.subs),
-        "attachments_located": len(ol.attachments),
+        "attachments_located": len({n.id for n in ol.attachments.values()}),  # aliases ("annex 2.02") are not nodes
     }
     return {
         "schema": PAYLOAD_SCHEMA,
