@@ -37,8 +37,8 @@ unreleased:
 
     Main agreement text. The body is the main agreement text, including its front matter. Each
     reference has a status: resolved (it links to a place in the outline, the list of
-    articles, sections and paragraphs), section_fallback (it links to the section because the
-    exact clause has no place), unresolved (it seems to cite this agreement, but no place was
+    articles, sections and paragraphs), section_fallback (the exact clause has no place, so it links
+    to the section or to the nearest paragraph that has one), unresolved (it seems to cite this agreement, but no place was
     found) or ambiguous (more than one place fits). The body holds 3,940,063 references.
     2,488,783 have a link (2,392,604 resolved, 96,179 section_fallback), against 2,460,349 at
     0.9.0, and 270,352 are unresolved or ambiguous, against 340,524. Against 0.9.0, 188,752
