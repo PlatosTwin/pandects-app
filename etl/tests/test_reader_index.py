@@ -798,6 +798,36 @@ class BodyClauseGuardTests(unittest.TestCase):
         self.assertEqual([x[1] for x in self._all(xml)], ["unresolved", "unresolved"])
 
 
+class SecondReviewFixTests(unittest.TestCase):
+    """Fixes from the second code review of enricher 0.10.0 (2026-11-21)."""
+
+    def _all(self, xml: str) -> list[tuple[str, str, str | None]]:
+        return [(r["text"], r["status"], r.get("target")) for r in build_reader_index(xml)["xrefs"]]
+
+    # R1: a qualified clause whose section lists its own items in the lead-in stays at section level
+    def test_qualified_clause_of_lead_in_item(self) -> None:
+        xml = _doc(
+            _section(
+                "s64",
+                "Section 6.4 Filings",
+                "Parent shall (i) file the forms and (ii) pay the fees, subject to the following:",
+                "(a) Filings.",
+                "(b) Fees.",
+                "(c) Expenses:",
+                "(i) costs.",
+            )
+            + _section("s71", "Section 7.1 Conditions", "the filing under clause (i) of Section 6.4 is made.")
+        )
+        self.assertEqual(self._all(xml), [("clause (i)", "section_fallback", "s6.4"), ("Section 6.4", "resolved", "s6.4")])
+
+    def test_qualified_clause_deep_lookup_still_links(self) -> None:
+        xml = _doc(
+            _section("s64", "Section 6.4 Filings", "Parent shall file the forms:", "(a) Filings.", "(i) costs.", "(b) Fees.")
+            + _section("s71", "Section 7.1 Conditions", "the filing under clause (i) of Section 6.4 is made.")
+        )
+        self.assertEqual(self._all(xml), [("clause (i)", "resolved", "s6.4(a)(i)"), ("Section 6.4", "resolved", "s6.4")])
+
+
 class ReviewFixTests(unittest.TestCase):
     """Fixes from the code review of enricher 0.10.0 (2026-11-20)."""
 

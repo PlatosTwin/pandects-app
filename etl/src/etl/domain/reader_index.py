@@ -292,6 +292,8 @@ class _Outline:
     self_cited_articles: bool = False
     # container -> (ordinal, depth, key) of its paragraph nodes, built on first use (_nearest_scope)
     para_index: dict[str, list[tuple[int, int, str]]] | None = None
+    # R1: section uuid -> the section's own text before its first paragraph node ("Parent shall (i) file ... and (ii) pay")
+    lead_text: dict[str, str] = field(default_factory=dict)
     ids: set[str] = field(default_factory=set)
     unnumbered_sections: int = 0
     positional_sections: int = 0  # sections numbered by position (_positional_numbers)
@@ -612,8 +614,13 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
         ol.sections.setdefault(num, []).append(node)
         if len(ol.sections[num]) > 1:
             return  # duplicate number after a bad parse: no subsection targets either
+        n0 = len(ol.subs)
         add_subs(sec, num, uuid, node)
-        printed = {num: label} | {k: v for k, v in ol.para_labels.items() if k.startswith(num + ".")}
+        first = min((n.anchor["t"] for n in list(ol.subs.values())[n0:] if "t" in n.anchor), default=None)
+        lead = [tn.text for t_el in sec.iter("text") if (tn := by_el.get(t_el)) is not None and (first is None or tn.t < first)]
+        if lead:
+            ol.lead_text[uuid] = " ".join(lead)
+        printed ={num: label} | {k: v for k, v in ol.para_labels.items() if k.startswith(num + ".")}
         if any(k != v for k, v in printed.items()):
             prefixes = sorted(printed, key=len, reverse=True)
             relabel = list(node.children)
@@ -1891,6 +1898,9 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
             # in this Section 2.6"), or the printed section goes on past the part read ("Section 6.01.(a)",
             # "Section 8.4 (b) (i)"): 2 of 30 such links in the first corpus read went to the wrong paragraph
             inline = tn.section_key == base and tn.text.count(subs) >= 2
+            # R1: "clause (i) of Section 6.4" where 6.4 opens "Parent shall (i) file ... and (ii) pay": the lead-in's
+            # own item, not the one paragraph deeper down that ends in "(i)"
+            inline = inline or subs in ol.lead_text.get(nodes[0].anchor.get("s", ""), "")
             if re.fullmatch(r"\([A-Za-z0-9]+\)", subs) and not inline and not _QUALIFIER_GOES_ON.match(ref.tail):
                 deep = [k for k in ol.subs if k.startswith(base + "(") and k.endswith(subs) and k not in ol.groups]
                 if len(deep) == 1:
