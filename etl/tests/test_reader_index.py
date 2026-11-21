@@ -674,6 +674,29 @@ class BareSectionToArticleTests(unittest.TestCase):
         self.assertEqual(got, [("resolved", "s2"), ("external", None)])
 
 
+class ReviewFixTests(unittest.TestCase):
+    """Fixes from the code review of enricher 0.10.0 (2026-11-20)."""
+
+    def _all(self, xml: str) -> list[tuple[str, str, str | None]]:
+        return [(r["text"], r["status"], r.get("target")) for r in build_reader_index(xml)["xrefs"]]
+
+    # F1: a long run of spaced enumerators made LATE_QUALIFIED backtrack exponentially
+    def test_spaced_enumerator_run_is_fast(self) -> None:
+        import time
+
+        items = " ".join(f"({i})" for i in range(1, 31))
+        xml = _doc(_section("s1", "Section 1.1 Payments", f"(a) the amounts in clause {items} are paid. See clause {items} of Section 1.1."))
+        t0 = time.perf_counter()
+        got = self._all(xml)
+        self.assertLess(time.perf_counter() - t0, 0.5)
+        self.assertEqual(got[0][:2], ("clause (1)", "unresolved"))
+        self.assertEqual(got[1], ("clause (1)", "section_fallback", "s1.1"))
+        # a long run of spaces after a clause was cubic (three \s* in a row)
+        t0 = time.perf_counter()
+        self._all(_doc(_section("s1", "Section 1.1 Payments", "(a) see clause (a)" + " " * 3000 + "x.")))
+        self.assertLess(time.perf_counter() - t0, 0.5)
+
+
 class StatusAndTargetRuleTests(unittest.TestCase):
     """Enricher 0.10.0 rules on statuses and targets (reader_090 census, PROPOSALS.md rules 3, 5, 8-12)."""
 

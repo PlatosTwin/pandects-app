@@ -1312,9 +1312,13 @@ THEREOF_AFTER = re.compile(r"^\s*(?:\([^()]*\)\s*)*,?\s*thereof\b")
 # "clauses (D), (E) and (J), of Section 8.2(b)", "clause (x) of the fourth sentence of Section 5.2",
 # "clause (A) in the proviso of Section 9.01(b)(i)", "clauses (i) through (vii) above of this Section 12.5(a)"
 _E = r"\([A-Za-z0-9]{1,6}\)"
+# The item repeat is possessive and holds no inner repeat: "clause (a) (b) (c) ... (k) are paid" failed after
+# exponential backtracking (each space between items could go to several \s). The rest starts "of" or "in", never
+# "(", so the items never need to give anything back. Each run of spaces is taken possessively by one \s*+, since
+# what follows it never starts with a space; three \s* in a row made a long run of spaces cubic.
 LATE_QUALIFIED = re.compile(
-    r"(?:\s*,?\s*(?:and/or|and|or|through|to|[\-–])?\s*(?:clauses?\s+|paragraphs?\s+)?" + _E + r"(?:\s?" + _E + r")*)*"
-    + r"\s*,?\s*(?:(?:above|below)\s+)?(?:in\s+each\s+case\s*,?\s*)?(?:of|in)\s+"
+    r"(?:\s*+(?:,\s*+)?(?:(?:and/or|and|or|through|to|[\-–])\s*+)?(?:clauses?\s+|paragraphs?\s+)?" + _E + r")*+"
+    + r"\s*+(?:,\s*+)?(?:(?:above|below)\s+)?(?:in\s+each\s+case\s*+(?:,\s*+)?)?(?:of|in)\s+"
     + r"(?:the\s+(?:(?:first|second|third|fourth|fifth|sixth|last|final|penultimate|preceding|introductory|lead-in)\s+)?"
     + r"(?:sentence|paragraph|proviso|provisos)\s+(?:of|in|to)\s+)?(?:this\s+)?[Ss]ection\s+"
     + r"((?:\d+|" + _ROMAN_NUM + r"(?=\.\d))[A-Z]?(?:\.\d+[A-Z]?)+(?:\([A-Za-z0-9]{1,6}\))*)"
