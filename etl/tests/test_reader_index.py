@@ -726,6 +726,50 @@ class BodyClauseGuardTests(unittest.TestCase):
         xml = _doc(_section("s31", "Section 3.1 Assets", "(a) inventory;", "(b) equipment and the items in this clause (b);"))
         self.assertEqual(self._all(xml), [("clause (b)", "resolved", "s3.1(b)")])
 
+    # T1 (third review): B3 keeps the inline reading for a sentence or "such" tail, an inline lead-in list, and a
+    # spaced item that opens an inline list
+    def test_t1_sentence_tail_and_lead_in_list_stay_inline(self) -> None:
+        xml = _doc(
+            _section(
+                "s51",
+                "Section 5.1 Covenants",
+                "The Company shall not (a) sell assets or (b) incur debt, except as set forth below.",
+                "(a) Exceptions for assets.",
+                "(b) The restriction in clause (a) of the first sentence of this Section and clause (a) above do not apply to Parent.",
+            )
+        )
+        self.assertEqual([x[1] for x in self._all(xml)], ["unresolved", "unresolved"])
+
+    def test_t1_preceding_sentence_and_such_letter_stay_inline(self) -> None:
+        xml = _doc(
+            _section("s51", "Section 5.1 Covenants", "(a) Exceptions for assets.", "(b) Other.", "(c) Nothing in clause (a) of the preceding sentence or clause (a) of such letter applies.")
+        )
+        self.assertEqual([x[1] for x in self._all(xml)], ["unresolved", "unresolved"])
+
+    def test_t1_spaced_item_after_section_opens_inline_list(self) -> None:
+        xml = _doc(
+            _section("s42", "Section 4.2 X", "y")
+            + _section(
+                "s51",
+                "Section 5.1 Covenants",
+                "(a) Exceptions for assets.",
+                "(b) Subject to Section 4.2 (a) the Company shall do X and (b) Parent shall do Y, and clause (a) shall survive.",
+            )
+        )
+        self.assertEqual(self._all(xml)[1][:2], ("clause (a)", "unresolved"))
+
+    def test_t1_qualified_clause_is_not_a_spaced_item(self) -> None:
+        # "clause (a) of this Section 6.3" is a reference, not an inline "(a)": the later "clause (a)" still links
+        xml = _doc(
+            _section(
+                "s63",
+                "Section 6.3 Covenants",
+                "(a) enter into any new terminaling Contract;",
+                "(b) other than a Contract of the type contemplated by clause (a) of this Section 6.3, as to which the provisions of clause (a) shall apply.",
+            )
+        )
+        self.assertEqual(self._all(xml)[-1], ("clause (a)", "resolved", "s6.3(a)"))
+
     def test_relaxed_link_to_another_paragraph_stays(self) -> None:
         # "(a)" printed twice as a reference inside paragraph (b): B3 lifts the old count and links paragraph (a)
         xml = _doc(_section("s31", "Section 3.1 Assets", "(a) inventory;", "(b) equipment, other than items in clause (a), and subject to clause (a) above;"))
@@ -860,6 +904,15 @@ class SecondReviewFixTests(unittest.TestCase):
             + _section("s71", "Section 7.1 Conditions", "the filing under clause (i) of Section 6.4 is made.")
         )
         self.assertEqual(self._all(xml), [("clause (i)", "resolved", "s6.4(a)(i)"), ("Section 6.4", "resolved", "s6.4")])
+
+    # T2: a reference inside the lead-in ("Subject to Section 6.4(i)") is not a lead-in item
+    def test_qualified_clause_lead_in_reference_is_not_an_item(self) -> None:
+        xml = _doc(
+            _section("s64", "Section 6.4 A", "(i) q")
+            + _section("s65", "Section 6.5 B", "Subject to Section 6.4(i), Parent shall:", "(a) x.", "(b) y:", "(i) z.")
+            + _section("s71", "Section 7.1 C", "the filing under clause (i) of Section 6.5 is made.")
+        )
+        self.assertEqual(self._all(xml)[1], ("clause (i)", "resolved", "s6.5(b)(i)"))
 
     # R2: paragraph nodes under an inferred section are inferred too; printed outlines do not change
     def test_inferred_section_marks_its_paragraphs(self) -> None:
