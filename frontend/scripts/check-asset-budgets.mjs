@@ -11,10 +11,11 @@ export const CSS_BUDGET_BYTES = 125_000;
 export function findEntryAssets(html) {
   // External URLs (for example Google Fonts) are not build output; skip them.
   const isLocal = (url) => url && !/^[a-z][a-z0-9+.-]*:|^\/\//i.test(url);
-  // Ignore tags that sit inside HTML comments.
-  const tags =
-    html.replace(/<!--[\s\S]*?-->/g, "").match(/<(?:script|link)\b[^>]*>/gi) ??
-    [];
+  // One pass finds comments and tags in order. A tag inside a comment is part
+  // of the comment match, so it is never returned; we then drop the comments.
+  const tags = (
+    html.match(/<!--[\s\S]*?-->|<(?:script|link)\b[^>]*>/gi) ?? []
+  ).filter((match) => !match.startsWith("<!--"));
   let js = null;
   let css = null;
   for (const tag of tags) {
