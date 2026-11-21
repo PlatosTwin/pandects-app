@@ -5,7 +5,7 @@ import { decodeXmlEntities } from "@/lib/text-utils";
 import { logger } from "@/lib/logger";
 import { prefersReducedMotion } from "@/lib/scroll";
 import { TOCItem } from "@shared/agreement";
-import { INFERRED_NUMBER_NOTE, type ReaderOutlineNode } from "@/lib/reader-index";
+import { inferredNumberNote, type ReaderOutlineNode } from "@/lib/reader-index";
 
 interface TableOfContentsProps {
   xmlContent: string;
@@ -257,7 +257,8 @@ export function TableOfContents({
                 type="button"
                 className="w-full truncate rounded-md px-2 py-1 text-left text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 onClick={() => onSubsectionClick?.(sub.id)}
-                title={markInferred ? INFERRED_NUMBER_NOTE : title}
+                title={markInferred ? inferredNumberNote(sub.label) : title}
+                aria-label={markInferred ? `${sub.label}, number not printed in the filing` : undefined}
               >
                 {title || (markInferred ? `[${sub.label}]` : sub.label)}
               </button>

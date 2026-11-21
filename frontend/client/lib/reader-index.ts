@@ -131,11 +131,13 @@ function indexOutline(nodes: ReaderOutlineNode[], overlay: ReaderOverlay, parent
 }
 
 /**
- * Shown with an outline number the filing does not print (`inferred`). Older
+ * Shown with an outline number the filing does not print (`inferred`). It names
+ * the number, because the heading may print a wrong one of its own. Older
  * payloads lack the field, so nothing is shown for them.
  */
-export const INFERRED_NUMBER_NOTE =
-  "The filed text does not print this number. It comes from the agreement's own references and section order.";
+export function inferredNumberNote(label: string): string {
+  return `The filed text does not print the number ${label}. It comes from the agreement's own references and section order.`;
+}
 
 /** Statuses whose `target` is a place in this agreement the reader can jump to. */
 export function isLinkedXref(xref: ReaderXref): boolean {
@@ -286,8 +288,12 @@ const SPELLED_NUMBERS = (
 ).split(" ");
 // Longest first, so "SEVENTEEN" is not read as "SEVEN".
 const SPELLED_ALTERNATION = [...SPELLED_NUMBERS].sort((a, b) => b.length - a.length).join("|");
+// "TWENTY-ONE" and "Twenty One" are not article 20: a spelled number followed
+// by a hyphen or another number word is not read at all.
+const NUMBER_WORDS = `${SPELLED_ALTERNATION}|thirty|forty|fifty|hundred`;
+const SPELLED_ARTICLE_NUMBER = `(?:${SPELLED_ALTERNATION})(?![-\\u2010\\u2011]|\\s+(?:${NUMBER_WORDS})\\b)`;
 const TOC_ARTICLE_RE = new RegExp(
-  `^ARTICLE\\s+([IVXLCDM]+|\\d+|${SPELLED_ALTERNATION})\\b[\\s.:\\u2013\\u2014-]*`,
+  `^ARTICLE\\s+([IVXLCDM]+|\\d+|${SPELLED_ARTICLE_NUMBER})\\b[\\s.:\\u2013\\u2014-]*`,
   "i",
 );
 // The number must be whole: "2.1A" and "10.1(a)" are not Section 2 or 10, so

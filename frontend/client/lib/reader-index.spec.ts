@@ -206,6 +206,20 @@ describe("printed table of contents entries", () => {
     expect(tocEntryOutlineId(overlay, "Article Five Covenants")).toBe("a5");
   });
 
+  it("does not read a compound spelled number as its first word", () => {
+    const twenty = overlayOf([
+      node("article", "a20", "TWENTY", "ARTICLE TWENTY MISCELLANEOUS"),
+      node("article", "a1", "ONE", "ARTICLE ONE DEFINITIONS"),
+    ]);
+    expect(tocEntryOutlineId(twenty, "ARTICLE TWENTY-ONE MISCELLANEOUS")).toBeNull();
+    expect(tocEntryOutlineId(twenty, "Article Twenty One Miscellaneous")).toBeNull();
+    expect(tocEntryOutlineId(twenty, "ARTICLE TWENTY\u2011ONE MISCELLANEOUS")).toBeNull();
+    expect(tocEntryOutlineId(twenty, "Article One Hundred Definitions")).toBeNull();
+    // The single words still link.
+    expect(tocEntryOutlineId(twenty, "ARTICLE TWENTY Miscellaneous")).toBe("a20");
+    expect(tocEntryOutlineId(twenty, "ARTICLE ONE - DEFINITIONS")).toBe("a1");
+  });
+
   it("reads Roman, spelled and zero-padded labels as one number", () => {
     expect(normalizeOutlineLabel("IV")).toBe("4");
     expect(normalizeOutlineLabel("FOUR")).toBe("4");
