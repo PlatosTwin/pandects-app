@@ -1403,6 +1403,7 @@ class _Ref:
     self_marker: bool = False  # "this Section 6.3", "Section 6.3 hereof" (body only, rule 10)
     after: str = ""  # the text from the end of this item to 60 characters past the end of its run
     parent_enum: str = ""  # "clause (ii) of subparagraph (a) above": "(a)", the paragraph that holds the clause
+    own_para: bool = False  # B1: "this clause (b)" resolved to the paragraph that holds it
 
 
 def _section_range_end(base: str, hyphen: str, before: str) -> str | None:
@@ -1623,9 +1624,8 @@ def _section_style_article(ol: _Outline, key: str) -> bool:
     return key in ol.flat_articles or not any(_ARTICLE_WORD.match(a.title) for a in ol.articles[key])
 
 
-def _nearest_scope(ol: _Outline, tn: _Text, cur: str, cands: list[str]) -> str | None:
-    """"clause (ii)" with several (ii) in the section: the one whose parent is the paragraph that holds the
-    reference, or one of that paragraph's ancestors. None unless exactly one candidate is left."""
+def _para_index(ol: _Outline) -> dict[str, list[tuple[int, int, str]]]:
+    """Section uuid -> (paragraph ordinal, depth, key) of its paragraph nodes, sorted; built on first use."""
     if ol.para_index is None:
         ol.para_index = {}
         for key, node in ol.subs.items():
@@ -1633,7 +1633,25 @@ def _nearest_scope(ol: _Outline, tn: _Text, cur: str, cands: list[str]) -> str |
                 ol.para_index.setdefault(node.anchor["s"], []).append((node.anchor["t"], key.count("("), key))
         for v in ol.para_index.values():
             v.sort()
-    here = [key for t, _, key in ol.para_index.get(tn.s, []) if t <= tn.t]
+    return ol.para_index
+
+
+def _own_paragraph(ref: _Ref, ol: _Outline, tn: _Text, t: str) -> _Node | None:
+    """B1: "this clause (b)" inside a paragraph that opens with "(b)": the node anchored at that paragraph whose key
+    ends in "(b)". None unless the paragraph's own leading enumerators include the item and exactly one node fits."""
+    if not ref.lead or not ref.this_before or not re.fullmatch(r"\([A-Za-z0-9]{1,6}\)", t):
+        return None
+    pm = ENUM_PREFIX.match(tn.text)
+    if pm is None or t[1:-1] not in ENUM_TOKEN.findall(pm.group(1)):
+        return None
+    keys = [key for pt, _, key in _para_index(ol).get(tn.s, []) if pt == tn.t and key.endswith(t) and key not in ol.groups]
+    return ol.subs[keys[0]] if len(keys) == 1 else None
+
+
+def _nearest_scope(ol: _Outline, tn: _Text, cur: str, cands: list[str]) -> str | None:
+    """"clause (ii)" with several (ii) in the section: the one whose parent is the paragraph that holds the
+    reference, or one of that paragraph's ancestors. None unless exactly one candidate is left."""
+    here = [key for t, _, key in _para_index(ol).get(tn.s, []) if t <= tn.t]
     chain = {cur}
     k = here[-1] if here else ""
     while k:
@@ -1856,6 +1874,11 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
         return "unlocated_attachment", None, None
     if ref.head in ("clause", "paragraph"):
         cur = tn.section_key
+        if (own := _own_paragraph(ref, ol, tn, t)) is not None:
+            # B1: "all personal property described in this clause (b)" inside paragraph (b): its own leading "(b)"
+            # made the count below call it an inline item
+            ref.own_para = True
+            return "resolved", own.id, None
         if t.startswith("(") and tn.text.count(t) >= 2:
             # "clauses (i) and (iii) through (v)" inside a paragraph that enumerates (i)...(v)
             # itself, typical of definitions: the items are inline, not subsections
@@ -2175,7 +2198,7 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
                 # "clause 2.1 above"; and only when the agreement itself cites "clause N.M" at least as often as "Section N.M"
                 r.status = r.detail = ""
             status, target, cands = _resolve(r, ol, tn, sec_text)
-            if status == "resolved" and r.head in ("clause", "paragraph") and r.target.startswith("(") and tn.s in definition_containers:
+            if status == "resolved" and r.head in ("clause", "paragraph") and r.target.startswith("(") and tn.s in definition_containers and not r.own_para:
                 status, target, r.detail = "unresolved", None, "inline"
             # a relative "(b)" or a qualified "clause (ii)" has no printed number of its own: keep its span
             end = r.base_end if status == "section_fallback" and not (r.qualified or r.relative) else r.end

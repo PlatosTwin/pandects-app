@@ -674,6 +674,55 @@ class BareSectionToArticleTests(unittest.TestCase):
         self.assertEqual(got, [("resolved", "s2"), ("external", None)])
 
 
+class BodyClauseGuardTests(unittest.TestCase):
+    """Body clause references that the inline and definitions guards left unlinked (2026-11-21 blind sample)."""
+
+    def _all(self, xml: str) -> list[tuple[str, str, str | None]]:
+        return [(r["text"], r["status"], r.get("target")) for r in build_reader_index(xml)["xrefs"]]
+
+    # B1: "this clause (b)" inside paragraph (b) is that paragraph, not an inline item
+    def test_this_clause_links_own_paragraph(self) -> None:
+        xml = _doc(
+            _section(
+                "s31",
+                "Section 3.1 Purchased Assets",
+                "(a) all inventory;",
+                "(b) all equipment, and all personal property described in this clause (b) is transferred;",
+                "(c) all contracts.",
+            )
+        )
+        self.assertEqual(self._all(xml), [("clause (b)", "resolved", "s3.1(b)")])
+
+    def test_this_clause_in_nested_paragraph(self) -> None:
+        xml = _doc(
+            _section(
+                "s51",
+                "Section 5.1 Covenants",
+                "(a) General.",
+                "(b)(i) the Company shall not, subject to the last sentence of this clause (i), sell assets;",
+                "(ii) other items.",
+            )
+        )
+        self.assertEqual(self._all(xml), [("clause (i)", "resolved", "s5.1(b)(i)")])
+
+    def test_this_clause_needs_own_leading_item(self) -> None:
+        # "this clause (c)" inside paragraph (b): not the paragraph's own number, so the inline reading stays
+        xml = _doc(
+            _section(
+                "s31",
+                "Section 3.1 Assets",
+                "(a) inventory;",
+                "(b) equipment (c) and the items in this clause (c) and (c) again;",
+                "(c) contracts.",
+            )
+        )
+        self.assertEqual(self._all(xml)[0][:2], ("clause (c)", "unresolved"))
+
+    def test_bare_clause_without_this_is_unchanged(self) -> None:
+        xml = _doc(_section("s31", "Section 3.1 Assets", "(a) inventory;", "(b) equipment and the items in clause (b);"))
+        self.assertEqual(self._all(xml)[0][:2], ("clause (b)", "unresolved"))
+
+
 class ReviewFixTests(unittest.TestCase):
     """Fixes from the code review of enricher 0.10.0 (2026-11-20)."""
 
