@@ -74,7 +74,7 @@ unreleased:
     Statement", "Schedule of Exceptions" and a possessive name ("Seller's Disclosure
     Schedule") now count as a disclosure schedule. The parser no longer lists fragments of one
     citation as separate references: "Section 1.1502-6(a)" is one reference, and "D&O" or
-    "U.S." is a name. The body has 41,473 fewer references for this reason.
+    "U.S." is a name. 41,473 body references of 0.9.0 are gone, nearly all for this reason.
 
     Attached material. Back matter is the text after the body: exhibits, annexes, schedules,
     glossaries and indexes. The headings and contents lines of attached forms ("Section 9.1
