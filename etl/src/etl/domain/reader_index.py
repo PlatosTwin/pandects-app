@@ -285,7 +285,11 @@ class _Outline:
     # (container, ordinal) of paragraphs that became dotted subsection nodes ("5.16.1 ...")
     numbered_paras: set[tuple[str, int]] = field(default_factory=set)
     attachments: dict[str, _Node] = field(default_factory=dict)  # "exhibit a" -> node
+    # attachment node id -> the content words of its title ("EXHIBIT L" + "Form of Stockholder Representation Letter")
+    attachment_words: dict[str, set[str]] = field(default_factory=dict)
+    attachment_titles: dict[str, str] = field(default_factory=dict)  # the same title lines as text (_ENTITY_NAME)
     groups: set[str] = field(default_factory=set)  # lettered group keys: "8.1(A)"
+    dup_subs: set[str] = field(default_factory=set)  # paragraph keys printed as their own paragraph twice (D1)
     roman_sections: bool = False  # most sections are numbered "VIII.2" (_roman_scheme): "Section VIII.2(e)" resolves
     para_labels: dict[str, str] = field(default_factory=dict)  # "8.2.1" -> printed "VIII.2.1"
     # the body writes "this Section 8" inside "ARTICLE VIII": its bare "Section N" can mean article N (_self_cites_article)
@@ -656,7 +660,9 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
                 foreign = not key.startswith(num + ".")
                 if foreign:
                     continue
-                if key not in ol.subs:
+                if key in ol.subs:
+                    ol.dup_subs.add(key)
+                else:
                     sub = _Node(ol.unique_id(f"s{key}"), "sub", key, txt.strip()[:80], {"s": uuid, "t": tn.t})
                     ol.subs[key] = sub
                     node.children.append(sub)
@@ -670,7 +676,9 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
             gm = GROUP_PARA.match(txt) if groups and base == num else None
             if gm:
                 key = f"{num}({gm.group(1)})"
-                if key not in ol.subs:
+                if key in ol.subs:
+                    ol.dup_subs.add(key)
+                else:
                     sub = _Node(ol.unique_id(f"s{key}"), "sub", key, txt.strip()[:80], {"s": uuid, "t": tn.t})
                     ol.subs[key] = sub
                     node.children.append(sub)
@@ -694,10 +702,12 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
             kinds = _classify_tokens(tokens, stack[g:])
             level = next((i for i, (k, _) in enumerate(stack) if i >= g and k == kinds[0]), len(stack))
             stack = stack[:level]
-            for k, tok in zip(kinds, tokens):
+            for i, (k, tok) in enumerate(zip(kinds, tokens)):
                 stack.append((k, tok))
                 key = base + "".join(f"({tk})" for _, tk in stack)
                 if key in ol.subs:
+                    if i == len(tokens) - 1:  # this paragraph's own number again ("(e)" twice), not "(a)(i)" after "(a)"
+                        ol.dup_subs.add(key)
                     continue
                 parent_key = key[: key.rfind("(")]
                 parent_node = ol.subs.get(parent_key, node)
@@ -752,12 +762,18 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
 
     back = root.find("backMatter")
     if back is not None:
+        titled: _Node | None = None  # the last attachment heading, while its title may go on in the next text
         for t_el in back.iter("text"):
             tn = by_el.get(t_el)
             if tn is None:
                 continue
             txt = tn.text.strip()
             m = ATTACHMENT_HEADING.match(txt)
+            if titled is not None:
+                if not m and len(txt) < 120 and _title_line(txt):  # "EXHIBIT C" then "FORM OF TAX CERTIFICATES"
+                    ol.attachment_words[titled.id] |= _content_words(txt)
+                    ol.attachment_titles[titled.id] = ol.attachment_titles.get(titled.id, "") + "\n" + txt
+                titled = None
             if not m or len(txt) >= 120:
                 continue
             num = m.group(2).lower().rstrip(".")
@@ -767,12 +783,18 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
             em = ATTACHMENT_ENUMS.match(txt, m.end(2)) if not m.group(2).endswith(".") else None
             enums = em.group(0) if em else ""
             full = key + enums.lower()
-            if full in ol.attachments:
+            if full in ol.attachments:  # the same attachment again (a list of exhibits, then the exhibit): more title
+                titled = ol.attachments[full]
+                ol.attachment_words[titled.id] |= _content_words(txt[m.end(2) :])
+                ol.attachment_titles[titled.id] = ol.attachment_titles.get(titled.id, "") + "\n" + txt
                 continue
             node = _Node(ol.unique_id("x-" + full.replace(" ", "-")), "attachment", num.upper() + enums, txt, {"s": tn.s, "t": tn.t})
             ol.attachments[full] = node
             _ = ol.attachments.setdefault(key, node)
             ol.roots.append(node)
+            ol.attachment_words[node.id] = _content_words(txt[m.end(2) :])
+            ol.attachment_titles[node.id] = txt
+            titled = node
     # Subsections of a duplicated section or flat item can't say which copy they belong to
     dup = [n + "." for n, v in ol.sections.items() if len(v) > 1] + [n + "(" for n, v in ol.sections.items() if len(v) > 1]
     dup += [k + "(" for k in ol.flat_articles if len(ol.articles[k]) > 1]
@@ -1425,6 +1447,7 @@ class _Ref:
     after: str = ""  # the text from the end of this item to 60 characters past the end of its run
     parent_enum: str = ""  # "clause (ii) of subparagraph (a) above": "(a)", the paragraph that holds the clause
     own_para: bool = False  # B1: "this clause (b)" resolved to the paragraph that holds it
+    para_fallback: bool = False  # D1: "Section 6.4(e)(ii)" fell back to paragraph 6.4(e); the span keeps "(e)(ii)"
     loose: int = -1  # B3: how often the item occurs in its paragraph outside every reference and the leading number
 
 
@@ -1898,6 +1921,87 @@ def _roman_section_article(ref: _Ref, ol: _Outline, tn: _Text) -> _Node | None:
     return arts[0]
 
 
+# words that name no particular document, so a shared one says nothing about which attachment is meant
+_TITLE_STOPWORDS = frozenset(
+    "form forms exhibit exhibits annex annexes schedule schedules appendix appendices attached hereto agreement "
+    "agreements letter letters document documents copy omitted intentionally page pages follow following "
+    "this that with from into such each party parties hereof herein thereof between among amended restated "
+    "company parent buyer seller purchaser merger closing corporation corp limited holding "
+    # drafting words that name no document (0.10.0 reads: "second", "subject", "stock", "corp" and "asset" made the
+    # only bad links)
+    "first second third fourth subject stock share number certain matter period time term date amount section "
+    "article other general provision applicable respect asset effective".split()
+)
+# document nouns that may tie a sub-exhibit to its parent only together with a word that names the subject:
+# "Certificate of Merger ... Exhibit A-1" is not "EXHIBIT A / FORM OF ... CERTIFICATE OF INCORPORATION"
+_GENERIC_DOC_NOUNS = frozenset("certificate agreement letter notice opinion plan schedule statement consent release note".split())
+_SUFFIXED_LABEL = re.compile(r"([A-Z0-9][A-Z0-9.]*)-\d+")
+_SENTENCE_END = re.compile(r"[.;](?=\s|$)")
+# a name before a capitalized entity suffix ("Acme Holdings", "Sarcos Corp."): a party, not the subject of a document
+# ("Stockholders holding at least 95%" is no name)
+_ENTITY_NAME = re.compile(
+    r"\b([A-Z][A-Za-z]+)\s+(?=[A-Z])(?i:holdings?|inc\b|incorporated|llc|l\.l\.c|corp\b|corporation|ltd|limited|l\.p|lp\b|partners|group|bancorp|co\b|company)"
+)
+_TITLE_VERB = re.compile(r"\b(?:is|are|was|were|be|been|shall|will|may|made|entered|has|have|hereby|sets?)\b", re.I)
+
+
+def _title_line(text: str) -> bool:
+    """X1: the line after "EXHIBIT D" is its title when it is all capitals, starts with "Form(s) of", or has 12
+    words or fewer, no final period and no sentence verb. "This Escrow Agreement ... is made as follows." is text."""
+    s = text.strip()
+    letters = [c for c in s if c.isalpha()]
+    if letters and all(c.isupper() for c in letters):
+        return True
+    if re.match(r"\[?\s*forms?\s+of\b", s, re.I):
+        return True
+    return len(s.split()) <= 12 and not s.endswith(".") and _TITLE_VERB.search(s) is None
+
+
+def _content_words(text: str) -> set[str]:
+    """Lowercase words of four letters or more, a plural "s" removed, without _TITLE_STOPWORDS."""
+    words = {w[:-1] if w.endswith("s") and not w.endswith("ss") else w for w in re.findall(r"[a-z]{4,}", text.lower())}
+    return words - _TITLE_STOPWORDS - {w[:-1] for w in _TITLE_STOPWORDS if w.endswith("s")}
+
+
+def _attachment_parent(ref: _Ref, ol: _Outline, tn: _Text, t: str) -> _Node | None:
+    """X1: "Exhibit L-1 or L-2" where the filing has one heading "Exhibit L" that holds both forms.
+
+    Only when the filing has no "Exhibit L-m" at all (then the printed forms are filed under their own numbers) and
+    the sentence names the parent's subject: "a stockholder representation letter ... Exhibit L-1" and "Exhibit L /
+    Form of Stockholder Representation Letter". Without that check the parent is often another document: "a sublease
+    in the form of Exhibits L-1 and L-2" filed as K-1 and K-2 next to "Exhibit L / Tax-Exempt Bond Agreement", or a
+    license agreement's own Exhibit C under an agreement whose Exhibits C-1 to C-3 were not filed (0.10.0 read:
+    20 of 32 such 0.9.0 parent links right, 18 of 18 right with the check; dry run over the corpus: 57 body links
+    added, all read, 54 better, 3 neutral, none worse).
+
+    The shared words must include one that is neither a generic document noun (_GENERIC_DOC_NOUNS) nor a party
+    name before an entity suffix (_ENTITY_NAME). Review: "certificate" alone, "acme" of "Acme Holdings" and
+    "effective" of "Effective Time" each tied a wrong parent; on the 57 body links the test keeps 50 of 54 better
+    ones and the 3 neutral ones (it drops 4 tax-certificate links tied only by "certificate").
+    """
+    m = _SUFFIXED_LABEL.fullmatch(t.upper())
+    if not m:
+        return None
+    base = f"{ref.head} {m.group(1).lower()}"
+    parent = ol.attachments.get(base)
+    if parent is None or any(k.startswith(base + "-") for k in ol.attachments):
+        return None
+    words = ol.attachment_words.get(parent.id)
+    if not words:
+        return None
+    # the reference's own sentence: back to the last ". " or "; " and on to the next
+    left = tn.text[max(0, ref.start - 300) : ref.start]
+    ends = list(_SENTENCE_END.finditer(left))
+    left = left[ends[-1].end() :] if ends else left
+    right = tn.text[ref.end : ref.end + 300]
+    if (e := _SENTENCE_END.search(right)) is not None:
+        right = right[: e.start()]
+    names = {w.lower() for w in _ENTITY_NAME.findall(tn.text + "\n" + ol.attachment_titles.get(parent.id, ""))}
+    names |= {w[:-1] for w in names if w.endswith("s")}
+    tie = (words & _content_words(left + " " + right)) - _GENERIC_DOC_NOUNS - names
+    return parent if tie else None
+
+
 def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, str | None, list[str] | None]:
     """Returns (status, target id, ambiguous candidates)."""
     if ref.status == "unresolved" and ref.detail == "exhibit_local" and _names_other(ref):
@@ -2000,6 +2104,21 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
             return "section_fallback", nodes[0].id, None
         if ref.base_end <= ref.start and not ref.relative:
             return "unresolved", None, None
+        # D1: "Section 6.4(e)(ii)" where (ii) is an item inside paragraph 6.4(e): the deepest printed ancestor
+        # paragraph that has a node, not the section. Every level down to it must be a single, ungrouped paragraph
+        # (a lettered group "8.1(A)" or a key printed twice in its section could be another paragraph).
+        # Not for relative items ("Sections 10.2(a), (e)(ii)"): their own head is not printed with them.
+        if not ref.relative:
+            parts = re.findall(r"\([A-Za-z0-9]+\)", subs)
+            best = None
+            for k in range(1, len(parts)):
+                key = base + "".join(parts[:k])
+                if key not in ol.subs or key in ol.groups or key in ol.dup_subs:
+                    break
+                best = ol.subs[key]
+            if best is not None:
+                ref.para_fallback = True
+                return "section_fallback", best.id, None
         # "Sections 10.2(a), (b) and (c)" with no subsection targets: the printed section is right there
         return "section_fallback", nodes[0].id, None
     if ref.head == "article":
@@ -2017,6 +2136,8 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
         node = ol.attachments.get(f"{ref.head} {t.lower()}")
         if node is not None:
             return "resolved", node.id, None
+        if (parent := _attachment_parent(ref, ol, tn, t)) is not None:
+            return "resolved", parent.id, None
         if ref.head == "schedule" and re.fullmatch(r"\d+(?:\.\d+)+(?:\([A-Za-z0-9]+\))*", t):
             return "disclosure_schedule", None, None
         return "unlocated_attachment", None, None
@@ -2386,7 +2507,7 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
             ):
                 status, target, r.detail = "unresolved", None, "inline"
             # a relative "(b)" or a qualified "clause (ii)" has no printed number of its own: keep its span
-            end = r.base_end if status == "section_fallback" and not (r.qualified or r.relative) else r.end
+            end = r.base_end if status == "section_fallback" and not (r.qualified or r.relative or r.para_fallback) else r.end
             x: dict[str, Any] = {"at": {"s": tn.s, "t": tn.t}, "span": tn.span(r.start, end), "text": tn.text[r.start : end], "status": status}
             if target:
                 x["target"] = target
