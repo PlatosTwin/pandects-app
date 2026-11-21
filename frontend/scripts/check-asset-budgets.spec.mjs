@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
 import { checkBudgets, findEntryAssets } from "./check-asset-budgets.mjs";
 
@@ -45,6 +46,21 @@ describe("findEntryAssets", () => {
       js: "/assets/js/index-REAL.js",
       css: "/assets/css/index-REAL.css",
     });
+  });
+
+  it("ignores data- attributes and tags inside comments", () => {
+    const html = `<!-- <script type="module" src="/old.js"></script> -->
+<script data-type="module" data-src="/x.js" type="module" src="/assets/js/index-REAL.js"></script>
+<link rel="stylesheet" href="/assets/css/index-REAL.css">`;
+    expect(findEntryAssets(html)).toEqual({
+      js: "/assets/js/index-REAL.js",
+      css: "/assets/css/index-REAL.css",
+    });
+  });
+
+  it("reads unquoted attributes", () => {
+    const html = `<script type=module src=/a.js></script><link rel=stylesheet href=/a.css>`;
+    expect(findEntryAssets(html)).toEqual({ js: "/a.js", css: "/a.css" });
   });
 
   it("returns null when a tag is missing", () => {
@@ -112,5 +128,28 @@ describe("checkBudgets", () => {
       files: { "a.css": 1 },
     });
     expect(() => checkBudgets(dir)).toThrow(/outside/);
+  });
+});
+
+describe("running the script", () => {
+  const script = path.resolve(
+    path.dirname(new URL(import.meta.url).pathname),
+    "check-asset-budgets.mjs",
+  );
+
+  it("fails the run when the entry is missing, also through a symlinked path", () => {
+    const build = makeBuild({ html: "<html></html>", files: {} });
+    const work = fs.mkdtempSync(path.join(os.tmpdir(), "budget-spec-"));
+    dirs.push(work);
+    fs.mkdirSync(path.join(work, "dist"));
+    fs.symlinkSync(build, path.join(work, "dist", "spa"));
+    const link = path.join(work, "script.mjs");
+    fs.symlinkSync(script, link);
+    const result = spawnSync(process.execPath, [link], {
+      cwd: work,
+      encoding: "utf8",
+    });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("entry JavaScript");
   });
 });

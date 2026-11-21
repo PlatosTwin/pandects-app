@@ -11,17 +11,17 @@ export const CSS_BUDGET_BYTES = 125_000;
 export function findEntryAssets(html) {
   // External URLs (for example Google Fonts) are not build output; skip them.
   const isLocal = (url) => url && !/^[a-z][a-z0-9+.-]*:|^\/\//i.test(url);
-  const tags = html.match(/<(?:script|link)\b[^>]*>/gi) ?? [];
+  // Ignore tags that sit inside HTML comments.
+  const tags =
+    html.replace(/<!--[\s\S]*?-->/g, "").match(/<(?:script|link)\b[^>]*>/gi) ??
+    [];
   let js = null;
   let css = null;
   for (const tag of tags) {
-    if (/^<script\b/i.test(tag) && /\btype\s*=\s*["']module["']/i.test(tag)) {
+    if (/^<script\b/i.test(tag) && attr(tag, "type") === "module") {
       const src = attr(tag, "src");
       if (isLocal(src)) js ??= src;
-    } else if (
-      /^<link\b/i.test(tag) &&
-      /\brel\s*=\s*["']stylesheet["']/i.test(tag)
-    ) {
+    } else if (/^<link\b/i.test(tag) && attr(tag, "rel") === "stylesheet") {
       const href = attr(tag, "href");
       if (isLocal(href)) css ??= href;
     }
@@ -29,11 +29,14 @@ export function findEntryAssets(html) {
   return { js, css };
 }
 
+// Read one attribute value. The name must start after whitespace, so that
+// "data-src" does not match "src".
 function attr(tag, name) {
   const match = tag.match(
-    new RegExp(`\\b${name}\\s*=\\s*["']([^"']+)["']`, "i"),
+    new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'>]+))`, "i"),
   );
-  return match ? match[1] : null;
+  const value = match ? (match[1] ?? match[2] ?? match[3]) : null;
+  return value || null;
 }
 
 // Turn a URL from index.html (for example "/assets/js/index-abc.js") into a
@@ -115,9 +118,13 @@ function main() {
   console.log(`Validated asset budgets: ${summary}.`);
 }
 
+// Run only when called as a script, not when a test imports the functions.
+// Compare real paths: import.meta.url is the real path, but argv[1] keeps a
+// symlinked path, and a mismatch would skip the check and still exit 0.
 if (
   process.argv[1] &&
-  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+  fs.realpathSync(process.argv[1]) ===
+    fs.realpathSync(fileURLToPath(import.meta.url))
 ) {
   main();
 }
