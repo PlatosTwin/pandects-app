@@ -1814,6 +1814,8 @@ class RoundTwoLeadRuleTests(unittest.TestCase):
     def test_l6_ampersand_and_dotted_initials_are_not_items(self) -> None:
         refs = self._all("Under the Schedule D&amp;O policy, Section U.S. Holder rules and Schedules K&amp;S Draft, see Exhibit A, B and C and Article IV.")
         self.assertEqual([t for t, _, _ in refs], ["Exhibit A", "B", "C", "Article IV"])
+        refs = self._all("The Closing is set forth in Article I.A. above and Section I.E.1 below.")
+        self.assertEqual([t for t, _, _ in refs], ["Article I", "Section I"])
 
     # L4: a dotted article reference falls back to its longest existing section prefix
     def test_l4_dotted_article_falls_back_to_section(self) -> None:
