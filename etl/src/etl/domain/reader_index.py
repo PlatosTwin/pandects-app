@@ -292,6 +292,8 @@ class _Outline:
     self_cited_articles: bool = False
     # container -> (ordinal, depth, key) of its paragraph nodes, built on first use (_nearest_scope)
     para_index: dict[str, list[tuple[int, int, str]]] | None = None
+    # R1: section uuid -> the section's own text before its first paragraph node ("Parent shall (i) file ... and (ii) pay")
+    lead_text: dict[str, str] = field(default_factory=dict)
     ids: set[str] = field(default_factory=set)
     unnumbered_sections: int = 0
     positional_sections: int = 0  # sections numbered by position (_positional_numbers)
@@ -612,8 +614,13 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
         ol.sections.setdefault(num, []).append(node)
         if len(ol.sections[num]) > 1:
             return  # duplicate number after a bad parse: no subsection targets either
+        n0 = len(ol.subs)
         add_subs(sec, num, uuid, node)
-        printed = {num: label} | {k: v for k, v in ol.para_labels.items() if k.startswith(num + ".")}
+        first = min((n.anchor["t"] for n in list(ol.subs.values())[n0:] if "t" in n.anchor), default=None)
+        lead = [tn.text for t_el in sec.iter("text") if (tn := by_el.get(t_el)) is not None and (first is None or tn.t < first)]
+        if lead:
+            ol.lead_text[uuid] = " ".join(lead)
+        printed ={num: label} | {k: v for k, v in ol.para_labels.items() if k.startswith(num + ".")}
         if any(k != v for k, v in printed.items()):
             prefixes = sorted(printed, key=len, reverse=True)
             relabel = list(node.children)
@@ -772,6 +779,13 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
         prefixes = tuple(dup)
         ol.subs = {k: v for k, v in ol.subs.items() if not k.startswith(prefixes)}
         ol.groups = {k for k in ol.groups if k in ol.subs}
+    # R2: a paragraph node under an inferred section or article carries the inferred number in its label ("1.2(a)")
+    stack = [(n, False) for n in ol.roots]
+    while stack:
+        n, inherited = stack.pop()
+        if n.kind == "sub" and inherited:
+            n.inferred = True
+        stack.extend((c, n.inferred) for c in n.children)
     return ol
 
 
@@ -1202,7 +1216,12 @@ STATUTE = re.compile(
 DISCLOSURE = re.compile(
     # "of the Seller’s Disclosure Letter", "item 1 of the ...", "Disclosure ----- Schedule" across a page break;
     # "of Seller’s Disclosure Schedule": a possessive name with no article (the same opening as OTHER_DOC)
-    r"^\s*(?:\([^)]*\)\s*)*(?:item\s+\d+\s+)?(?:of|to|in|under)\s+(?:(?:the|such|any|each)\s+|(?=[A-Z][\w\-]*[’']s\s))(?:[A-Z][\w\-’']*\s+){0,4}(?:(?i:disclosure[\s\-–—_]+(?:schedules?|letter|memorandum|statements?))|Schedules)\b"
+    # R5: not a bankruptcy court's "Disclosure Statement Order" or the "Debtors’ Disclosure Statement"
+    r"^\s*(?:\([^)]*\)\s*)*(?:item\s+\d+\s+)?(?:of|to|in|under)\s+(?:(?:the|such|any|each)\s+|(?=[A-Z][\w\-]*[’']s\s))"
+    + r"(?!(?:[A-Z][\w\-’']*\s+){0,3}?Debtors?(?:[’']s?)?\s+Disclosure\s+Statement)"
+    + r"(?:[A-Z][\w\-’']*\s+){0,4}(?:(?i:disclosure[\s\-–—_]+(?:schedules?|letter|memorandum|statements?))|Schedules)\b(?![\s\-–—_]+Order\b)"
+    # R5: "Section A of Power Disclosure Letter": one or two capitalized words and no article
+    + r"|^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:[A-Z][\w\-]*\s+){1,2}(?i:disclosure[\s\-–—_]+(?:schedules?|letter|memorandum))\b"
     # "of the Company Schedule of Exceptions"; not "this Article VI to such Schedule of Exceptions" (its own article)
     + r"|^\s*(?:\([^)]*\)\s*)*(?:of|in|on)\s+(?:(?:the|such|any|each)\s+|(?=[A-Z][\w\-]*[’']s\s))(?:[A-Z][\w\-’']*\s+){0,4}Schedule\s+of\s+Exceptions\b",
 )
@@ -1306,8 +1325,9 @@ SPELLED_ARTICLE = re.compile(r"^\s*(?:ARTICLE|Article)\s+" + SPELLED_ITEM.patter
 _SUFFIX = r"(?:[A-Z](?!ections?\b|ECTIONS?\b|rticles?\b|RTICLES?\b|chedules?\b|xhibits?\b|nnex))"
 GLUED_HEAD = re.compile(r"(?:Sections?|SECTIONS?|Articles?|ARTICLES?|Schedules?|Exhibits?|Annex)\b")
 # L6: "K&S", "D&O", "U.S." after a head are names, not "Section K" or "Schedule U". A Roman item followed by ".X."
-# is a reference ("Article IV.B.4", "Section I.E.1 above"), so only "&" stops it.
-REF_ITEM = re.compile(r"(\d+" + _SUFFIX + r"?(?:-\d+)?(?:\.\d+" + _SUFFIX + r"?)*(?:\s?\([A-Za-z0-9]{1,6}\))*|[IVXLC]+\b(?!&)|[A-Z]\b(?!&|\.[A-Z]\.)(?:-\d+)?|\([A-Za-z0-9]{1,6}\)(?:\([A-Za-z0-9]{1,6}\))*)")
+# is a reference ("Article IV.B.4", "Section I.E.1 above"), so only "&" stops it, and not "&" before another Roman
+# number: "Article I&II" is articles I and II (R4).
+REF_ITEM = re.compile(r"(\d+" + _SUFFIX + r"?(?:-\d+)?(?:\.\d+" + _SUFFIX + r"?)*(?:\s?\([A-Za-z0-9]{1,6}\))*|[IVXLC]+\b(?!&(?![IVXLC]+\b))|[A-Z]\b(?!&|\.[A-Z]\.)(?:-\d+)?|\([A-Za-z0-9]{1,6}\)(?:\([A-Za-z0-9]{1,6}\))*)")
 # "Section VIII.2(e)": tried first for section, article, clause and paragraph heads only ("Exhibit C.2" is Exhibit C)
 ROMAN_ITEM = re.compile(r"(" + _ROMAN_NUM + r"(?:\.\d+" + _SUFFIX + r"?)+(?:\s?\([A-Za-z0-9]{1,6}\))*)")
 # "Exhibit C-1", "Exhibit I-1": tried first for attachment heads, so the label is not Roman "C" plus a range "-1"
@@ -1403,6 +1423,8 @@ class _Ref:
     self_marker: bool = False  # "this Section 6.3", "Section 6.3 hereof" (body only, rule 10)
     after: str = ""  # the text from the end of this item to 60 characters past the end of its run
     parent_enum: str = ""  # "clause (ii) of subparagraph (a) above": "(a)", the paragraph that holds the clause
+    own_para: bool = False  # B1: "this clause (b)" resolved to the paragraph that holds it
+    loose: int = -1  # B3: how often the item occurs in its paragraph outside every reference and the leading number
 
 
 def _section_range_end(base: str, hyphen: str, before: str) -> str | None:
@@ -1623,9 +1645,8 @@ def _section_style_article(ol: _Outline, key: str) -> bool:
     return key in ol.flat_articles or not any(_ARTICLE_WORD.match(a.title) for a in ol.articles[key])
 
 
-def _nearest_scope(ol: _Outline, tn: _Text, cur: str, cands: list[str]) -> str | None:
-    """"clause (ii)" with several (ii) in the section: the one whose parent is the paragraph that holds the
-    reference, or one of that paragraph's ancestors. None unless exactly one candidate is left."""
+def _para_index(ol: _Outline) -> dict[str, list[tuple[int, int, str]]]:
+    """Section uuid -> (paragraph ordinal, depth, key) of its paragraph nodes, sorted; built on first use."""
     if ol.para_index is None:
         ol.para_index = {}
         for key, node in ol.subs.items():
@@ -1633,7 +1654,82 @@ def _nearest_scope(ol: _Outline, tn: _Text, cur: str, cands: list[str]) -> str |
                 ol.para_index.setdefault(node.anchor["s"], []).append((node.anchor["t"], key.count("("), key))
         for v in ol.para_index.values():
             v.sort()
-    here = [key for t, _, key in ol.para_index.get(tn.s, []) if t <= tn.t]
+    return ol.para_index
+
+
+def _own_paragraph(ref: _Ref, ol: _Outline, tn: _Text, t: str) -> _Node | None:
+    """B1: "this clause (b)" inside a paragraph that opens with "(b)": the node anchored at that paragraph whose key
+    ends in "(b)". None unless the paragraph's own leading enumerators include the item and exactly one node fits."""
+    if not ref.lead or not ref.this_before or not re.fullmatch(r"\([A-Za-z0-9]{1,6}\)", t):
+        return None
+    pm = ENUM_PREFIX.match(tn.text)
+    if pm is None or t[1:-1] not in ENUM_TOKEN.findall(pm.group(1)):
+        return None
+    keys = [key for pt, _, key in _para_index(ol).get(tn.s, []) if pt == tn.t and key.endswith(t) and key not in ol.groups]
+    return ol.subs[keys[0]] if len(keys) == 1 else None
+
+
+# B2: "clauses (v) or (vi) of the definition of Permitted Liens", "clause (i) of Rule 13a-15", "of the Code": the
+# clause belongs to a definition, a rule or a statute, not to the paragraph that holds the reference
+_DEF_OR_RULE_TAIL = re.compile(
+    r"^\s*(?:\([^()]*\)\s*)*,?\s*(?:of|in|under|to)\s+(?:the\s+|such\s+|that\s+|any\s+)?(?:(?:definitions?|defined\s+terms?|terms?|meaning)\b|[\"“]|(?:Rule|Regulations?|Code|Act)\b)"
+)
+
+
+def _definitions_scope_ok(ref: _Ref, ol: _Outline, tn: _Text, target: str, key_by_id: dict[str, str], decl_ts: dict[str, list[int]]) -> bool:
+    """B2: a clause resolved in a definitions section keeps its link when the reference sits in a paragraph the outline
+    recorded, the target's parent is a paragraph (not the section) in that paragraph's own scope chain, no definition
+    paragraph (one that declares a term and opens with no item number) lies between the target and the reference, and
+    no tail names a definition, a rule or another document."""
+    key = key_by_id.get(target)
+    if key is None or ref.other_tail or _DEF_OR_RULE_TAIL.match(ref.tail) or not tn.section_key:
+        return False
+    if not any(pt == tn.t for pt, _, _ in _para_index(ol).get(tn.s, [])):
+        return False
+    # a later definition's "(c)" repeats a key the outline already holds, so the node may belong to another definition
+    # ("sub-paragraphs (b) or (c) above" went to the "Control" definition's (c), 2026-11-21 read)
+    tt = ol.subs[key].anchor.get("t")
+    if tt is None or ol.subs[key].anchor.get("s") != tn.s:
+        return False
+    lo, hi = min(tt, tn.t), max(tt, tn.t)
+    if any(lo < d <= hi for d in decl_ts.get(tn.s, ())):
+        return False
+    parent = key[: key.rfind("(")]
+    return parent != tn.section_key and _nearest_scope(ol, tn, tn.section_key, [key]) == key
+
+
+# B3 guard: a section named later in the same clause may qualify the items ("clauses (a) and (b) and, solely with
+# respect to ..., clauses (d) and (e) of Section 3.02")
+_LATER_SECTION = re.compile(r"[^.;]{0,200}?\b(?:of|in|under)\s+(?:this\s+)?(?:Section|Article)\s+\d")
+
+
+def _mark_loose(found: list[_Ref], text: str) -> None:
+    """B3: for each bare clause item, count its occurrences in the paragraph outside every reference span and outside
+    the paragraph's leading enumerators ("(a)(ii)" opening the paragraph)."""
+    items = {r.target for r in found if r.head in ("clause", "paragraph") and r.target.startswith("(")}
+    if not items:
+        return
+    spans = [(r.start, r.end) for r in found]
+    pm = ENUM_PREFIX.match(text)
+    if pm:
+        spans.append((0, pm.end()))
+    loose: dict[str, int] = {}
+    for t in items:
+        n, i = 0, text.find(t)
+        while i >= 0:
+            if not any(a <= i and i + len(t) <= b for a, b in spans):
+                n += 1
+            i = text.find(t, i + 1)
+        loose[t] = n
+    for r in found:
+        if r.head in ("clause", "paragraph") and r.target in loose:
+            r.loose = loose[r.target]
+
+
+def _nearest_scope(ol: _Outline, tn: _Text, cur: str, cands: list[str]) -> str | None:
+    """"clause (ii)" with several (ii) in the section: the one whose parent is the paragraph that holds the
+    reference, or one of that paragraph's ancestors. None unless exactly one candidate is left."""
+    here = [key for t, _, key in _para_index(ol).get(tn.s, []) if t <= tn.t]
     chain = {cur}
     k = here[-1] if here else ""
     while k:
@@ -1695,11 +1791,31 @@ NAMED_OTHER_TAIL = re.compile(
 )
 
 
+# R3: "Section 4.7 of the Company", "of Parent": the tail names a party, and no document of that party follows
+_PARTY_ONLY_TAIL = re.compile(
+    r"^\s*(?:\([^()]*\)\s*)*(?:of|under|pursuant\s+to)\s+(?:the\s+)?"
+    + r"(?:Company|Parent|Buyers?|Sellers?|Purchasers?|Acquirors?|Acquirers?|Merger\s+Sub|Merger\s+Subsidiary|Guarantors?|Investors?|Stockholders?|Shareholders?)"
+    # not "of the Company 423 Plan", "of the Parent/HIM Agreement", "of the Company’s Bylaws"
+    + r"(?![\w\-’'/&]|\s*[/&]|\s+(?:[A-Z0-9]|of\b))"
+)
+
+
 def _names_other(ref: _Ref) -> bool:
-    """L1: the run's tail names another document or a statute, and no self marker says it is this agreement's."""
+    """L1: the run's tail names another document or a statute, and no self marker says it is this agreement's. Not for a
+    qualified clause ("clause (a) of Section 4.2 and Section 4.2 ...": the tail is the section's, R3) or a tail that
+    names only a party ("Section 4.7 of the Company", R3)."""
     t = ref.tail
+    if ref.qualified:
+        # judge the text after the printed section: "clause (a) of Section 4.2 of the Escrow Agreement" still names one
+        qm = QUALIFIED.match(t)
+        if qm is None:
+            return False
+        t = t[qm.end() :]
+        if ref.head in ("section", "article", "clause") and THEREOF_AFTER.match(t):
+            return True  # "clause (i) of Section 16 thereof": the section of a document named before
     return (
         ref.head in ("section", "article", "clause")
+        and not _PARTY_ONLY_TAIL.match(t)
         and not ref.self_marker
         and NAMED_OTHER_TAIL.match(t) is not None
         and not (DISCLOSURE.match(t) or ATTACHMENT_TAIL.match(t) or THEREOF_AFTER.match(t))
@@ -1820,6 +1936,9 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
             # in this Section 2.6"), or the printed section goes on past the part read ("Section 6.01.(a)",
             # "Section 8.4 (b) (i)"): 2 of 30 such links in the first corpus read went to the wrong paragraph
             inline = tn.section_key == base and tn.text.count(subs) >= 2
+            # R1: "clause (i) of Section 6.4" where 6.4 opens "Parent shall (i) file ... and (ii) pay": the lead-in's
+            # own item, not the one paragraph deeper down that ends in "(i)"
+            inline = inline or subs in ol.lead_text.get(nodes[0].anchor.get("s", ""), "")
             if re.fullmatch(r"\([A-Za-z0-9]+\)", subs) and not inline and not _QUALIFIER_GOES_ON.match(ref.tail):
                 deep = [k for k in ol.subs if k.startswith(base + "(") and k.endswith(subs) and k not in ol.groups]
                 if len(deep) == 1:
@@ -1856,7 +1975,22 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
         return "unlocated_attachment", None, None
     if ref.head in ("clause", "paragraph"):
         cur = tn.section_key
-        if t.startswith("(") and tn.text.count(t) >= 2:
+        if (own := _own_paragraph(ref, ol, tn, t)) is not None:
+            # B1: "all personal property described in this clause (b)" inside paragraph (b): its own leading "(b)"
+            # made the count below call it an inline item
+            ref.own_para = True
+            return "resolved", own.id, None
+        # B3: "except as set forth in clause (b) below", printed twice, is not an inline item; the item counts as inline
+        # only when it occurs outside every reference and the paragraph's own leading number, or the tail names a
+        # definition, a rule or another document ("clause (i) of the definition of ..."), or a section is named later in
+        # the same clause ("clauses (a) and (b) and, solely ..., clauses (d) and (e) of Section 3.02")
+        old_inline = tn.text.count(t) >= 2
+        if ref.loose >= 0 and not ref.other_tail and not _DEF_OR_RULE_TAIL.match(ref.tail) and not _LATER_SECTION.match(tn.text, ref.end):
+            inline = ref.loose >= 1
+        else:
+            inline = old_inline
+        relaxed = old_inline and not inline  # B3 lifted the old count: it may add a link, never an "ambiguous"
+        if t.startswith("(") and inline:
             # "clauses (i) and (iii) through (v)" inside a paragraph that enumerates (i)...(v)
             # itself, typical of definitions: the items are inline, not subsections
             ref.detail = "inline"
@@ -1871,9 +2005,11 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
                     hits = [k for k in cands if k[: k.rfind("(")].endswith(ref.parent_enum)]
                     if len(hits) == 1:
                         return "resolved", ol.subs[hits[0]].id, None
-                    return "ambiguous", None, [ol.subs[k].id for k in cands]
-                if not ref.other_tail and (one := _nearest_scope(ol, tn, cur, cands)) is not None:
+                elif not ref.other_tail and (one := _nearest_scope(ol, tn, cur, cands)) is not None:
                     return "resolved", ol.subs[one].id, None
+                if relaxed:
+                    ref.detail = "inline"
+                    return "unresolved", None, None
                 return "ambiguous", None, [ol.subs[k].id for k in cands]
         if t.startswith("(") and sec_text.count(t) >= 2:
             # an inline enumeration in the same section ("(i) ... (ii) ... clause (i) above");
@@ -2098,6 +2234,12 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
     # so a bare "clause (i)" there is never a subsection of the section
     decl_count = Counter(d.tn.s for d in decls)
     definition_containers = {c for c, n in decl_count.items() if n >= _DEFINITIONS_SECTION_MIN_DECLS}
+    key_by_id = {n.id: k for k, n in ol.subs.items()}
+    # B2: paragraphs that open with a declared term ("“Control” means"), not an item that declares one in passing
+    decl_ts: dict[str, list[int]] = {}
+    for d in decls:
+        if not ENUM_PREFIX.match(d.tn.text):
+            decl_ts.setdefault(d.tn.s, []).append(d.tn.t)
     for tn in texts:
         if tn.region not in _INDEXED_REGIONS:
             continue
@@ -2137,6 +2279,7 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
         numbered_para = (tn.s, tn.t) in ol.numbered_paras
         back = tn.region == "backMatter"
         found = _find_refs(tn.text, in_exhibit=in_exhibit, back=back)
+        _mark_loose(found, tn.text)
         if back and len(BACK_TOC_ENTRY.findall(tn.text)) >= _BACK_TOC_MIN:
             # "Section 1.1 Definitions 1 Section 1.2 Interpretation 4 ...": an attachment's table of contents, unless
             # its titles are the agreement's own (the agreement's contents or a list of its disclosure schedules)
@@ -2175,7 +2318,10 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
                 # "clause 2.1 above"; and only when the agreement itself cites "clause N.M" at least as often as "Section N.M"
                 r.status = r.detail = ""
             status, target, cands = _resolve(r, ol, tn, sec_text)
-            if status == "resolved" and r.head in ("clause", "paragraph") and r.target.startswith("(") and tn.s in definition_containers:
+            if (
+                status == "resolved" and r.head in ("clause", "paragraph") and r.target.startswith("(") and tn.s in definition_containers and not r.own_para
+                and not (target and _definitions_scope_ok(r, ol, tn, target, key_by_id, decl_ts))
+            ):
                 status, target, r.detail = "unresolved", None, "inline"
             # a relative "(b)" or a qualified "clause (ii)" has no printed number of its own: keep its span
             end = r.base_end if status == "section_fallback" and not (r.qualified or r.relative) else r.end

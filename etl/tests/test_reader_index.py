@@ -674,6 +674,268 @@ class BareSectionToArticleTests(unittest.TestCase):
         self.assertEqual(got, [("resolved", "s2"), ("external", None)])
 
 
+class BodyClauseGuardTests(unittest.TestCase):
+    """Body clause references that the inline and definitions guards left unlinked (2026-11-21 blind sample)."""
+
+    def _all(self, xml: str) -> list[tuple[str, str, str | None]]:
+        return [(r["text"], r["status"], r.get("target")) for r in build_reader_index(xml)["xrefs"]]
+
+    # B1: "this clause (b)" inside paragraph (b) is that paragraph, not an inline item
+    def test_this_clause_links_own_paragraph(self) -> None:
+        xml = _doc(
+            _section(
+                "s31",
+                "Section 3.1 Purchased Assets",
+                "(a) all inventory;",
+                "(b) all equipment, and all personal property described in this clause (b) is transferred;",
+                "(c) all contracts.",
+            )
+        )
+        self.assertEqual(self._all(xml), [("clause (b)", "resolved", "s3.1(b)")])
+
+    def test_this_clause_in_nested_paragraph(self) -> None:
+        xml = _doc(
+            _section(
+                "s51",
+                "Section 5.1 Covenants",
+                "(a) General.",
+                "(b)(i) the Company shall not, subject to the last sentence of this clause (i), sell assets;",
+                "(ii) other items.",
+            )
+        )
+        self.assertEqual(self._all(xml), [("clause (i)", "resolved", "s5.1(b)(i)")])
+
+    def test_this_clause_needs_own_leading_item(self) -> None:
+        # "this clause (c)" inside paragraph (b): not the paragraph's own number, so the inline reading stays
+        xml = _doc(
+            _section(
+                "s31",
+                "Section 3.1 Assets",
+                "(a) inventory;",
+                "(b) equipment (c) and the items in this clause (c) and (c) again;",
+                "(c) contracts.",
+            )
+        )
+        self.assertEqual(self._all(xml)[0][:2], ("clause (c)", "unresolved"))
+
+    def test_bare_clause_in_own_paragraph(self) -> None:
+        # no "this": B1 does not apply; B3 no longer counts the paragraph's leading "(b)", so the one node links
+        xml = _doc(_section("s31", "Section 3.1 Assets", "(a) inventory;", "(b) equipment and the items in clause (b);"))
+        self.assertEqual(self._all(xml), [("clause (b)", "resolved", "s3.1(b)")])
+
+    # B2: a definitions section keeps a clause link inside the reference's own scope chain
+    _DEFS = (
+        "(a) Defined terms: “Alpha” means a. “Beta” means b. “Gamma” means c. “Delta” means d. “Epsilon” means e.",
+        "(b) Limits.",
+        "(i) Losses are capped.",
+        "(ii) Deductible applies.",
+        "(iii) Losses may be aggregated for purposes of clause (i).",
+    )
+
+    def test_definitions_section_keeps_scoped_clause(self) -> None:
+        xml = _doc(_section("s102", "Section 10.2 Indemnification", *self._DEFS))
+        self.assertEqual(self._all(xml), [("clause (i)", "resolved", "s10.2(b)(i)")])
+
+    def test_definitions_section_drops_definition_tail(self) -> None:
+        texts = (*self._DEFS[:4], "(iii) Liens in clause (i) of the definition of Permitted Liens are excluded.")
+        xml = _doc(_section("s102", "Section 10.2 Indemnification", *texts))
+        self.assertEqual(self._all(xml)[0][:2], ("clause (i)", "unresolved"))
+
+    def test_definitions_section_drops_top_level_item(self) -> None:
+        # the section's own "(b)" is in every definition's scope chain, so it proves nothing
+        texts = (*self._DEFS[:2], "(c) “Zeta” means the items in clause (b).")
+        xml = _doc(_section("s102", "Section 10.2 Indemnification", *texts))
+        self.assertEqual(self._all(xml)[0][:2], ("clause (b)", "unresolved"))
+
+    def test_definitions_section_drops_link_across_a_declaration(self) -> None:
+        # a definition paragraph between the target and the reference: the node may be another definition's item
+        texts = (
+            "(a) Terms:",
+            "(i) first.",
+            "“Beta” means b. “Gamma” means c. “Delta” means d. “Epsilon” means e. “Zeta” means f.",
+            "(ii) the items in clause (i) above.",
+        )
+        xml = _doc(_section("s11", "Section 1.1 Definitions", *texts))
+        self.assertEqual(self._all(xml)[0][:2], ("clause (i)", "unresolved"))
+        # an item that declares a term in passing does not break the scope
+        texts = ("(a) Terms:", "(i) first.", "(ii) “Beta” means b. “Gamma” means c. “Delta” means d. “Epsilon” means e. “Zeta” means f.", "(iii) the items in clause (i) above.")
+        xml = _doc(_section("s11", "Section 1.1 Definitions", *texts))
+        self.assertEqual(self._all(xml), [("clause (i)", "resolved", "s1.1(a)(i)")])
+
+    # B3: an item cited twice is not an inline item; one that also occurs outside the references still is
+    def test_clause_cited_twice_links(self) -> None:
+        xml = _doc(
+            _section(
+                "s412",
+                "Section 4.12 Taxes",
+                "(a) Except as set forth in clause (b) below, all Taxes are paid and, except as set forth in clause (b) below, filed.",
+                "(b) No audit is pending.",
+            )
+        )
+        self.assertEqual(self._all(xml), [("clause (b)", "resolved", "s4.12(b)"), ("clause (b)", "resolved", "s4.12(b)")])
+
+    def test_inline_item_stays_unlinked(self) -> None:
+        xml = _doc(
+            _section(
+                "s412",
+                "Section 4.12 Taxes",
+                "(a) The Company shall (i) file and (ii) pay, provided that clause (i) applies only to returns.",
+                "(b) No audit is pending.",
+                "(i) one.",
+            )
+        )
+        self.assertEqual(self._all(xml)[0][:2], ("clause (i)", "unresolved"))
+
+    def test_definition_tail_keeps_old_count(self) -> None:
+        xml = _doc(
+            _section(
+                "s412",
+                "Section 4.12 Liens",
+                "(a) Liens in clause (b) of the definition of Permitted Liens and clause (b) of the definition of Permitted Liens.",
+                "(b) No audit is pending.",
+            )
+        )
+        self.assertEqual([x[1] for x in self._all(xml)], ["unresolved", "unresolved"])
+
+    def test_section_named_later_keeps_old_count(self) -> None:
+        xml = _doc(
+            _section(
+                "s62",
+                "Section 6.2 Conditions",
+                "(a) Representations. (i) Section 3.01(a) is true; (ii) the representations in clauses (a) and (b) and, "
+                "solely as to the Company, clauses (d) and (e) of Section 3.02 are true; (iii) clauses (a) and (b) above.",
+                "(b) Covenants.",
+            )
+        )
+        self.assertEqual(self._all(xml)[1][:2], ("clauses (a)", "unresolved"))
+
+    def test_leading_item_cited_in_its_paragraph_links(self) -> None:
+        # "(i)" opens the paragraph (after "(b)") and is cited later in it: the nearest "(i)" is that paragraph
+        xml = _doc(
+            _section(
+                "s51",
+                "Section 5.1 Covenants",
+                "(a) Hiring.",
+                "(i) no hires.",
+                "(b) (i) no raises, (ii) no loans, except, in the case of clauses (i) and (ii), as required by Law.",
+            )
+        )
+        got = self._all(xml)
+        self.assertEqual(got[0][:2], ("clauses (i)", "resolved"))
+        self.assertEqual(got[0][2], "s5.1(b)(i)")
+
+
+class SecondReviewFixTests(unittest.TestCase):
+    """Fixes from the second code review of enricher 0.10.0 (2026-11-21)."""
+
+    def _all(self, xml: str) -> list[tuple[str, str, str | None]]:
+        return [(r["text"], r["status"], r.get("target")) for r in build_reader_index(xml)["xrefs"]]
+
+    # R1: a qualified clause whose section lists its own items in the lead-in stays at section level
+    def test_qualified_clause_of_lead_in_item(self) -> None:
+        xml = _doc(
+            _section(
+                "s64",
+                "Section 6.4 Filings",
+                "Parent shall (i) file the forms and (ii) pay the fees, subject to the following:",
+                "(a) Filings.",
+                "(b) Fees.",
+                "(c) Expenses:",
+                "(i) costs.",
+            )
+            + _section("s71", "Section 7.1 Conditions", "the filing under clause (i) of Section 6.4 is made.")
+        )
+        self.assertEqual(self._all(xml), [("clause (i)", "section_fallback", "s6.4"), ("Section 6.4", "resolved", "s6.4")])
+
+    def test_qualified_clause_deep_lookup_still_links(self) -> None:
+        xml = _doc(
+            _section("s64", "Section 6.4 Filings", "Parent shall file the forms:", "(a) Filings.", "(i) costs.", "(b) Fees.")
+            + _section("s71", "Section 7.1 Conditions", "the filing under clause (i) of Section 6.4 is made.")
+        )
+        self.assertEqual(self._all(xml), [("clause (i)", "resolved", "s6.4(a)(i)"), ("Section 6.4", "resolved", "s6.4")])
+
+    # R2: paragraph nodes under an inferred section are inferred too; printed outlines do not change
+    def test_inferred_section_marks_its_paragraphs(self) -> None:
+        xml = _doc(
+            _article("a1", "ARTICLE I A", _section("s1", "Section 1.1 A", "(a) x") + _section("s2", "B.", "(a) y", "(i) z") + _section("s3", "Section 1.3 C", "(a) z"))
+        )
+        p = build_reader_index(xml)
+        secs = _sections_by_id(p)
+        self.assertEqual(secs["s1.2"].get("inferred"), True)
+        flags = {}
+        stack = list(p["outline"])
+        while stack:
+            n = stack.pop()
+            flags[n["id"]] = n.get("inferred")
+            stack.extend(n.get("children", []))
+        self.assertEqual((flags["s1.2(a)"], flags["s1.2(a)(i)"]), (True, True))
+        self.assertEqual((flags["s1.1(a)"], flags["s1.3(a)"]), (None, None))
+
+    # R3: L1 judges a qualified clause by the text after its section, and a tail naming only a party is not a document
+    def _one(self, sentence: str) -> list[tuple[str, str, str | None]]:
+        return self._all(_doc(_section("s11", "Section 1.1 A", "x") + _section("s12", "Section 1.2 B", sentence)))
+
+    def test_qualified_clause_into_missing_section_matches_its_section(self) -> None:
+        got = self._one("Subject to clause (a) of Section 4.2 and Section 4.2, the price is paid.")
+        self.assertEqual([x[1] for x in got], ["unresolved", "unresolved", "unresolved"])
+        got = self._one("See clause (a) of Section 4.2 of the Escrow Agreement.")
+        self.assertEqual([x[1] for x in got], ["external", "external"])
+
+    def test_party_tail_is_not_another_document(self) -> None:
+        self.assertEqual(self._one("The representations in Section 4.7 of the Company are true.")[0][1], "unresolved")
+        self.assertEqual(self._one("See Section 4.7 of Parent.")[0][1], "unresolved")
+        self.assertEqual(self._one("See Section 4.7 of the Company Charter.")[0][1], "external")
+        self.assertEqual(self._one("See Section 4.7 of the Company’s Bylaws.")[0][1], "external")
+        # R3 sample: a party name that starts a document name
+        self.assertEqual(self._one("Purchase rights end under Section 19(c) of the Company 423 Plan.")[0][1], "external")
+        self.assertEqual(self._one("Perform the fifth sentence of Section 2(a) of the Parent/HIM Agreement.")[0][1], "external")
+
+    def test_qualified_clause_of_section_thereof_stays_external(self) -> None:
+        got = self._one("The Confidentiality Agreement continues, notwithstanding clause (i) of Section 16 thereof.")
+        self.assertEqual(got[0][:2], ("clause (i)", "external"))
+
+    # R4: "Article I&II" keeps its link; "Schedule C&D" and "D&O" stay names
+    def test_roman_ampersand_roman_is_a_reference(self) -> None:
+        xml = _doc(
+            _article("a1", "ARTICLE I A", _section("s11", "Section 1.1 A", "x"))
+            + _article("a2", "ARTICLE II B", _section("s21", "Section 2.1 B", "See Article I&amp;II. Schedule C&amp;D applies. Under the D&amp;O policy."))
+        )
+        self.assertEqual(self._all(xml), [("Article I", "resolved", "a1")])
+
+    # R5: a court's Disclosure Statement is not a disclosure schedule; a party-named Disclosure Letter is one
+    def test_disclosure_statement_order_and_party_letter(self) -> None:
+        self.assertEqual(self._one("See Section 3.1(b) of the Disclosure Statement Order.")[0][1], "external")
+        self.assertEqual(self._one("See Section 4.2 of the Debtors’ Disclosure Statement.")[0][1], "external")
+        self.assertEqual(self._one("See Section 4.2 of the Disclosure Statement.")[0][1], "disclosure_schedule")
+        self.assertEqual(self._one("Except as set forth in Section A of Power Disclosure Letter, x.")[0][1], "disclosure_schedule")
+        self.assertEqual(self._one("See Section 4.2 of Seller Disclosure Schedule.")[0][1], "disclosure_schedule")
+
+    def test_printed_outline_is_byte_identical(self) -> None:
+        import json
+
+        xml = _doc(_article("a1", "ARTICLE I A", _section("s1", "Section 1.1 A", "(a) x", "(i) y") + _section("s2", "Section 1.2 B", "(a) z")))
+        got = json.dumps(build_reader_index(xml)["outline"], sort_keys=True)
+        self.assertNotIn('"inferred"', got)
+        self.assertEqual(
+            got,
+            json.dumps(
+                [
+                    {"anchor": {"s": "a1"}, "children": [
+                        {"anchor": {"s": "s1"}, "children": [
+                            {"anchor": {"s": "s1", "t": 0}, "children": [
+                                {"anchor": {"s": "s1", "t": 1}, "id": "s1.1(a)(i)", "kind": "sub", "label": "1.1(a)(i)", "title": "(i) y"}],
+                             "id": "s1.1(a)", "kind": "sub", "label": "1.1(a)", "title": "(a) x"}],
+                         "id": "s1.1", "kind": "section", "label": "1.1", "title": "Section 1.1 A"},
+                        {"anchor": {"s": "s2"}, "children": [
+                            {"anchor": {"s": "s2", "t": 0}, "id": "s1.2(a)", "kind": "sub", "label": "1.2(a)", "title": "(a) z"}],
+                         "id": "s1.2", "kind": "section", "label": "1.2", "title": "Section 1.2 B"}],
+                     "id": "a1", "kind": "article", "label": "I", "title": "ARTICLE I A"}
+                ],
+                sort_keys=True,
+            ),
+        )
+
+
 class ReviewFixTests(unittest.TestCase):
     """Fixes from the code review of enricher 0.10.0 (2026-11-20)."""
 
@@ -1867,7 +2129,7 @@ class RoundTwoLeadRuleTests(unittest.TestCase):
                 ("Section VIII", "unresolved", None),
                 ("Section IX", "resolved", "a9"),
                 ("Section IX", "unresolved", None),
-                ("Section VIII", "external", None),  # L1b: "of the Seller" names something else
+                ("Section VIII", "unresolved", None),  # R3: "of the Seller" names a party, not a document
             ],
         )
 
