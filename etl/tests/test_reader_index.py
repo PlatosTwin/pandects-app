@@ -895,6 +895,14 @@ class SecondReviewFixTests(unittest.TestCase):
         )
         self.assertEqual(self._all(xml), [("Article I", "resolved", "a1")])
 
+    # R5: a court's Disclosure Statement is not a disclosure schedule; a party-named Disclosure Letter is one
+    def test_disclosure_statement_order_and_party_letter(self) -> None:
+        self.assertEqual(self._one("See Section 3.1(b) of the Disclosure Statement Order.")[0][1], "external")
+        self.assertEqual(self._one("See Section 4.2 of the Debtors’ Disclosure Statement.")[0][1], "external")
+        self.assertEqual(self._one("See Section 4.2 of the Disclosure Statement.")[0][1], "disclosure_schedule")
+        self.assertEqual(self._one("Except as set forth in Section A of Power Disclosure Letter, x.")[0][1], "disclosure_schedule")
+        self.assertEqual(self._one("See Section 4.2 of Seller Disclosure Schedule.")[0][1], "disclosure_schedule")
+
     def test_printed_outline_is_byte_identical(self) -> None:
         import json
 

@@ -1216,7 +1216,12 @@ STATUTE = re.compile(
 DISCLOSURE = re.compile(
     # "of the Seller’s Disclosure Letter", "item 1 of the ...", "Disclosure ----- Schedule" across a page break;
     # "of Seller’s Disclosure Schedule": a possessive name with no article (the same opening as OTHER_DOC)
-    r"^\s*(?:\([^)]*\)\s*)*(?:item\s+\d+\s+)?(?:of|to|in|under)\s+(?:(?:the|such|any|each)\s+|(?=[A-Z][\w\-]*[’']s\s))(?:[A-Z][\w\-’']*\s+){0,4}(?:(?i:disclosure[\s\-–—_]+(?:schedules?|letter|memorandum|statements?))|Schedules)\b"
+    # R5: not a bankruptcy court's "Disclosure Statement Order" or the "Debtors’ Disclosure Statement"
+    r"^\s*(?:\([^)]*\)\s*)*(?:item\s+\d+\s+)?(?:of|to|in|under)\s+(?:(?:the|such|any|each)\s+|(?=[A-Z][\w\-]*[’']s\s))"
+    + r"(?!(?:[A-Z][\w\-’']*\s+){0,3}?Debtors?(?:[’']s?)?\s+Disclosure\s+Statement)"
+    + r"(?:[A-Z][\w\-’']*\s+){0,4}(?:(?i:disclosure[\s\-–—_]+(?:schedules?|letter|memorandum|statements?))|Schedules)\b(?![\s\-–—_]+Order\b)"
+    # R5: "Section A of Power Disclosure Letter": one or two capitalized words and no article
+    + r"|^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:[A-Z][\w\-]*\s+){1,2}(?i:disclosure[\s\-–—_]+(?:schedules?|letter|memorandum))\b"
     # "of the Company Schedule of Exceptions"; not "this Article VI to such Schedule of Exceptions" (its own article)
     + r"|^\s*(?:\([^)]*\)\s*)*(?:of|in|on)\s+(?:(?:the|such|any|each)\s+|(?=[A-Z][\w\-]*[’']s\s))(?:[A-Z][\w\-’']*\s+){0,4}Schedule\s+of\s+Exceptions\b",
 )
