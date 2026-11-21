@@ -3,7 +3,6 @@
   "20": "start_or_resume_logical_run",
   "23": "McpTests",
   "30": "MainRoutesTests",
-  "34": "PageClassifier",
   "42": "PreProcessingTests",
   "43": "encoding_dsv4.py",
   "45": "XMLVerifyAssetTests",
