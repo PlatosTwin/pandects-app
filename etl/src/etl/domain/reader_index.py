@@ -294,6 +294,7 @@ class _Outline:
     para_index: dict[str, list[tuple[int, int, str]]] | None = None
     # R1: section uuid -> the section's own text before its first paragraph node ("Parent shall (i) file ... and (ii) pay")
     lead_text: dict[str, str] = field(default_factory=dict)
+    lead_spans: dict[str, list[tuple[int, int]]] = field(default_factory=dict)  # reference spans in lead_text (_lead_loose)
     ids: set[str] = field(default_factory=set)
     unnumbered_sections: int = 0
     positional_sections: int = 0  # sections numbered by position (_positional_numbers)
@@ -1712,24 +1713,60 @@ def _self_link(ref: _Ref, node: _Node, tn: _Text, t: str) -> bool:
     return pm is not None and t[1:-1] in ENUM_TOKEN.findall(pm.group(1))
 
 
+# B3 (T1): "clause (a) of the preceding sentence", "of the first proviso", "clause (a) of such letter": the item belongs
+# to a sentence, a proviso or another document, not to a paragraph node. B3 only; B2 keeps _DEF_OR_RULE_TAIL.
+_B3_OTHER_TAIL = re.compile(
+    r"^\s*(?:\([^()]*\)\s*)*,?\s*(?:(?:of|in|under)\s+the\s+(?:[\w\-]+\s+){0,2}(?:sentences?|provisos?|paragraphs?)\b|of\s+such\s+[a-z])"
+)
+# T1: "Section 4.2 (a) the Company shall": a spaced last item followed by a lowercase word opens an inline list
+_SPACED_LAST_ITEM = re.compile(r"[\dA-Z]\s+(\([A-Za-z0-9]{1,6}\))$")  # "4.2 (a)", "IV (a)"; not a qualified "clause (o)"
+_LOWER_WORD_NEXT = re.compile(r"\s+[a-z]")
+
+
+def _ref_spans(found: list[_Ref], text: str) -> list[tuple[int, int]]:
+    """The spans of the references in a text. A section or article reference whose spaced last item is followed by a
+    lowercase word ("Section 4.2 (a) the Company shall do X") ends before that item: the item is an inline enumerator."""
+    spans = []
+    for r in found:
+        end = r.end
+        if r.head in ("section", "article") and not r.qualified and (m := _SPACED_LAST_ITEM.search(text, r.start, r.end)) and _LOWER_WORD_NEXT.match(text, r.end):
+            end = m.start(1)
+        spans.append((r.start, end))
+    return spans
+
+
+def _count_outside(text: str, t: str, spans: list[tuple[int, int]]) -> int:
+    """How often item `t` ("(a)") occurs in `text` outside every span."""
+    n, i = 0, text.find(t)
+    while i >= 0:
+        if not any(a <= i and i + len(t) <= b for a, b in spans):
+            n += 1
+        i = text.find(t, i + 1)
+    return n
+
+
+def _lead_loose(ol: _Outline, section_uuid: str, t: str) -> bool:
+    """Whether a section's own lead-in (its text before the first paragraph node) holds item `t` outside every
+    reference: "The Company shall not (a) sell assets or (b) incur debt" yes, "Subject to Section 6.4(i)" no."""
+    lead = ol.lead_text.get(section_uuid, "")
+    if t not in lead:
+        return False
+    if section_uuid not in ol.lead_spans:
+        ol.lead_spans[section_uuid] = _ref_spans(_find_refs(lead, in_exhibit=False), lead)
+    return _count_outside(lead, t, ol.lead_spans[section_uuid]) >= 1
+
+
 def _mark_loose(found: list[_Ref], text: str) -> None:
     """B3: for each bare clause item, count its occurrences in the paragraph outside every reference span and outside
     the paragraph's leading enumerators ("(a)(ii)" opening the paragraph)."""
     items = {r.target for r in found if r.head in ("clause", "paragraph") and r.target.startswith("(")}
     if not items:
         return
-    spans = [(r.start, r.end) for r in found]
+    spans = _ref_spans(found, text)
     pm = ENUM_PREFIX.match(text)
     if pm:
         spans.append((0, pm.end()))
-    loose: dict[str, int] = {}
-    for t in items:
-        n, i = 0, text.find(t)
-        while i >= 0:
-            if not any(a <= i and i + len(t) <= b for a, b in spans):
-                n += 1
-            i = text.find(t, i + 1)
-        loose[t] = n
+    loose = {t: _count_outside(text, t, spans) for t in items}
     for r in found:
         if r.head in ("clause", "paragraph") and r.target in loose:
             r.loose = loose[r.target]
@@ -1947,7 +1984,8 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
             inline = tn.section_key == base and tn.text.count(subs) >= 2
             # R1: "clause (i) of Section 6.4" where 6.4 opens "Parent shall (i) file ... and (ii) pay": the lead-in's
             # own item, not the one paragraph deeper down that ends in "(i)"
-            inline = inline or subs in ol.lead_text.get(nodes[0].anchor.get("s", ""), "")
+            # T2: only outside the lead-in's own references ("Subject to Section 6.4(i), Parent shall:" is not an item)
+            inline = inline or _lead_loose(ol, nodes[0].anchor.get("s", ""), subs)
             if re.fullmatch(r"\([A-Za-z0-9]+\)", subs) and not inline and not _QUALIFIER_GOES_ON.match(ref.tail):
                 deep = [k for k in ol.subs if k.startswith(base + "(") and k.endswith(subs) and k not in ol.groups]
                 if len(deep) == 1:
@@ -1994,7 +2032,12 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
         # definition, a rule or another document ("clause (i) of the definition of ..."), or a section is named later in
         # the same clause ("clauses (a) and (b) and, solely ..., clauses (d) and (e) of Section 3.02")
         old_inline = tn.text.count(t) >= 2
-        if ref.loose >= 0 and not ref.other_tail and not _DEF_OR_RULE_TAIL.match(ref.tail) and not _LATER_SECTION.match(tn.text, ref.end):
+        # T1: also when the tail names a sentence, a proviso or "such letter", or the section's own lead-in lists the
+        # item inline ("The Company shall not (a) sell assets or (b) incur debt")
+        if (
+            ref.loose >= 0 and not ref.other_tail and not _DEF_OR_RULE_TAIL.match(ref.tail) and not _B3_OTHER_TAIL.match(ref.tail)
+            and not _LATER_SECTION.match(tn.text, ref.end) and not _lead_loose(ol, tn.s, t)
+        ):
             inline = ref.loose >= 1
         else:
             inline = old_inline
