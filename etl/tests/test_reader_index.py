@@ -2571,6 +2571,55 @@ class BackMatterSegmentTests(unittest.TestCase):
         self.assertEqual({r["status"] for r in x if r["text"] == "clause 9.2"}, {"unresolved"})
 
 
+class NearestParagraphFallbackTests(unittest.TestCase):
+    """D1: "Section 6.4(e)(ii)" with no node 6.4(e)(ii) links paragraph 6.4(e), not Section 6.4."""
+
+    def _all(self, sentence: str, *paras: str) -> list[tuple[str, str, str | None]]:
+        target = _section("s64", "Section 6.4 Filings", *paras)
+        cite = _section("s71", "Section 7.1 Conditions", sentence)
+        p = build_reader_index(_doc(_article("a6", "ARTICLE VI COVENANTS", target) + _article("a7", "ARTICLE VII CONDITIONS", cite)))
+        return [(x["text"], x["status"], x.get("target")) for x in p["xrefs"] if x["at"]["s"] == "s71"]
+
+    PARAS = ("(a) Parent shall file.", "(b) The Company shall file.", "(e) Each party shall (i) consult and (ii) cooperate.")
+
+    def test_two_levels_land_on_the_paragraph(self) -> None:
+        got = self._all("The obligations under Section 6.4(e)(ii) survive.", *self.PARAS)
+        self.assertEqual(got, [("Section 6.4(e)(ii)", "section_fallback", "s6.4(e)")])
+
+    def test_three_levels_land_on_the_second(self) -> None:
+        paras = ("(a) Parent shall file.", "(e) Each party shall:", "(i) consult on (A) timing and (B) content;", "(ii) cooperate.")
+        got = self._all("The obligations under Section 6.4(e)(i)(B) survive.", *paras)
+        self.assertEqual(got, [("Section 6.4(e)(i)(B)", "section_fallback", "s6.4(e)(i)")])
+
+    def test_a_paragraph_printed_twice_is_not_used(self) -> None:
+        paras = ("(a) Parent shall file.", "(e) Each party shall consult.", "(e) Each party shall (i) cooperate.")
+        got = self._all("The obligations under Section 6.4(e)(i) survive.", *paras)
+        self.assertEqual(got, [("Section 6.4", "section_fallback", "s6.4")])
+
+    def test_the_sentences_own_list_marker_lands_on_the_paragraph(self) -> None:
+        paras = ("(a) Parent shall file.", "(b) The Company shall file.", "(c) Seller grants Buyer a license to use the Marks.")
+        sentence = "The license granted in Section 6.4(c) (i) shall not be terminated and (ii) is freely assignable."
+        got = self._all(sentence, *paras)
+        self.assertEqual([(t, s, g) for t, s, g in got if t.startswith("Section")], [("Section 6.4(c) (i)", "section_fallback", "s6.4(c)")])
+
+    def test_a_lettered_group_is_not_used(self) -> None:
+        paras = ("A. Filings.", "(a) Parent shall file.", "B. Cooperation.", "(a) Each party shall cooperate.")
+        got = self._all("The obligations under Section 6.4(A)(c) survive.", *paras)
+        self.assertNotIn("s6.4(A)", [g for _, _, g in got])
+
+    def test_references_that_resolve_today_are_unchanged(self) -> None:
+        got = self._all("Under Section 6.4(e) and clause (ii) of Section 6.4(e), and Section 6.4.", *self.PARAS)
+        self.assertEqual(
+            got,
+            [
+                ("Section 6.4(e)", "resolved", "s6.4(e)"),
+                ("clause (ii)", "section_fallback", "s6.4(e)"),  # the qualified path (L9 ancestor), as before D1
+                ("Section 6.4(e)", "resolved", "s6.4(e)"),
+                ("Section 6.4", "resolved", "s6.4"),
+            ],
+        )
+
+
 class AttachmentParentTests(unittest.TestCase):
     """X1: "Exhibit L-1" with no node L-1 links the one heading "Exhibit L" that holds the forms, when its title fits."""
 

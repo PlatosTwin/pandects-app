@@ -288,6 +288,7 @@ class _Outline:
     # attachment node id -> the content words of its title ("EXHIBIT L" + "Form of Stockholder Representation Letter")
     attachment_words: dict[str, set[str]] = field(default_factory=dict)
     groups: set[str] = field(default_factory=set)  # lettered group keys: "8.1(A)"
+    dup_subs: set[str] = field(default_factory=set)  # paragraph keys printed as their own paragraph twice (D1)
     roman_sections: bool = False  # most sections are numbered "VIII.2" (_roman_scheme): "Section VIII.2(e)" resolves
     para_labels: dict[str, str] = field(default_factory=dict)  # "8.2.1" -> printed "VIII.2.1"
     # the body writes "this Section 8" inside "ARTICLE VIII": its bare "Section N" can mean article N (_self_cites_article)
@@ -658,7 +659,9 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
                 foreign = not key.startswith(num + ".")
                 if foreign:
                     continue
-                if key not in ol.subs:
+                if key in ol.subs:
+                    ol.dup_subs.add(key)
+                else:
                     sub = _Node(ol.unique_id(f"s{key}"), "sub", key, txt.strip()[:80], {"s": uuid, "t": tn.t})
                     ol.subs[key] = sub
                     node.children.append(sub)
@@ -672,7 +675,9 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
             gm = GROUP_PARA.match(txt) if groups and base == num else None
             if gm:
                 key = f"{num}({gm.group(1)})"
-                if key not in ol.subs:
+                if key in ol.subs:
+                    ol.dup_subs.add(key)
+                else:
                     sub = _Node(ol.unique_id(f"s{key}"), "sub", key, txt.strip()[:80], {"s": uuid, "t": tn.t})
                     ol.subs[key] = sub
                     node.children.append(sub)
@@ -696,10 +701,12 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
             kinds = _classify_tokens(tokens, stack[g:])
             level = next((i for i, (k, _) in enumerate(stack) if i >= g and k == kinds[0]), len(stack))
             stack = stack[:level]
-            for k, tok in zip(kinds, tokens):
+            for i, (k, tok) in enumerate(zip(kinds, tokens)):
                 stack.append((k, tok))
                 key = base + "".join(f"({tk})" for _, tk in stack)
                 if key in ol.subs:
+                    if i == len(tokens) - 1:  # this paragraph's own number again ("(e)" twice), not "(a)(i)" after "(a)"
+                        ol.dup_subs.add(key)
                     continue
                 parent_key = key[: key.rfind("(")]
                 parent_node = ol.subs.get(parent_key, node)
@@ -1436,6 +1443,7 @@ class _Ref:
     after: str = ""  # the text from the end of this item to 60 characters past the end of its run
     parent_enum: str = ""  # "clause (ii) of subparagraph (a) above": "(a)", the paragraph that holds the clause
     own_para: bool = False  # B1: "this clause (b)" resolved to the paragraph that holds it
+    para_fallback: bool = False  # D1: "Section 6.4(e)(ii)" fell back to paragraph 6.4(e); the span keeps "(e)(ii)"
     loose: int = -1  # B3: how often the item occurs in its paragraph outside every reference and the leading number
 
 
@@ -2063,6 +2071,21 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
             return "section_fallback", nodes[0].id, None
         if ref.base_end <= ref.start and not ref.relative:
             return "unresolved", None, None
+        # D1: "Section 6.4(e)(ii)" where (ii) is an item inside paragraph 6.4(e): the deepest printed ancestor
+        # paragraph that has a node, not the section. Every level down to it must be a single, ungrouped paragraph
+        # (a lettered group "8.1(A)" or a key printed twice in its section could be another paragraph).
+        # Not for relative items ("Sections 10.2(a), (e)(ii)"): their own head is not printed with them.
+        if not ref.relative:
+            parts = re.findall(r"\([A-Za-z0-9]+\)", subs)
+            best = None
+            for k in range(1, len(parts)):
+                key = base + "".join(parts[:k])
+                if key not in ol.subs or key in ol.groups or key in ol.dup_subs:
+                    break
+                best = ol.subs[key]
+            if best is not None:
+                ref.para_fallback = True
+                return "section_fallback", best.id, None
         # "Sections 10.2(a), (b) and (c)" with no subsection targets: the printed section is right there
         return "section_fallback", nodes[0].id, None
     if ref.head == "article":
@@ -2451,7 +2474,7 @@ def build_reader_index(xml: str, *, agreement_uuid: str | None = None, xml_versi
             ):
                 status, target, r.detail = "unresolved", None, "inline"
             # a relative "(b)" or a qualified "clause (ii)" has no printed number of its own: keep its span
-            end = r.base_end if status == "section_fallback" and not (r.qualified or r.relative) else r.end
+            end = r.base_end if status == "section_fallback" and not (r.qualified or r.relative or r.para_fallback) else r.end
             x: dict[str, Any] = {"at": {"s": tn.s, "t": tn.t}, "span": tn.span(r.start, end), "text": tn.text[r.start : end], "status": status}
             if target:
                 x["target"] = target
