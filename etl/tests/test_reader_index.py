@@ -2653,6 +2653,25 @@ class AttachmentParentTests(unittest.TestCase):
         got = self._all(sentence, _back("EXHIBIT A", "EXCLUDED ASSETS SUBJECT TO ASSIGNMENT"))
         self.assertEqual(got, [("Exhibit A-1", "unlocated_attachment", None)])
 
+    def test_review_inputs_stay_unlocated(self) -> None:
+        cases = [
+            # a generic document noun alone ("certificate")
+            ("The parties shall file the Certificate of Merger in the form of Exhibit A-1.",
+             _back("EXHIBIT A", "FORM OF AMENDED AND RESTATED CERTIFICATE OF INCORPORATION OF THE SURVIVING CORPORATION"), "Exhibit A-1"),
+            # a party name ("Acme" of "Acme Holdings")
+            ("Acme Holdings shall deliver the Acme Voting Agreement in the form of Exhibit B-1.",
+             _back("EXHIBIT B", "FORM OF ACME HOLDINGS ESCROW AGREEMENT"), "Exhibit B-1"),
+            # drafting words ("Effective Time")
+            ("At the Effective Time, the director resignations in the form of Exhibit C-1 are effective.",
+             _back("EXHIBIT C", "FORM OF EFFECTIVE TIME OFFICER CERTIFICATE"), "Exhibit C-1"),
+            # the line after the heading is body text, not a title
+            ("Each Key Employee shall sign an employment offer in the form of Exhibit D-1.",
+             _back("EXHIBIT D", "This Escrow Agreement for each Key Employee is made as follows."), "Exhibit D-1"),
+        ]
+        for sentence, back, label in cases:
+            with self.subTest(label=label):
+                self.assertEqual(self._all(sentence, back), [(label, "unlocated_attachment", None)])
+
     def test_own_node_wins_and_a_filed_sibling_blocks_the_parent(self) -> None:
         sentence = "The officer certificates attached as Exhibits C-1 and C-2 hereto."
         back = _back("EXHIBIT C", "FORM OF TAX CERTIFICATES", "EXHIBIT C-1", "Officer certificate of the Company.")

@@ -287,6 +287,7 @@ class _Outline:
     attachments: dict[str, _Node] = field(default_factory=dict)  # "exhibit a" -> node
     # attachment node id -> the content words of its title ("EXHIBIT L" + "Form of Stockholder Representation Letter")
     attachment_words: dict[str, set[str]] = field(default_factory=dict)
+    attachment_titles: dict[str, str] = field(default_factory=dict)  # the same title lines as text (_ENTITY_NAME)
     groups: set[str] = field(default_factory=set)  # lettered group keys: "8.1(A)"
     dup_subs: set[str] = field(default_factory=set)  # paragraph keys printed as their own paragraph twice (D1)
     roman_sections: bool = False  # most sections are numbered "VIII.2" (_roman_scheme): "Section VIII.2(e)" resolves
@@ -769,8 +770,9 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
             txt = tn.text.strip()
             m = ATTACHMENT_HEADING.match(txt)
             if titled is not None:
-                if not m and len(txt) < 120:  # "EXHIBIT C" then "FORM OF TAX CERTIFICATES"
+                if not m and len(txt) < 120 and _title_line(txt):  # "EXHIBIT C" then "FORM OF TAX CERTIFICATES"
                     ol.attachment_words[titled.id] |= _content_words(txt)
+                    ol.attachment_titles[titled.id] = ol.attachment_titles.get(titled.id, "") + "\n" + txt
                 titled = None
             if not m or len(txt) >= 120:
                 continue
@@ -784,12 +786,14 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
             if full in ol.attachments:  # the same attachment again (a list of exhibits, then the exhibit): more title
                 titled = ol.attachments[full]
                 ol.attachment_words[titled.id] |= _content_words(txt[m.end(2) :])
+                ol.attachment_titles[titled.id] = ol.attachment_titles.get(titled.id, "") + "\n" + txt
                 continue
             node = _Node(ol.unique_id("x-" + full.replace(" ", "-")), "attachment", num.upper() + enums, txt, {"s": tn.s, "t": tn.t})
             ol.attachments[full] = node
             _ = ol.attachments.setdefault(key, node)
             ol.roots.append(node)
             ol.attachment_words[node.id] = _content_words(txt[m.end(2) :])
+            ol.attachment_titles[node.id] = txt
             titled = node
     # Subsections of a duplicated section or flat item can't say which copy they belong to
     dup = [n + "." for n, v in ol.sections.items() if len(v) > 1] + [n + "(" for n, v in ol.sections.items() if len(v) > 1]
@@ -1926,10 +1930,31 @@ _TITLE_STOPWORDS = frozenset(
     # drafting words that name no document (0.10.0 reads: "second", "subject", "stock", "corp" and "asset" made the
     # only bad links)
     "first second third fourth subject stock share number certain matter period time term date amount section "
-    "article other general provision applicable respect asset".split()
+    "article other general provision applicable respect asset effective".split()
 )
+# document nouns that may tie a sub-exhibit to its parent only together with a word that names the subject:
+# "Certificate of Merger ... Exhibit A-1" is not "EXHIBIT A / FORM OF ... CERTIFICATE OF INCORPORATION"
+_GENERIC_DOC_NOUNS = frozenset("certificate agreement letter notice opinion plan schedule statement consent release note".split())
 _SUFFIXED_LABEL = re.compile(r"([A-Z0-9][A-Z0-9.]*)-\d+")
 _SENTENCE_END = re.compile(r"[.;](?=\s|$)")
+# a name before a capitalized entity suffix ("Acme Holdings", "Sarcos Corp."): a party, not the subject of a document
+# ("Stockholders holding at least 95%" is no name)
+_ENTITY_NAME = re.compile(
+    r"\b([A-Z][A-Za-z]+)\s+(?=[A-Z])(?i:holdings?|inc\b|incorporated|llc|l\.l\.c|corp\b|corporation|ltd|limited|l\.p|lp\b|partners|group|bancorp|co\b|company)"
+)
+_TITLE_VERB = re.compile(r"\b(?:is|are|was|were|be|been|shall|will|may|made|entered|has|have|hereby|sets?)\b", re.I)
+
+
+def _title_line(text: str) -> bool:
+    """X1: the line after "EXHIBIT D" is its title when it is all capitals, starts with "Form(s) of", or has 12
+    words or fewer, no final period and no sentence verb. "This Escrow Agreement ... is made as follows." is text."""
+    s = text.strip()
+    letters = [c for c in s if c.isalpha()]
+    if letters and all(c.isupper() for c in letters):
+        return True
+    if re.match(r"\[?\s*forms?\s+of\b", s, re.I):
+        return True
+    return len(s.split()) <= 12 and not s.endswith(".") and _TITLE_VERB.search(s) is None
 
 
 def _content_words(text: str) -> set[str]:
@@ -1948,6 +1973,11 @@ def _attachment_parent(ref: _Ref, ol: _Outline, tn: _Text, t: str) -> _Node | No
     license agreement's own Exhibit C under an agreement whose Exhibits C-1 to C-3 were not filed (0.10.0 read:
     20 of 32 such 0.9.0 parent links right, 18 of 18 right with the check; dry run over the corpus: 57 body links
     added, all read, 54 better, 3 neutral, none worse).
+
+    The shared words must include one that is neither a generic document noun (_GENERIC_DOC_NOUNS) nor a party
+    name before an entity suffix (_ENTITY_NAME). Review: "certificate" alone, "acme" of "Acme Holdings" and
+    "effective" of "Effective Time" each tied a wrong parent; on the 57 body links the test keeps 50 of 54 better
+    ones and the 3 neutral ones (it drops 4 tax-certificate links tied only by "certificate").
     """
     m = _SUFFIXED_LABEL.fullmatch(t.upper())
     if not m:
@@ -1966,7 +1996,10 @@ def _attachment_parent(ref: _Ref, ol: _Outline, tn: _Text, t: str) -> _Node | No
     right = tn.text[ref.end : ref.end + 300]
     if (e := _SENTENCE_END.search(right)) is not None:
         right = right[: e.start()]
-    return parent if words & _content_words(left + " " + right) else None
+    names = {w.lower() for w in _ENTITY_NAME.findall(tn.text + "\n" + ol.attachment_titles.get(parent.id, ""))}
+    names |= {w[:-1] for w in names if w.endswith("s")}
+    tie = (words & _content_words(left + " " + right)) - _GENERIC_DOC_NOUNS - names
+    return parent if tie else None
 
 
 def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, str | None, list[str] | None]:
