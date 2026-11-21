@@ -1692,6 +1692,11 @@ def _definitions_scope_ok(ref: _Ref, ol: _Outline, tn: _Text, target: str, key_b
     return parent != tn.section_key and _nearest_scope(ol, tn, tn.section_key, [key]) == key
 
 
+# B3 guard: a section named later in the same clause may qualify the items ("clauses (a) and (b) and, solely with
+# respect to ..., clauses (d) and (e) of Section 3.02")
+_LATER_SECTION = re.compile(r"[^.;]{0,200}?\b(?:of|in|under)\s+(?:this\s+)?(?:Section|Article)\s+\d")
+
+
 def _mark_loose(found: list[_Ref], text: str) -> None:
     """B3: for each bare clause item, count its occurrences in the paragraph outside every reference span and outside
     the paragraph's leading enumerators ("(a)(ii)" opening the paragraph)."""
@@ -1968,11 +1973,14 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
             return "resolved", own.id, None
         # B3: "except as set forth in clause (b) below", printed twice, is not an inline item; the item counts as inline
         # only when it occurs outside every reference and the paragraph's own leading number, or the tail names a
-        # definition, a rule or another document ("clause (i) of the definition of ...")
-        if ref.loose >= 0 and not ref.other_tail and not _DEF_OR_RULE_TAIL.match(ref.tail):
+        # definition, a rule or another document ("clause (i) of the definition of ..."), or a section is named later in
+        # the same clause ("clauses (a) and (b) and, solely ..., clauses (d) and (e) of Section 3.02")
+        old_inline = tn.text.count(t) >= 2
+        if ref.loose >= 0 and not ref.other_tail and not _DEF_OR_RULE_TAIL.match(ref.tail) and not _LATER_SECTION.match(tn.text, ref.end):
             inline = ref.loose >= 1
         else:
-            inline = tn.text.count(t) >= 2
+            inline = old_inline
+        relaxed = old_inline and not inline  # B3 lifted the old count: it may add a link, never an "ambiguous"
         if t.startswith("(") and inline:
             # "clauses (i) and (iii) through (v)" inside a paragraph that enumerates (i)...(v)
             # itself, typical of definitions: the items are inline, not subsections
@@ -1988,9 +1996,11 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
                     hits = [k for k in cands if k[: k.rfind("(")].endswith(ref.parent_enum)]
                     if len(hits) == 1:
                         return "resolved", ol.subs[hits[0]].id, None
-                    return "ambiguous", None, [ol.subs[k].id for k in cands]
-                if not ref.other_tail and (one := _nearest_scope(ol, tn, cur, cands)) is not None:
+                elif not ref.other_tail and (one := _nearest_scope(ol, tn, cur, cands)) is not None:
                     return "resolved", ol.subs[one].id, None
+                if relaxed:
+                    ref.detail = "inline"
+                    return "unresolved", None, None
                 return "ambiguous", None, [ol.subs[k].id for k in cands]
         if t.startswith("(") and sec_text.count(t) >= 2:
             # an inline enumeration in the same section ("(i) ... (ii) ... clause (i) above");

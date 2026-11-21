@@ -797,6 +797,33 @@ class BodyClauseGuardTests(unittest.TestCase):
         )
         self.assertEqual([x[1] for x in self._all(xml)], ["unresolved", "unresolved"])
 
+    def test_section_named_later_keeps_old_count(self) -> None:
+        xml = _doc(
+            _section(
+                "s62",
+                "Section 6.2 Conditions",
+                "(a) Representations. (i) Section 3.01(a) is true; (ii) the representations in clauses (a) and (b) and, "
+                "solely as to the Company, clauses (d) and (e) of Section 3.02 are true; (iii) clauses (a) and (b) above.",
+                "(b) Covenants.",
+            )
+        )
+        self.assertEqual(self._all(xml)[1][:2], ("clauses (a)", "unresolved"))
+
+    def test_leading_item_cited_in_its_paragraph_links(self) -> None:
+        # "(i)" opens the paragraph (after "(b)") and is cited later in it: the nearest "(i)" is that paragraph
+        xml = _doc(
+            _section(
+                "s51",
+                "Section 5.1 Covenants",
+                "(a) Hiring.",
+                "(i) no hires.",
+                "(b) (i) no raises, (ii) no loans, except, in the case of clauses (i) and (ii), as required by Law.",
+            )
+        )
+        got = self._all(xml)
+        self.assertEqual(got[0][:2], ("clauses (i)", "resolved"))
+        self.assertEqual(got[0][2], "s5.1(b)(i)")
+
 
 class SecondReviewFixTests(unittest.TestCase):
     """Fixes from the second code review of enricher 0.10.0 (2026-11-21)."""
