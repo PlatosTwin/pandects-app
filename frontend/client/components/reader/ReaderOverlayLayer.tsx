@@ -10,6 +10,7 @@ import {
   anchorKey,
   declLocation,
   excerpt,
+  inferredNumberNote,
   type ReaderOutlineNode,
   type ReaderOverlay,
   type ReaderXref,
@@ -380,8 +381,11 @@ function XrefCard({
       <CardHeading inSheet={inSheet}>{heading}</CardHeading>
       {xref.status === "section_fallback" ? (
         <p className="text-xs text-muted-foreground">
-          {xref.text} was not found as its own subsection; this links to the section.
+          {`${xref.text} was not found as its own subsection; this links to ${outlineNodeName(node).replace(/\.+$/, "")}.`}
         </p>
+      ) : null}
+      {node.inferred ? (
+        <p className="text-xs text-muted-foreground">{inferredNumberNote(node.label)}</p>
       ) : null}
       {preview ? (
         <p className="leading-relaxed text-foreground">

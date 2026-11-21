@@ -1553,6 +1553,8 @@ export interface components {
             label: string;
             title: string;
             anchor: components["schemas"]["ReaderAnchor"];
+            /** @description True when the filed text does not print this number and it is taken from the agreement's own references and section order; absent otherwise. */
+            inferred?: boolean;
             children?: components["schemas"]["ReaderOutlineNode"][];
         };
         ReaderTermDecl: {

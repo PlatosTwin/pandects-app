@@ -5,6 +5,7 @@ import {
   buildReaderOverlay,
   collectTextAnchors,
   excerpt,
+  normalizeOutlineLabel,
   tocEntryOutlineId,
   type ReaderIndex,
   type ReaderOutlineNode,
@@ -183,6 +184,48 @@ describe("printed table of contents entries", () => {
     expect(tocEntryOutlineId(bare, "2.1A Purchase Price Adjustment")).toBeNull();
     expect(tocEntryOutlineId(bare, "10.1(a) Conditions")).toBeNull();
     expect(tocEntryOutlineId(bare, "2. Sale and Purchase")).toBe("a2");
+  });
+
+  // The enricher labels "ARTICLE ONE" as "ONE" (its SPELLED_ARTICLE) and gives it the id "a1".
+  it("links spelled article numbers both ways", () => {
+    const spelled = overlayOf([
+      node("article", "a1", "ONE", "ARTICLE ONE DEFINITIONS AND INTERPRETATION"),
+      node("article", "a7", "Seven", "Article Seven Covenants"),
+      node("article", "a17", "SEVENTEEN", "ARTICLE SEVENTEEN MISCELLANEOUS"),
+    ]);
+    expect(tocEntryOutlineId(spelled, "ARTICLE ONE Definitions")).toBe("a1");
+    expect(tocEntryOutlineId(spelled, "Article 1 Definitions and Interpretation")).toBe("a1");
+    expect(tocEntryOutlineId(spelled, "ARTICLE I DEFINITIONS")).toBe("a1");
+    expect(tocEntryOutlineId(spelled, "Article 7. Covenants")).toBe("a7");
+    expect(tocEntryOutlineId(spelled, "ARTICLE SEVENTEEN Miscellaneous")).toBe("a17");
+    expect(tocEntryOutlineId(spelled, "ARTICLE 17 MISCELLANEOUS")).toBe("a17");
+    // A spelled entry still needs words that agree.
+    expect(tocEntryOutlineId(spelled, "ARTICLE ONE Purchase Price")).toBeNull();
+    // A spelled entry finds a Roman or numbered article too.
+    expect(tocEntryOutlineId(overlay, "ARTICLE TWO SALE AND PURCHASE")).toBe("a2");
+    expect(tocEntryOutlineId(overlay, "Article Five Covenants")).toBe("a5");
+  });
+
+  it("does not read a compound spelled number as its first word", () => {
+    const twenty = overlayOf([
+      node("article", "a20", "TWENTY", "ARTICLE TWENTY MISCELLANEOUS"),
+      node("article", "a1", "ONE", "ARTICLE ONE DEFINITIONS"),
+    ]);
+    expect(tocEntryOutlineId(twenty, "ARTICLE TWENTY-ONE MISCELLANEOUS")).toBeNull();
+    expect(tocEntryOutlineId(twenty, "Article Twenty One Miscellaneous")).toBeNull();
+    expect(tocEntryOutlineId(twenty, "ARTICLE TWENTY\u2011ONE MISCELLANEOUS")).toBeNull();
+    expect(tocEntryOutlineId(twenty, "Article One Hundred Definitions")).toBeNull();
+    // The single words still link.
+    expect(tocEntryOutlineId(twenty, "ARTICLE TWENTY Miscellaneous")).toBe("a20");
+    expect(tocEntryOutlineId(twenty, "ARTICLE ONE - DEFINITIONS")).toBe("a1");
+  });
+
+  it("reads Roman, spelled and zero-padded labels as one number", () => {
+    expect(normalizeOutlineLabel("IV")).toBe("4");
+    expect(normalizeOutlineLabel("FOUR")).toBe("4");
+    expect(normalizeOutlineLabel("Twenty")).toBe("20");
+    expect(normalizeOutlineLabel("5.08")).toBe("5.8");
+    expect(normalizeOutlineLabel("ONE.")).toBe("1");
   });
 });
 

@@ -609,6 +609,14 @@ class ReaderOutlineNodeSchema(Schema):
     label = fields.Str(required=True, metadata={"example": "4.3(b)"})
     title = fields.Str(required=True)
     anchor = fields.Nested(ReaderAnchorSchema, required=True)
+    inferred = fields.Bool(
+        metadata={
+            "description": (
+                "True when the filed text does not print this number and it is taken from the "
+                "agreement's own references and section order; absent otherwise."
+            )
+        }
+    )
     children = fields.List(fields.Nested(lambda: ReaderOutlineNodeSchema()))
 
 

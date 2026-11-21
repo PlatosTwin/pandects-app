@@ -1584,8 +1584,16 @@ class MainRoutesTests(unittest.TestCase):
                     "label": "1.2",
                     "title": "Definitions",
                     "anchor": {"s": self._HIDE},
+                    "inferred": True,
                     "children": [
-                        {"id": "s1.2(a)", "kind": "sub", "label": "1.2(a)", "title": "HIDE", "anchor": {"s": self._HIDE, "t": 0}}
+                        {
+                            "id": "s1.2(a)",
+                            "kind": "sub",
+                            "label": "1.2(a)",
+                            "title": "HIDE",
+                            "anchor": {"s": self._HIDE, "t": 0},
+                            "inferred": True,
+                        }
                     ],
                 }
             ],
@@ -1686,6 +1694,9 @@ class MainRoutesTests(unittest.TestCase):
         self.assertEqual(list(body["uses"]), [f"{self._KEEP}/0"])
         self.assertEqual([x["text"] for x in body["xrefs"]], ["Section 1.2"])
         self.assertEqual(body["outline"][0]["children"][0]["title"], "")
+        # an inferred number is not hidden text: the flag stays on both nodes
+        self.assertTrue(body["outline"][0]["inferred"])
+        self.assertTrue(body["outline"][0]["children"][0]["inferred"])
         self.assertNotIn("HIDE", res.get_data(as_text=True))
         # the redacted variant has its own validator
         self.assertNotEqual(res.headers["ETag"], 'W/"2-0.4.0"')

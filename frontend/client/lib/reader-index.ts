@@ -130,6 +130,15 @@ function indexOutline(nodes: ReaderOutlineNode[], overlay: ReaderOverlay, parent
   }
 }
 
+/**
+ * Shown with an outline number the filing does not print (`inferred`). It names
+ * the number, because the heading may print a wrong one of its own. Older
+ * payloads lack the field, so nothing is shown for them.
+ */
+export function inferredNumberNote(label: string): string {
+  return `The filed text does not print the number ${label}. It comes from the agreement's own references and section order.`;
+}
+
 /** Statuses whose `target` is a place in this agreement the reader can jump to. */
 export function isLinkedXref(xref: ReaderXref): boolean {
   return (xref.status === "resolved" || xref.status === "section_fallback") && Boolean(xref.target);
@@ -272,7 +281,21 @@ export function outlineTrail(overlay: ReaderOverlay, id: string): ReaderOutlineN
 
 const ROMAN_VALUES: Record<string, number> = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
 const ROMAN_RE = /^[IVXLCDM]+$/;
-const TOC_ARTICLE_RE = /^ARTICLE\s+([IVXLCDM]+|\d+)\b[\s.:\u2013\u2014-]*/i;
+// "ARTICLE ONE" to "Article Twenty", as the enricher reads them (SPELLED_ARTICLE).
+const SPELLED_NUMBERS = (
+  "one two three four five six seven eight nine ten eleven twelve thirteen " +
+  "fourteen fifteen sixteen seventeen eighteen nineteen twenty"
+).split(" ");
+// Longest first, so "SEVENTEEN" is not read as "SEVEN".
+const SPELLED_ALTERNATION = [...SPELLED_NUMBERS].sort((a, b) => b.length - a.length).join("|");
+// "TWENTY-ONE" and "Twenty One" are not article 20: a spelled number followed
+// by a hyphen or another number word is not read at all.
+const NUMBER_WORDS = `${SPELLED_ALTERNATION}|thirty|forty|fifty|hundred`;
+const SPELLED_ARTICLE_NUMBER = `(?:${SPELLED_ALTERNATION})(?![-\\u2010\\u2011]|\\s+(?:${NUMBER_WORDS})\\b)`;
+const TOC_ARTICLE_RE = new RegExp(
+  `^ARTICLE\\s+([IVXLCDM]+|\\d+|${SPELLED_ARTICLE_NUMBER})\\b[\\s.:\\u2013\\u2014-]*`,
+  "i",
+);
 // The number must be whole: "2.1A" and "10.1(a)" are not Section 2 or 10, so
 // the match may not stop in front of another ".1".
 const TOC_SECTION_RE =
@@ -287,10 +310,12 @@ function romanToInt(roman: string): number {
   return total;
 }
 
-/** "5.08" and "5.8" are one label; so are "IV" and "4". */
-function normalizeOutlineLabel(label: string): string {
+/** "5.08" and "5.8" are one label; so are "IV", "FOUR" and "4". */
+export function normalizeOutlineLabel(label: string): string {
   const trimmed = label.trim().replace(/[.\s]+$/, "").toUpperCase();
   if (ROMAN_RE.test(trimmed)) return String(romanToInt(trimmed));
+  const spelled = SPELLED_NUMBERS.indexOf(trimmed.toLowerCase());
+  if (spelled !== -1) return String(spelled + 1);
   return trimmed
     .split(".")
     .map((part) => (/^\d+$/.test(part) ? String(Number(part)) : part))
