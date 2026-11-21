@@ -888,7 +888,7 @@ class StatusAndTargetRuleTests(unittest.TestCase):
                 ("Sections 7", "resolved", "a7"),
                 ("8", "unresolved", None),
                 ("Section 8", "external", None),
-                ("Section 8", "unresolved", None),
+                ("Section 8", "external", None),  # L1: "of Revenue Procedure 2004-53" names another document
                 ("Section 8", "unresolved", None),
             ],
         )
@@ -1713,6 +1713,183 @@ def _back(*texts: str) -> str:
 MAIN = _article("a1", "ARTICLE I DEFINITIONS", _section("s11", "Section 1.1 Definitions", "x")) + _article(
     "a2", "ARTICLE II THE MERGER", _section("s21", "Section 2.1 The Merger", "y")
 )
+
+
+class RoundTwoLeadRuleTests(unittest.TestCase):
+    """Round-2 lead rules L1 to L7 (2026-11-20, round2_PROPOSALS.md "For the lead after the merge")."""
+
+    def _all(self, body_text: str, back: str = "", main: str = MAIN) -> list[tuple[str, str, str | None]]:
+        xml = _doc(main + _article("a9", "ARTICLE IX MISC", _section("s91", "Section 9.1 Refs", body_text)), back=back)
+        return [(x["text"], x["status"], x.get("target")) for x in build_reader_index(xml)["xrefs"]]
+
+    # L1: no node and a tail that names something else
+    def test_l1_tail_naming_another_document_is_external(self) -> None:
+        refs = self._all("As set out in Section 7.3 of Revenue Procedure 2004-53 and Article 12 under the Stockholders Agreement.")
+        self.assertIn(("Section 7.3", "external", None), refs)
+        self.assertIn(("Article 12", "external", None), refs)
+
+    def test_l1_keeps_self_markers_articles_and_existing_nodes(self) -> None:
+        refs = self._all(
+            "Under this Section 7.3 pursuant to Regulation D, Section 8.5 of Article IX, Section 2.1 under the Escrow Terms "
+            "and Section 7.7 of the Company Disclosure Letter."
+        )
+        self.assertIn(("Section 7.3", "unresolved", None), refs)
+        self.assertIn(("Section 8.5", "unresolved", None), refs)
+        self.assertIn(("Section 2.1", "resolved", "s2.1"), refs)  # a node exists: L1 never applies
+        self.assertIn(("Section 7.7", "disclosure_schedule", None), refs)
+
+    def test_l1_in_back_matter_only_without_a_main_node(self) -> None:
+        back = _back("EXHIBIT A", "ESCROW TERMS", "Section 7.3 of Revenue Procedure 2004-53 and Section 2.1 of Revenue Procedure 2004-53 apply.")
+        refs = self._all("x", back=back)
+        self.assertIn(("Section 7.3", "external", None), refs)
+        self.assertIn(("Section 2.1", "unresolved", None), refs)
+
+    # L5: an attachment of another document
+    def test_l5_attachment_of_another_document(self) -> None:
+        refs = self._all(
+            "Under Section 2 of Exhibit B to the Escrow Agreement, Section 3.1 of Schedule 1 to the Company Disclosure Schedule, "
+            "Section 4 of Exhibit C to the Agreement and Section 5 of Exhibit D hereto."
+        )
+        self.assertIn(("Section 2", "external", None), refs)
+        self.assertIn(("Section 3.1", "disclosure_schedule", None), refs)
+        self.assertIn(("Section 4", "unresolved", None), refs)  # this agreement's own exhibit
+        self.assertIn(("Section 5", "unresolved", None), refs)
+
+    # L3: an article title that spells its number
+    def test_l3_spelled_article_title_is_numbered(self) -> None:
+        xml = _doc(
+            _article("a1", "ARTICLE ONE THE MERGER", _section("s11", "Section 1.1 Merger", "x"))
+            + _article("a2", "Article Seventeen Terms", _section("s21", "Section 17.1 Terms", "Under Article One, Article 1, Article XVII, Article Two and Section 1."))
+        )
+        p = build_reader_index(xml)
+        self.assertEqual([(n["id"], n["label"]) for n in p["outline"]], [("a1", "ONE"), ("a17", "Seventeen")])
+        refs = [(x["text"], x["status"], x.get("target")) for x in p["xrefs"]]
+        self.assertIn(("Article One", "resolved", "a1"), refs)
+        self.assertIn(("Article 1", "resolved", "a1"), refs)
+        self.assertIn(("Article XVII", "resolved", "a17"), refs)
+        self.assertIn(("Article Two", "unresolved", None), refs)
+        self.assertIn(("Section 1", "unresolved", None), refs)  # "ARTICLE ONE" is not cited as "Section 1"
+
+    # L2: a bare Roman "Section VIII" is article VIII
+    def test_l2_roman_section_links_to_its_article(self) -> None:
+        xml = _doc(
+            _article("a8", "SECTION VIII TERMINATION", _section("s81", "8.1 Termination", "x"))
+            + _article(
+                "a9",
+                "ARTICLE IX MISC",
+                _section(
+                    "s91",
+                    "9.1 Terms",
+                    "Under Section VIII, the parties act. See Sections VIII and IX of this Agreement. "
+                    "Section VIII of that certain report applies. Section VIII B and IX.D of the Order apply. Section VIII(1) applies. "
+                    "Under this Section IX. Also Section IX applies. Section VIII of the Seller applies.",
+                ),
+            )
+        )
+        refs = [(x["text"], x["status"], x.get("target")) for x in build_reader_index(xml)["xrefs"]]
+        self.assertEqual(
+            refs,
+            [
+                ("Section VIII", "resolved", "a8"),
+                ("Sections VIII", "resolved", "a8"),
+                ("IX", "unresolved", None),  # "ARTICLE IX" is cited "Section IX" only as "this Section IX"
+                ("Section VIII", "unresolved", None),
+                ("Section VIII", "unresolved", None),
+                ("Section VIII", "unresolved", None),
+                ("Section IX", "resolved", "a9"),
+                ("Section IX", "unresolved", None),
+                ("Section VIII", "external", None),  # L1b: "of the Seller" names something else
+            ],
+        )
+
+    def test_l2_needs_a_roman_heading(self) -> None:
+        xml = _doc(
+            _article("a4", "4. Escrow Accounts", _section("s41", "4.1 Escrow", "x"))
+            + _article("a23", "23. Other", _section("s231", "23.1 Refs", "Claims under this Section IV (Escrow) are paid."))
+        )
+        x = _xrefs(build_reader_index(xml))
+        self.assertNotIn("target", x["Section IV"])
+
+    # L6: "K&S", "D&O", "U.S." are names, not single-letter items
+    def test_l6_ampersand_and_dotted_initials_are_not_items(self) -> None:
+        refs = self._all("Under the Schedule D&amp;O policy, Section U.S. Holder rules and Schedules K&amp;S Draft, see Exhibit A, B and C and Article IV.")
+        self.assertEqual([t for t, _, _ in refs], ["Exhibit A", "B", "C", "Article IV"])
+        refs = self._all("The Closing is set forth in Article I.A. above and Section I.E.1 below.")
+        self.assertEqual([t for t, _, _ in refs], ["Article I", "Section I"])
+
+    # L4: a dotted article reference falls back to its longest existing section prefix
+    def test_l4_dotted_article_falls_back_to_section(self) -> None:
+        refs = self._all("Under Article 2.1.11 the parties act. Article 2.1.4 of the Plan applies. See Article 5.12. See Article 7.1.1.")
+        self.assertEqual(
+            refs,
+            [
+                ("Article 2.1.11", "section_fallback", "s2.1"),
+                ("Article 2.1.4", "external", None),
+                ("Article 5.12", "unresolved", None),
+                ("Article 7.1.1", "unresolved", None),
+            ],
+        )
+
+    # L7: "of Seller's Disclosure Statement" is the disclosure schedule
+    def test_l7_disclosure_statement_is_the_disclosure_schedule(self) -> None:
+        refs = self._all("Except as set forth in Section 3.13(b) of the Matrix Disclosure Statement or Section 2.1 of Seller’s Disclosure Statement.")
+        self.assertEqual([s for _, s, _ in refs], ["disclosure_schedule", "disclosure_schedule"])
+        refs = self._all("Except as set forth in Section 3.13(b) of the Schedule of Exceptions. A reference in this Article II to such Schedule of Exceptions counts.")
+        self.assertEqual([(s, g) for _, s, g in refs], [("disclosure_schedule", None), ("resolved", "a2")])
+
+    def test_l1_reaches_numbers_no_section_can_have(self) -> None:
+        refs = self._all("Under Section 1.368-2(g) of the Treasury regulations and Section 2510.3-101 of the Department of Labor regulations.")
+        self.assertEqual([s for _, s, _ in refs], ["external", "external"])
+
+    # L9: a clause qualified by a section finds its one matching descendant
+    def test_l9_qualified_clause_finds_the_one_descendant(self) -> None:
+        main = _article(
+            "a6",
+            "ARTICLE VI COVENANTS",
+            _section("s64", "Section 6.4 Conduct", "(a) The Company shall not:", "(i) amend;", "(ii) sell;", "(iii) borrow.", "(b) Parent shall not:", "(A) merge.")
+            + _section("s65", "Section 6.5 Other", "(a) Each party:", "(i) acts;", "(b) The other:", "(i) waits."),
+        )
+        refs = self._all(
+            "Breach of clauses (i) through (iii) of Section 6.4. Also clause (A) of Section 6.4. Also clause (i) of Section 6.5. "
+            "Also clause (x) of Section 6.4.",
+            main=main,
+        )
+        got = [(t, s, g) for t, s, g in refs if not t.startswith("Section")]
+        self.assertEqual(
+            got,
+            [
+                ("clauses (i)", "resolved", "s6.4(a)(i)"),
+                ("(iii)", "resolved", "s6.4(a)(iii)"),
+                ("clause (A)", "resolved", "s6.4(b)(A)"),
+                ("clause (i)", "section_fallback", "s6.5"),  # two (i) under 6.5: no guess
+                ("clause (x)", "section_fallback", "s6.4"),
+            ],
+        )
+        refs = self._all(
+            "Except as set forth in clauses (ii) through (iii) of Section 6.4.(a), nothing applies.",
+            main=main,
+        )
+        self.assertEqual([g for t, _, g in refs if t.startswith("clauses")], ["s6.4"])
+        inline = main.replace("<text>(A) merge.</text>", "<text>(c) The remedy for (i) claims, (ii) consents or (iii) targets is the escrow, waiving the foregoing clauses (i)-(iii) in this Section 6.4.</text>")
+        p = build_reader_index(_doc(inline))
+        self.assertEqual([x.get("target") for x in p["xrefs"] if x["text"].startswith("clauses")], ["s6.4"])
+
+    # L8: "Sections 7.16-17" is a range of two sections, not a regulation number
+    def test_l8_short_hyphen_range_links_both_ends(self) -> None:
+        main = _article(
+            "a7", "ARTICLE VII COVENANTS", _section("s716", "Section 7.16 Taxes", "x") + _section("s717", "Section 7.17 Other", "y")
+        )
+        refs = self._all(
+            "Sections 7.16-17 (Taxes) apply. Treasury Regulations Section 7.16-17 applies. Section 1.368-2(g) of the Treasury "
+            "regulations applies. See Schedule 1.1-2 and Section 54.4980B-9 and Section 7.16-07.",
+            main=main,
+        )
+        self.assertEqual(refs[:2], [("Sections 7.16", "resolved", "s7.16"), ("17", "resolved", "s7.17")])
+        items = self._all("The Persons set forth in Section 1.1-5 of the Disclosure Schedule and Section 4.1-2 to the Disclosure Letter.", main=main)
+        self.assertEqual([t for t, _, _ in items], ["Section 1.1-5", "Section 4.1-2"])  # one schedule item each
+        texts = [t for t, _, _ in refs]
+        for t in ("Section 7.16-17", "Section 1.368-2(g)", "Schedule 1.1-2", "Section 54.4980B-9", "Section 7.16-07"):
+            self.assertIn(t, texts)
 
 
 class BackMatterSegmentTests(unittest.TestCase):

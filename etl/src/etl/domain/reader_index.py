@@ -24,7 +24,7 @@ import json
 import re
 import xml.etree.ElementTree as ET
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 ENRICHER_VERSION = "0.10.0"
@@ -360,6 +360,9 @@ def _printed_article_key(title: str, expected: int) -> tuple[str, str] | None:
     """(key, raw) of an article title's printed number."""
     m = ARTICLE_NUM.match(title)
     raw = (m.group(1) or m.group(2)) if m else _glued_roman(title, expected)
+    if not raw and (sm := SPELLED_ARTICLE.match(title)):
+        # L3: "ARTICLE ONE", "Article Twelve" is article 1, article 12
+        return str(_SPELLED.index(sm.group(1).lower()) + 1), sm.group(1)
     if not raw:
         return None
     as_int = _roman_to_int(raw) if not raw.isdigit() else None
@@ -1196,7 +1199,9 @@ STATUTE = re.compile(
 DISCLOSURE = re.compile(
     # "of the Seller’s Disclosure Letter", "item 1 of the ...", "Disclosure ----- Schedule" across a page break;
     # "of Seller’s Disclosure Schedule": a possessive name with no article (the same opening as OTHER_DOC)
-    r"^\s*(?:\([^)]*\)\s*)*(?:item\s+\d+\s+)?(?:of|to|in|under)\s+(?:(?:the|such|any|each)\s+|(?=[A-Z][\w\-]*[’']s\s))(?:[A-Z][\w\-’']*\s+){0,4}(?:(?i:disclosure[\s\-–—_]+(?:schedules?|letter|memorandum))|Schedules)\b",
+    r"^\s*(?:\([^)]*\)\s*)*(?:item\s+\d+\s+)?(?:of|to|in|under)\s+(?:(?:the|such|any|each)\s+|(?=[A-Z][\w\-]*[’']s\s))(?:[A-Z][\w\-’']*\s+){0,4}(?:(?i:disclosure[\s\-–—_]+(?:schedules?|letter|memorandum|statements?))|Schedules)\b"
+    # "of the Company Schedule of Exceptions"; not "this Article VI to such Schedule of Exceptions" (its own article)
+    + r"|^\s*(?:\([^)]*\)\s*)*(?:of|in|on)\s+(?:(?:the|such|any|each)\s+|(?=[A-Z][\w\-]*[’']s\s))(?:[A-Z][\w\-’']*\s+){0,4}Schedule\s+of\s+Exceptions\b",
 )
 DISCLOSURE_BEFORE = re.compile(r"(?i:disclosure)\s+(?:Schedules?|Letter|Memorandum)\s*$")
 LOWER_HEAD_OTHER = re.compile(r"^[\d:.()A-Za-z]*\s*(?:\([^)]*\)\s*)*,?\s*(?:of|under|pursuant\s+to)\s+(?:the\s+|such\s+|its\s+|their\s+)?(?!this\b|Agreement\b|hereof\b)[A-Z]")
@@ -1220,6 +1225,12 @@ LEFTOVER_ITEMS = re.compile(r"^(?:\s*,?\s*(?:and/or|and|or)?\s*\([A-Za-z0-9]{1,6
 INCLUSIVE = re.compile(r"^\s*,?\s*inclusive\s*,?(?=\s*(?:of|to|in|under|hereof)\b)")
 THEREOF = re.compile(r"^\s*(?:\([^)]*\)\s*)*,?\s*thereof\b")
 ATTACHMENT_TAIL = re.compile(r"^\s*(?:\([^)]*\)\s*)*(?:of|in|to)\s+(?:the\s+|this\s+)?(?:Schedules?|Part|Annex|Appendix|Exhibit)\s+[A-Z0-9IVX]")
+# L5: "Section 2 of Exhibit B to the Escrow Agreement", "item 3 of Annex A to the Commitment Letter": an attachment
+# of another document. "of Schedule 1 to the Company Disclosure Schedule" is the disclosure schedule.
+OTHER_ATTACHMENT_TAIL = re.compile(
+    r"^\s*(?:\([^)]*\)\s*)*(?:of|in|to)\s+(?:the\s+|this\s+)?(?:Exhibit|Schedule|Annex|Appendix|Part)\s+\S+\s+(?:of|to)\s+(?:the|such|its)\s+"
+    + r"(?!(?:Merger\s+)?Agreement\b)(?:[A-Z][\w\-’']*\s+){0,5}(?:Letter|Agreement|Announcement|Plan|Indenture|Schedules?|Memorandum)\b"
+)
 SELF_DOC = re.compile(r"^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:the|this)\s+Agreement\b")
 SELF_DOC_FROM_EXHIBIT = re.compile(r"^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:the|this)\s+(?:Merger\s+)?Agreement\b")
 OTHER_DOC = re.compile(
@@ -1281,10 +1292,14 @@ REF_HEAD = re.compile(r"(?<![A-Za-z])(Sections?|Articles?|SECTIONS?|ARTICLES?|se
 _SPELLED: tuple[str, ...] = tuple("one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty".split())
 # "Article Three"
 SPELLED_ITEM = re.compile(r"(" + "|".join(w.capitalize() + "|" + w.upper() for w in _SPELLED) + r")\b")
+# "ARTICLE ONE": an article title that spells its number
+SPELLED_ARTICLE = re.compile(r"^\s*(?:ARTICLE|Article)\s+" + SPELLED_ITEM.pattern)
 # a letter suffix ("2.4A", "Section 409Aof") is not the start of a glued head ("6.4Section 6.3(a)")
 _SUFFIX = r"(?:[A-Z](?!ections?\b|ECTIONS?\b|rticles?\b|RTICLES?\b|chedules?\b|xhibits?\b|nnex))"
 GLUED_HEAD = re.compile(r"(?:Sections?|SECTIONS?|Articles?|ARTICLES?|Schedules?|Exhibits?|Annex)\b")
-REF_ITEM = re.compile(r"(\d+" + _SUFFIX + r"?(?:-\d+)?(?:\.\d+" + _SUFFIX + r"?)*(?:\s?\([A-Za-z0-9]{1,6}\))*|[IVXLC]+\b|[A-Z]\b(?:-\d+)?|\([A-Za-z0-9]{1,6}\)(?:\([A-Za-z0-9]{1,6}\))*)")
+# L6: "K&S", "D&O", "U.S." after a head are names, not "Section K" or "Schedule U". A Roman item followed by ".X."
+# is a reference ("Article IV.B.4", "Section I.E.1 above"), so only "&" stops it.
+REF_ITEM = re.compile(r"(\d+" + _SUFFIX + r"?(?:-\d+)?(?:\.\d+" + _SUFFIX + r"?)*(?:\s?\([A-Za-z0-9]{1,6}\))*|[IVXLC]+\b(?!&)|[A-Z]\b(?!&|\.[A-Z]\.)(?:-\d+)?|\([A-Za-z0-9]{1,6}\)(?:\([A-Za-z0-9]{1,6}\))*)")
 # "Section VIII.2(e)": tried first for section, article, clause and paragraph heads only ("Exhibit C.2" is Exhibit C)
 ROMAN_ITEM = re.compile(r"(" + _ROMAN_NUM + r"(?:\.\d+" + _SUFFIX + r"?)+(?:\s?\([A-Za-z0-9]{1,6}\))*)")
 # "Exhibit C-1", "Exhibit I-1": tried first for attachment heads, so the label is not Roman "C" plus a range "-1"
@@ -1372,6 +1387,22 @@ class _Ref:
     this_before: bool = False  # "this Section 8"
     plain_tail: bool = False  # no tail naming anything but this agreement, and no OCR continuation (".9", "-3")
     other_tail: bool = False  # "clause (iii) of paragraph 2 of Annex C of the Commitment Letter"
+    tail: str = ""  # the text after the run (90 characters, stray items dropped), shared by its members
+    self_marker: bool = False  # "this Section 6.3", "Section 6.3 hereof" (body only, rule 10)
+    after: str = ""  # the text from the end of this item to 60 characters past the end of its run
+
+
+def _section_range_end(base: str, hyphen: str, before: str) -> str | None:
+    """L8: "7.16" and "-17" make the range end "7.17" when the tail is a larger number with as many digits as the
+    base's last part and no authority precedes ("Treasury Regulations Section 1.368-2" stays one number)."""
+    m = re.fullmatch(r"(\d{1,2})\.(\d{1,2})", base)
+    tm = re.match(r"[\-‑](\d+)(?![A-Z])", hyphen)  # what follows the digits ("(Taxes)", "(a)") stays in the tail
+    if not m or not tm or AUTHORITY_BEFORE.search(before):
+        return None
+    last, end = m.group(2), tm.group(1)
+    if len(end) != len(last) or int(end) <= int(last):
+        return None
+    return f"{m.group(1)}.{end}"
 
 
 def _find_refs(text: str, in_exhibit: bool, back: bool = False) -> list[_Ref]:
@@ -1405,6 +1436,14 @@ def _find_refs(text: str, in_exhibit: bool, back: bool = False) -> list[_Ref]:
             # The whole number fits no section, so it stays unresolved unless its tail makes it external.
             if run and re.fullmatch(r"\d+[A-Z]?(?:\.\d+[A-Z]?)+", run[-1].target) and (rm := REG_HYPHEN.match(text, pos)):
                 last = run[-1]
+                end = _section_range_end(last.target, rm.group(0), text[max(0, hm.start() - 40) : hm.start()]) if head == "section" else None
+                stop = rm.start() + 1 + len(end.split(".")[1]) if end else 0
+                # "Section 1.1-5 of the Disclosure Schedule" is one schedule item, numbered "1.1-5"
+                if end and not DISCLOSURE.match(LEFTOVER_ITEMS.sub("", text[stop : stop + 90], count=1)):
+                    # L8: "Sections 7.16-17 (Taxes)" is a range, 7.16 through 7.17; the second member prints only "17"
+                    run.append(_Ref(head, end, rm.start() + 1, stop, stop))
+                    pos = stop
+                    continue
                 last.target, last.end = last.target + re.sub(r"\s", "", rm.group(0)), rm.end()
                 pos = rm.end()
                 continue
@@ -1502,6 +1541,8 @@ def _find_refs(text: str, in_exhibit: bool, back: bool = False) -> list[_Ref]:
             status = "unresolved"
             for r in run:
                 r.detail = "other_document"
+        elif not self_marker and (om := OTHER_ATTACHMENT_TAIL.match(tail)):
+            status = "disclosure_schedule" if re.search(r"(?i:disclosure)|Schedules?$", om.group(0)) else "external"
         elif ATTACHMENT_TAIL.match(tail):
             # "paragraph 3 of Schedule 2", "Section 2 of Exhibit B": the attachment's own numbering
             status = "unresolved"
@@ -1543,6 +1584,8 @@ def _find_refs(text: str, in_exhibit: bool, back: bool = False) -> list[_Ref]:
         other_tail = CLAUSE_OF_OTHER.match(tail) is not None
         for r in run:
             r.other_tail = other_tail
+        for r in run:
+            r.tail, r.self_marker, r.after = tail, self_marker, text[r.end : pos + 60]
         run[0].lead = True
         run[0].this_before = THIS_BEFORE.search(before) is not None
         run[0].plain_tail = _plain_tail(tail)
@@ -1617,6 +1660,10 @@ _LARGE_BARE = re.compile(r"(\d+)[A-Z]?")
 _LARGE_BARE_MIN = 40
 
 
+# L9 guard: "of Section 6.01.(a)", "of this Section 8.4 (b)": the qualifier continues past the number QUALIFIED read
+_QUALIFIER_GOES_ON = re.compile(r"[^.;]{0,80}?\b[Ss]ection\s+\d+[A-Z]?(?:\.\d+[A-Z]?)*(?:\.\s?|\s)\(")
+
+
 def _is_large_bare_number(ref: _Ref, ol: _Outline, base: str, subs: str) -> bool:
     """A bare "Section N", "Section N(a)" or "Section NA" with N >= 40 and no section, subsection or article N."""
     m = _LARGE_BARE.fullmatch(base)
@@ -1626,8 +1673,64 @@ def _is_large_bare_number(ref: _Ref, ol: _Outline, base: str, subs: str) -> bool
     return not any(k in ol.articles or k in ol.sections or k in ol.subs or (k + subs) in ol.subs for k in keys)
 
 
+# L1: "Section 2.3 of the Escrow Agreement", "Article 5 under the Plan": a tail that names something other than this
+# agreement, its own attachments or an article ("Section 9.5 of Article IX" is a charter's or bylaws' own numbering)
+NAMED_OTHER_TAIL = re.compile(
+    r"^\s*(?:\([^()]*\)\s*)*(?:of|under|pursuant\s+to)\s+(?:the\s+|such\s+|its\s+|their\s+)?"
+    + r"(?!this\b|Agreement\b|hereof\b|Merger\s+Agreement\b|(?:Exhibit|Annex|Schedule|Appendix|Part|Article)\b)[A-Z]"
+)
+
+
+def _names_other(ref: _Ref) -> bool:
+    """L1: the run's tail names another document or a statute, and no self marker says it is this agreement's."""
+    t = ref.tail
+    return (
+        ref.head in ("section", "article", "clause")
+        and not ref.self_marker
+        and NAMED_OTHER_TAIL.match(t) is not None
+        and not (DISCLOSURE.match(t) or ATTACHMENT_TAIL.match(t) or THEREOF_AFTER.match(t))
+    )
+
+
+# L2: what may follow a bare Roman "Section VIII" that means article VIII. Not "Section IX B", "Section I(1)",
+# "Section IX.D"; and nothing in the rest of the clause names another document ("Section II of that certain
+# valuation report", "Sections I and II of Exhibit I", "Section IX and X of the Stipulated Order")
+_ROMAN_BARE_NEXT = re.compile(r"(?![\-(\w]|\.\S|\s+[A-Z]\b)")
+_ROMAN_OTHER_LATER = re.compile(
+    r"\b(?:of|under|in|to|pursuant\s+to)\s+(?:that\s+certain\b|(?:the|such|its|their|any)\s+(?!Agreement\b)[A-Z]|(?:Exhibit|Annex|Schedule|Appendix|Part)\b|[A-Z][\w\-]*[’']s\s)"
+)
+
+
+def _roman_section_article(ref: _Ref, ol: _Outline, tn: _Text) -> _Node | None:
+    """L2: a body "Section VIII" (bare Roman) is article VIII when that article's heading opens "SECTION" or the
+    reference reads "this Section VIII", and nothing after it names another document."""
+    if tn.region != "body" or ref.head != "section" or not re.fullmatch(r"[IVXLC]+", ref.target):
+        return None
+    n = _roman_to_int(ref.target)
+    arts = ol.articles.get(str(n)) if n else None
+    if not arts or len(arts) != 1 or not _ROMAN_BARE_NEXT.match(ref.after):
+        return None
+    # the heading prints the Roman number too: "4. Escrow Accounts" under a Roman "Section IV" part is not it
+    # (2026-11-20 corpus read: 5 of 30 such links were wrong)
+    if not re.fullmatch(r"[IVXLC]+", arts[0].label):
+        return None
+    if not (re.match(r"\s*(?:SECTION|Section)\b", arts[0].title) or ref.this_before):
+        return None
+    clause = re.split(r"[;]|\.(?:\s|$)", ref.after, maxsplit=1)[0]
+    if not _plain_tail(ref.tail) or _ROMAN_OTHER_LATER.search(clause):
+        return None
+    return arts[0]
+
+
 def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, str | None, list[str] | None]:
     """Returns (status, target id, ambiguous candidates)."""
+    if ref.status == "unresolved" and ref.detail == "exhibit_local" and _names_other(ref):
+        # L1 in back matter: an attachment's "Section 2.3 of the Escrow Agreement" is external when the main
+        # agreement has no such node either ("Section 2.1 of the Purchase Agreement" may be the main agreement's)
+        probe = replace(ref, status="", detail="")
+        if _resolve(probe, ol, tn, sec_text)[0] == "external":
+            ref.detail = ""
+            return "external", None, None
     if ref.status:
         return ref.status, None, None
     t = ref.target
@@ -1641,7 +1744,10 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
     if ref.head == "section" or numbered_clause or dotted_article:
         m = SECTION_TARGET.match(t)
         if not m:
-            return "unresolved", None, None
+            if (art := _roman_section_article(ref, ol, tn)) is not None:
+                return "resolved", art.id, None
+            # L1 for a number no section can have ("Section 1.368-2(g) of the Treasury regulations")
+            return ("external" if _names_other(ref) else "unresolved"), None, None
         base = _norm_num(m.group(1))
         subs = m.group(2)
         nodes = ol.sections.get(base)
@@ -1671,7 +1777,17 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
                 if (one := _in_one_group(ol, base, subs)) is not None:
                     return "resolved", one.id, None
                 return "section_fallback", ol.articles[base][0].id, None
-            if _is_large_bare_number(ref, ol, base, subs):
+            # L4: "Article 3.2.11" with no node falls back to the longest dotted section prefix that exists ("3.2"),
+            # when nothing follows the run ("as are granted by Article 5.12" of a foreign code has no such prefix)
+            if dotted_article and base.count(".") >= 2 and _plain_tail(ref.tail):
+                parts = base.split(".")
+                for k in range(len(parts) - 1, 1, -1):
+                    pre = ".".join(parts[:k])
+                    if pre in ol.subs:
+                        return "section_fallback", ol.subs[pre].id, None
+                    if len(ol.sections.get(pre, [])) == 1:
+                        return "section_fallback", ol.sections[pre][0].id, None
+            if _is_large_bare_number(ref, ol, base, subs) or _names_other(ref):
                 return "external", None, None
             return "unresolved", None, None
         if len(nodes) > 1:
@@ -1684,6 +1800,16 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
         if (one := _in_one_group(ol, base, subs)) is not None:
             return "resolved", one.id, None
         if ref.qualified:
+            # L9: "clauses (i) through (xxiii) of this Section 6.4" where (i) sits under 6.4(a): the one descendant
+            # of the printed section that ends in the clause
+            # Not when the clause is an inline item of the reference's own paragraph ("the foregoing clauses (i)-(iii)
+            # in this Section 2.6"), or the printed section goes on past the part read ("Section 6.01.(a)",
+            # "Section 8.4 (b) (i)"): 2 of 30 such links in the first corpus read went to the wrong paragraph
+            inline = tn.section_key == base and tn.text.count(subs) >= 2
+            if re.fullmatch(r"\([A-Za-z0-9]+\)", subs) and not inline and not _QUALIFIER_GOES_ON.match(ref.tail):
+                deep = [k for k in ol.subs if k.startswith(base + "(") and k.endswith(subs) and k not in ol.groups]
+                if len(deep) == 1:
+                    return "resolved", ol.subs[deep[0]].id, None
             # "clauses (i) through (v) of Section 3.4(c)" with no paragraph-level target: link the
             # deepest printed ancestor that exists, which the reader sees named right there
             parts = re.findall(r"\([A-Za-z0-9]+\)", subs)
@@ -1703,7 +1829,7 @@ def _resolve(ref: _Ref, ol: _Outline, tn: _Text, sec_text: str) -> tuple[str, st
         key = str(as_int) if as_int else key
         arts = ol.articles.get(key)
         if not arts:
-            return "unresolved", None, None
+            return ("external" if _names_other(ref) else "unresolved"), None, None
         if len(arts) > 1:
             return "ambiguous", None, [a.id for a in arts]
         return "resolved", arts[0].id, None
