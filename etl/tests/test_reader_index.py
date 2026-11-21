@@ -719,9 +719,17 @@ class BodyClauseGuardTests(unittest.TestCase):
         self.assertEqual(self._all(xml)[0][:2], ("clause (c)", "unresolved"))
 
     def test_bare_clause_in_own_paragraph(self) -> None:
-        # no "this": B1 does not apply; B3 no longer counts the paragraph's leading "(b)", so the one node links
+        # no "this": B1 does not apply, and the B3 guard keeps a link from a paragraph to itself unlinked
         xml = _doc(_section("s31", "Section 3.1 Assets", "(a) inventory;", "(b) equipment and the items in clause (b);"))
+        self.assertEqual(self._all(xml), [("clause (b)", "unresolved", None)])
+        # "this clause (b)" still links its own paragraph (B1)
+        xml = _doc(_section("s31", "Section 3.1 Assets", "(a) inventory;", "(b) equipment and the items in this clause (b);"))
         self.assertEqual(self._all(xml), [("clause (b)", "resolved", "s3.1(b)")])
+
+    def test_relaxed_link_to_another_paragraph_stays(self) -> None:
+        # "(a)" printed twice as a reference inside paragraph (b): B3 lifts the old count and links paragraph (a)
+        xml = _doc(_section("s31", "Section 3.1 Assets", "(a) inventory;", "(b) equipment, other than items in clause (a), and subject to clause (a) above;"))
+        self.assertEqual(self._all(xml), [("clause (a)", "resolved", "s3.1(a)"), ("clause (a)", "resolved", "s3.1(a)")])
 
     # B2: a definitions section keeps a clause link inside the reference's own scope chain
     _DEFS = (
@@ -809,8 +817,9 @@ class BodyClauseGuardTests(unittest.TestCase):
         )
         self.assertEqual(self._all(xml)[1][:2], ("clauses (a)", "unresolved"))
 
-    def test_leading_item_cited_in_its_paragraph_links(self) -> None:
-        # "(i)" opens the paragraph (after "(b)") and is cited later in it: the nearest "(i)" is that paragraph
+    def test_leading_item_cited_in_its_paragraph_stays_inline(self) -> None:
+        # "(i)" opens the paragraph (after "(b)") and is cited later in it: the nearest "(i)" is that paragraph itself,
+        # so the B3 self-link guard keeps the old inline reading
         xml = _doc(
             _section(
                 "s51",
@@ -820,9 +829,7 @@ class BodyClauseGuardTests(unittest.TestCase):
                 "(b) (i) no raises, (ii) no loans, except, in the case of clauses (i) and (ii), as required by Law.",
             )
         )
-        got = self._all(xml)
-        self.assertEqual(got[0][:2], ("clauses (i)", "resolved"))
-        self.assertEqual(got[0][2], "s5.1(b)(i)")
+        self.assertEqual(self._all(xml)[0], ("clauses (i)", "unresolved", None))
 
 
 class SecondReviewFixTests(unittest.TestCase):
