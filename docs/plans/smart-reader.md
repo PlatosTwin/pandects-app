@@ -1446,6 +1446,45 @@ The status is `resolved` to the parent node. Code: `_attachment_parent`, `_conte
 - In 2dea7d5d, "D-2" lands on the "EXHIBIT D - 1" heading, because the heading pattern reads "EXHIBIT D - 2" as "D".
 - The paragraph fallback links the printed paragraph even when the filing cites the wrong one (014c422a).
 
+### 10.23 Enricher 0.10.0: run-on paragraph letters (2026-11-22)
+
+**Cause.** In some filings the paragraph letters do not restart in each section. Agreement 0c58d88f prints "(a) (b) (c)" in Section 3.1, "(d) (e) (f) (g)" in Section 3.2, and so on up to "(ap)". The filing lost its list restarts; most of these filings also lost their section numbers (section 10.17). The paragraph nodes kept the printed letters, so the first paragraph of Section 3.2 was node 3.2(d). The drafters cite the real letters: "Section 3.02(d)" means the fourth paragraph of 3.2 (printed "(g)"), and "Section 3.03(a)" names a paragraph that prints "(h)". Such citations linked a wrong paragraph or only the section.
+
+**Reads before the rule.** A tighter scan than the first one (the first letter is the exact successor of the last letter before) flagged 214 agreements. 46 body citations into sections with inferred numbers were read: 34 mean the paragraph by position, 4 are the same either way, 2 are not paragraphs, 3 are unclear, and 3 follow the printed letter, all in one agreement (c4a66bee) whose "(a)" is printed inline in the section's lead-in. Two readers read the 102 citations into sections with printed numbers: 61 position, 34 the same (mostly an inline "(a)" in the lead-in), 6 printed and 1 unclear. Of the 16 true run-on filings in the reads, 14 cite by position. The 2 exceptions are 3c4da1ff, whose definitions cite the printed letters (Word cross-reference fields), and d43d0df3, whose back-matter index of defined terms does. Files: `reader_0100/runon_letters/inferred_reads.tsv`, `printed_reads_part1.tsv`, `printed_reads_part2.tsv`.
+
+**Rule R3.** `_runon_letters` in `reader_index.py` reads the first enumerator of each body section's paragraphs:
+- A section continues the run when its first letter is the exact successor of the last letter of the nearest earlier lettered section ("c" to "d", "z" to "aa", "hh" to "ii", "az" to "ba"). Sections without letters do not break the run, and the run goes on across articles.
+- An agreement qualifies only with at least 3 such sections (`RUNON_MIN_SECTIONS`). In a qualifying agreement, a section whose first letter ranks above the last letter before it also counts (a gap), unless that letter is a roman numeral.
+- A section does not count when its lead-in prints an inline "(a)", when it has a stray letter outside its run, or when it opens a roman list "(i)", "(ii)". A stray letter that ranks above the section's first letter breaks the run; a nested list "(a)".."(p)" under "(t)" does not. Roman items ("(xxi)", "(xxxiii)") between the letters are allowed.
+- The agreement's own body citations vote: when more "N.M(x)" citations of these sections fit only the printed letters than fit only the position letters, nothing changes. Citations of another document ("of the Credit Agreement", "Item 5.02(e)") do not vote. The vote blocks 3c4da1ff even with a minimum of 1.
+- `add_subs` then keys each run letter by its position ("(d)" is key 3.2(a)) and marks the node `inferred`. Its title keeps the printed text. A run-on section that opens with "(i)" reads it as the letter after "(h)", not as a roman item.
+
+**Rule D2.** Inside a run-on section only, "(ii)" after a "(hh)" paragraph is the next doubled letter, not a roman item under (hh), unless it is the next item of a roman list open below (hh). The same holds for "(xx)" after "(ww)" and "(iii)" after "(hhh)". A first version applied D2 everywhere: in definition sections that run (gg), (hh), (ii), the new paragraph key "(ii)" competed with the roman items of a clause list, and 21 right "clause (ii)" links became ambiguous.
+
+**Corpus diff.** A full dry run over all 12,198 agreements compared each link by the paragraph it points at, not by node id (`runon_letters/diff_anchor.py`, `full_dry_v4/`). 29 agreements change their outline and 28 change links. No other agreement changes, and nothing raised. Body references:
+
+| From | To | References |
+|---|---|---|
+| section_fallback (section) | resolved (paragraph) | 1,618 |
+| section_fallback | section_fallback, another paragraph | 85 |
+| resolved | resolved, another paragraph | 52 |
+| unresolved | resolved | 14 |
+| resolved | section_fallback or unresolved | 2 |
+
+Back matter: 60 references change, 50 of them from the section to a paragraph. The outline gains 7 nodes. These are printed roman items such as "(i) If (A) this Agreement is terminated" that had collided with a run letter "(i)"; no node is invented. Terms and term uses do not change. 1,797 paragraphs in the 19 agreements with printed section numbers now carry `inferred: true`.
+
+**Read after the rule.** 107 changed body references were drawn (seed 20261122) and read at an earlier commit: 104 improved, 3 neutral, 0 regressed (`after_sample_reads.tsv`). At the final code 96 of them change the same way (94 improved, 2 neutral). The other 11 stay as at 0.10.0 because the stray guard leaves 3 disordered filings partly or wholly printed (see the limits).
+
+**Reviews.** Two independent reviews (`runon_letters/REVIEW.md`). The first found that a stray letter could hand a short run to the next section, and that a roman list opening a section was nested; it also asked for the citation vote. The second found that roman items past "(xx)" counted as strays (0d88c9ca lost 6 of 22 sections), that a nested "(a)" list broke the run, and that the vote missed roman citations and counted other documents. All are fixed, and each fix has a test that fails without it.
+
+**Rebuild.** PR 290 merged as c4009aff. The enricher version stays 0.10.0, which is not released; the local rows of the 29 changed agreements were rebuilt (0 failures), and a second diff of those rows against the code shows no difference. The changelog entry holds the recounted totals.
+
+**Known limits:**
+- In 3 disordered filings with several interleaved letter runs (bc0be863, 8ceacaf4, e33d8023), the stray guard leaves sections printed. 10 references that an earlier version improved keep their 0.10.0 link.
+- The vote reads body citations only. d43d0df3 cites the printed letters in a back-matter index; it has one run-on section and does not qualify.
+- In 24543f76, "Section 3.3 (c) and (d) [Capitalization]" may mean the printed letters; the same filing cites "Section 3.3(a)" and "Section 7.2(a)" by position, so the rule follows position.
+- "(v)" after "(u)" with a roman list (i) to (iv) under (u) keeps its printed key among position keys. No collision is possible.
+
 ## 11. Decisions (2026-10-22)
 
 The user answered the open questions on 2026-10-22. Items 3, 6 and 7 use the defaults proposed in the hand-off, and the user did not object to them.
