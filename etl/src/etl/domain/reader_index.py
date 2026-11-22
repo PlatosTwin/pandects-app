@@ -24,6 +24,7 @@ import json
 import re
 import xml.etree.ElementTree as ET
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -361,6 +362,8 @@ def _lettered_groups(texts: list[str]) -> bool:
 
 _LETTER_TOKEN = re.compile(r"[a-z]{1,4}")
 _INLINE_A = re.compile(r"\(a\)")
+# "Section 3.02(d)", "3.2 (d)": a citation of a section's lettered paragraph (the vote in _runon_letters)
+_PARA_CITE = re.compile(r"(?<![\d.])(\d+\.\d+)\s?\(([a-z]{1,3})\)")
 RUNON_MIN_SECTIONS = 3  # an agreement needs this many sections that continue the letters exactly (_runon_letters)
 
 
@@ -390,15 +393,21 @@ def _position_letter(k: int) -> str:
     return chr(96 + (k - 1) % 26 + 1) * ((k - 1) // 26 + 1)
 
 
-def _runon_letters(root: ET.Element, by_el: dict[ET.Element, _Text]) -> dict[ET.Element, tuple[str, dict[str, str]]]:
+def _runon_letters(
+    root: ET.Element, by_el: dict[ET.Element, _Text], num_of: Callable[[ET.Element], str | None]
+) -> dict[ET.Element, tuple[str, dict[str, str]]]:
     """R3: sections whose paragraph letters continue the letters of the section before ("(d)" opens Section 3.2).
 
     The filing lost its list restarts. A section qualifies when its first lettered paragraph is the exact successor
     of the last letter of the nearest earlier lettered section, and its own text before that paragraph prints no
     inline "(a)" (a list that began in the section's lead-in). An agreement counts only with at least
-    RUNON_MIN_SECTIONS such sections; then a later section that starts above the last letter (a gap) qualifies
-    too, unless it opens with "(i)", "(v)" or "(x)". Every lettered paragraph of the section must belong to the run
-    (a roman item may sit between). Returns section -> (the letter before the run, printed -> position letter).
+    RUNON_MIN_SECTIONS such sections; then any section of it whose first letter ranks above the last letter before
+    it (a gap) qualifies too, unless that letter is a roman numeral. Every lettered paragraph of the section must
+    belong to the run (a roman item may sit between); a section with a stray letter, or one that opens a roman
+    list "(i)", "(ii)", breaks the run. Last, the agreement's own citations vote: when more "N.M(x)" citations of
+    these sections fit only the printed letters than fit only the position letters, the drafters cited the
+    printed letters, and nothing changes. `num_of` gives a section's number. Returns section -> (the letter before
+    the run, printed -> position letter).
     """
     exact: list[ET.Element] = []
     runs: dict[ET.Element, tuple[str, list[str]]] = {}
@@ -419,6 +428,9 @@ def _runon_letters(root: ET.Element, by_el: dict[ET.Element, _Text]) -> dict[ET.
         if not toks or not _LETTER_TOKEN.fullmatch(toks[0]):
             continue  # no lettered paragraphs: the run goes on past this section
         t0 = toks[0]
+        if t0 in _LOWER_ROMANS and len(toks) > 1 and toks[1] in _LOWER_ROMANS and _roman_to_int(toks[1].upper()) == (_roman_to_int(t0.upper()) or 0) + 1:
+            prev_last = None  # "(i)", "(ii)": a roman list opens the section
+            continue
         chain = [t0]
         for prev, tok in zip(toks, toks[1:]):
             # "(ii)" right after a roman "(i)" item (not the run's own last letter) continues that roman list
@@ -434,12 +446,27 @@ def _runon_letters(root: ET.Element, by_el: dict[ET.Element, _Text]) -> dict[ET.
             if t0 in _letter_succ(prev_last):
                 exact.append(sec)
                 runs[sec] = (prev_last, chain)
-            elif _letter_rank(t0) > _letter_rank(prev_last) and t0 not in ("i", "v", "x"):
+            elif _letter_rank(t0) > _letter_rank(prev_last) and t0 not in _LOWER_ROMANS:
                 runs[sec] = (prev_last, chain)
-        prev_last = chain[-1]
+        prev_last = None if strays else chain[-1]  # after "(a)", "(c)" the run's last letter is unknown
     if len(exact) < RUNON_MIN_SECTIONS:
         return {}
-    return {sec: (before, {tok: _position_letter(i + 1) for i, tok in enumerate(chain)}) for sec, (before, chain) in runs.items()}
+    maps = {sec: (before, {tok: _position_letter(i + 1) for i, tok in enumerate(chain)}) for sec, (before, chain) in runs.items()}
+    letters: dict[str, tuple[set[str], set[str]]] = {}  # section number -> (printed letters, position letters)
+    for sec, (_, remap) in maps.items():
+        if (num := num_of(sec)) is not None:
+            letters[num] = (set(remap), set(remap.values()))
+    only_printed = only_position = 0
+    for tn in by_el.values():
+        if tn.region != "body":
+            continue
+        for m in _PARA_CITE.finditer(tn.text):
+            got = letters.get(_norm_num(m.group(1)))
+            if got:
+                printed, position = m.group(2) in got[0], m.group(2) in got[1]
+                only_printed += printed and not position
+                only_position += position and not printed
+    return {} if only_printed > only_position else maps
 
 
 # "this Section 4.2" inside a section, "this Article IV" inside an article: the text's own statement of the number
@@ -692,7 +719,9 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
     ol.roman_sections = _roman_scheme(root)
     pos = _positional_numbers(root, by_el, ol.roman_sections)
     ol.positional_sections = len(pos.sections)
-    runon = _runon_letters(root, by_el)
+    runon = _runon_letters(
+        root, by_el, lambda sec: pos.sections.get(sec) or ((_section_num(sec.get("title") or "", ol.roman_sections) or (None,))[0])
+    )
     renumbered: dict[ET.Element, tuple[str, str] | None] = {}  # body sections, once any number is inferred
 
     def add_section(sec: ET.Element, parent: list[_Node]) -> None:

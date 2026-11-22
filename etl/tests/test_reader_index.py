@@ -2770,6 +2770,38 @@ class RunOnLetterTests(unittest.TestCase):
         self.assertIn("s3.2(a)", nodes)
 
 
+    def test_a_section_past_a_gap_follows_position(self) -> None:
+        gap = _section("s36", "Section 3.6 Taxes", "(o) Returns are filed.", "(p) Taxes are paid.")  # (m), (n) are missing
+        p = self._build(*self.REPS, gap, cites="Section 3.6(b) and Section 3.2(a) apply.")
+        self.assertEqual(self._links(p), [("Section 3.6(b)", "resolved", ("s36", 1)), ("Section 3.2(a)", "resolved", ("s32", 0))])
+
+    def test_a_stray_letter_breaks_the_run(self) -> None:
+        # 3.3 prints (g) then (k): the run's last letter is unknown, so 3.4's "(h)" is no exact successor
+        stray = _section("s33", "Section 3.3 Authority", "(g) Authority.", "(k) Approval.")
+        nxt = _section("s34", "Section 3.4 Consents", "(h) None are needed.", "(i) None are needed.")
+        last = _section("s35", "Section 3.5 Litigation", "(j) There is no action.", "(k) There is no order.")
+        nodes = _nodes(self._build(self.REPS[0], self.REPS[1], stray, nxt, last))
+        self.assertIn("s3.4(h)", nodes)
+        self.assertIn("s3.2(d)", nodes)  # only 3.2 and 3.5 continue exactly: too few
+
+    def test_a_roman_list_that_opens_a_section_stays_roman(self) -> None:
+        roman = _section("s34", "Section 3.4 Consents", "(i) none from any court;", "(ii) none from any agency;", "(iii) none from any person.")
+        secs = self.REPS[:3] + (roman,) + (
+            _section("s35", "Section 3.5 Litigation", "(a) There is no action.", "(b) There is no order."),
+            _section("s36", "Section 3.6 Taxes", "(c) Returns are filed.", "(d) Taxes are paid."),
+        )
+        nodes = _nodes(self._build(*secs))
+        self.assertEqual([c["label"] for c in nodes["s3.4"]["children"]], ["3.4(i)", "3.4(ii)", "3.4(iii)"])
+
+    def test_citations_by_printed_letter_keep_the_printed_letters(self) -> None:
+        cites = "Under Section 3.2(e), Section 3.3(h), Section 3.5(k) and Section 3.4(j), and Section 3.2(a)."
+        p = self._build(*self.REPS, cites=cites)
+        nodes = _nodes(p)
+        self.assertIn("s3.2(d)", nodes)
+        self.assertNotIn("inferred", nodes["s3.2(d)"])
+        self.assertIn(("Section 3.2(e)", "resolved", ("s32", 1)), self._links(p))
+
+
 class DoubledLetterTests(unittest.TestCase):
     """D2: in a run-on section, "(ii)" after a "(hh)" paragraph is the next doubled letter; a roman list stays a list."""
 
