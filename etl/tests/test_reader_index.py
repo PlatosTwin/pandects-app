@@ -2802,6 +2802,21 @@ class RunOnLetterTests(unittest.TestCase):
         self.assertIn(("Section 3.2(e)", "resolved", ("s32", 1)), self._links(p))
 
 
+    def test_roman_items_past_xx_and_a_nested_list_keep_the_run(self) -> None:
+        romans = _section("s33", "Section 3.3 Authority", "(g) Authority to:", "(xxi) sell;", "(xxii) buy.", "(h) Board Approval.")
+        nested = _section("s34", "Section 3.4 Consents", "(i) Consents, none of which:", "(a) a court;", "(b) an agency.", "(j) Other.")
+        nodes = _nodes(self._build(self.REPS[0], self.REPS[1], romans, nested, self.REPS[4]))
+        self.assertIn("s3.3(a)", nodes)  # (xxi), (xxii) are roman items under printed (g)
+        self.assertIn("s3.5(a)", nodes)  # the nested (a), (b) under printed (i) do not break the run
+        self.assertIn("s3.4(i)", nodes)  # 3.4 itself keeps its printed letters: (a) would collide
+
+    def test_citations_of_other_documents_do_not_vote(self) -> None:
+        cites = "Under Section 3.2(a), Section 3.2(f) of the Credit Agreement, Section 3.3(h) of the Voting Agreement and Item 3.5(k)."
+        nodes = _nodes(self._build(*self.REPS, cites=cites))
+        self.assertIn("s3.2(a)", nodes)
+        self.assertTrue(nodes["s3.2(a)"]["inferred"])
+
+
 class DoubledLetterTests(unittest.TestCase):
     """D2: in a run-on section, "(ii)" after a "(hh)" paragraph is the next doubled letter; a roman list stays a list."""
 

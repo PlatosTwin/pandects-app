@@ -363,7 +363,15 @@ def _lettered_groups(texts: list[str]) -> bool:
 _LETTER_TOKEN = re.compile(r"[a-z]{1,4}")
 _INLINE_A = re.compile(r"\(a\)")
 # "Section 3.02(d)", "3.2 (d)": a citation of a section's lettered paragraph (the vote in _runon_letters)
-_PARA_CITE = re.compile(r"(?<![\d.])(\d+\.\d+)\s?\(([a-z]{1,3})\)")
+_PARA_CITE = re.compile(r"(?<![\w.])((?:\d+|[IVXLC]+)\.\d+)\s?\(([a-z]{1,3})\)")
+# "... of the Credit Agreement", "Item 5.02(e)": a citation of another document, which does not vote
+_OTHER_DOC_AFTER = re.compile(r"(?:\([a-z0-9]{1,6}\))*\s+(?:of|under|in)\s+(?:the\s+)?(?!this\b|hereof\b)[A-Z]")
+_OTHER_DOC_BEFORE = re.compile(r"\b(?:Item|Rule|Regulation)\s+$")
+
+
+def _is_roman_item(tok: str) -> bool:
+    """A roman numeral of two or more letters ("ii", "xxi", "xliv"); single letters stay letters (c, d, l)."""
+    return tok in _LOWER_ROMANS or (len(tok) > 1 and set(tok) <= set("ivxl") and _roman_to_int(tok.upper()) is not None)
 RUNON_MIN_SECTIONS = 3  # an agreement needs this many sections that continue the letters exactly (_runon_letters)
 
 
@@ -440,7 +448,7 @@ def _runon_letters(
             )
             if tok in _letter_succ(chain[-1]) and not roman_next:
                 chain.append(tok)
-        strays = [tok for tok in toks if _LETTER_TOKEN.fullmatch(tok) and tok not in chain and tok not in _LOWER_ROMANS]
+        strays = [tok for tok in toks if _LETTER_TOKEN.fullmatch(tok) and tok not in chain and not _is_roman_item(tok)]
         inline_a = any(_INLINE_A.search(t) for t in lead)
         if t0 != "a" and prev_last is not None and not inline_a and not strays:
             if t0 in _letter_succ(prev_last):
@@ -448,20 +456,23 @@ def _runon_letters(
                 runs[sec] = (prev_last, chain)
             elif _letter_rank(t0) > _letter_rank(prev_last) and t0 not in _LOWER_ROMANS:
                 runs[sec] = (prev_last, chain)
-        prev_last = None if strays else chain[-1]  # after "(a)", "(c)" the run's last letter is unknown
+        # after "(a)", "(c)" the run's last letter is unknown; a nested list "(a)".."(p)" under "(t)" ranks below the run
+        prev_last = None if any(_letter_rank(tok) > _letter_rank(t0) for tok in strays) else chain[-1]
     if len(exact) < RUNON_MIN_SECTIONS:
         return {}
     maps = {sec: (before, {tok: _position_letter(i + 1) for i, tok in enumerate(chain)}) for sec, (before, chain) in runs.items()}
-    letters: dict[str, tuple[set[str], set[str]]] = {}  # section number -> (printed letters, position letters)
+    letters: dict[str, tuple[set[str], set[str]] | None] = {}  # section number -> (printed, position letters)
     for sec, (_, remap) in maps.items():
         if (num := num_of(sec)) is not None:
-            letters[num] = (set(remap), set(remap.values()))
+            letters[num] = None if num in letters else (set(remap), set(remap.values()))  # a number twice: no vote
     only_printed = only_position = 0
     for tn in by_el.values():
         if tn.region != "body":
             continue
         for m in _PARA_CITE.finditer(tn.text):
-            got = letters.get(_norm_num(m.group(1)))
+            if _OTHER_DOC_AFTER.match(tn.text, m.end()) or _OTHER_DOC_BEFORE.search(tn.text, 0, m.start()):
+                continue
+            got = letters.get(_norm_num(_deroman(m.group(1))))
             if got:
                 printed, position = m.group(2) in got[0], m.group(2) in got[1]
                 only_printed += printed and not position
