@@ -250,6 +250,13 @@ def _classify_tokens(tokens: list[str], prev_by_level: list[tuple[str, str]]) ->
             pk, ptok = prev_by_level[depth]
             if pk == "alpha" and len(ptok) == 1 and ord(tok) == ord(ptok) + 1:
                 k = "alpha"
+        # D2: "(ii)" right after a "(hh)" paragraph is the next doubled letter, not a roman item under (hh),
+        # unless a roman list "(i)" is open below (hh); the same for "(xx)" after "(ww)" and "(iii)" after "(hhh)"
+        elif k == "roman" and len(tok) > 1 and len(set(tok)) == 1 and depth < len(prev_by_level):
+            pk, ptok = prev_by_level[depth]
+            below = prev_by_level[depth + 1][0] if depth + 1 < len(prev_by_level) else None
+            if pk == "alpha" and len(ptok) == len(tok) and len(set(ptok)) == 1 and ord(tok[0]) == ord(ptok[0]) + 1 and below != "roman":
+                k = "alpha"
         kinds.append(k)
     return kinds
 
@@ -346,6 +353,84 @@ def _lettered_groups(texts: list[str]) -> bool:
         if len(tok) == 1 and tok.islower():
             last_alpha = tok
     return len(letters) >= 2 and "".join(letters) == "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[: len(letters)]
+
+
+_LETTER_TOKEN = re.compile(r"[a-z]{1,4}")
+_INLINE_A = re.compile(r"\(a\)")
+RUNON_MIN_SECTIONS = 3  # an agreement needs this many sections that continue the letters exactly (_runon_letters)
+
+
+def _letter_succ(tok: str) -> set[str]:
+    """The letters that can follow paragraph letter `tok`: "c" -> "d", "z" -> "aa", "hh" -> "ii", "ab" -> "ac"."""
+    if not _LETTER_TOKEN.fullmatch(tok):
+        return set()
+    out: set[str] = set()
+    if len(set(tok)) == 1:  # "a", "hh", "zzz": the next letter, doubled as often
+        out.add(chr(ord(tok[0]) + 1) * len(tok) if tok[0] != "z" else "a" * (len(tok) + 1))
+    if len(tok) == 2:  # "aa", "ab", ... "az", "ba"
+        out.add(tok[0] + chr(ord(tok[1]) + 1) if tok[1] != "z" else (chr(ord(tok[0]) + 1) + "a" if tok[0] != "z" else "aaa"))
+    return out
+
+
+def _letter_rank(tok: str) -> int:
+    """Order of a paragraph letter: a..z, then aa/ab.. or aa/bb.., then aaa (both two-letter styles compare)."""
+    if len(tok) == 1:
+        return ord(tok) - 96
+    if len(set(tok)) == 1:
+        return 26 * (len(tok) - 1) + ord(tok[0]) - 96
+    return 26 + (ord(tok[0]) - 97) * 26 + ord(tok[1]) - 96
+
+
+def _position_letter(k: int) -> str:
+    """The k-th paragraph letter (1-based): a..z, then aa, bb, ..."""
+    return chr(96 + (k - 1) % 26 + 1) * ((k - 1) // 26 + 1)
+
+
+def _runon_letters(root: ET.Element, by_el: dict[ET.Element, _Text]) -> dict[ET.Element, tuple[str, dict[str, str]]]:
+    """R3: sections whose paragraph letters continue the letters of the section before ("(d)" opens Section 3.2).
+
+    The filing lost its list restarts. A section qualifies when its first lettered paragraph is the exact successor
+    of the last letter of the nearest earlier lettered section, and its own text before that paragraph prints no
+    inline "(a)" (a list that began in the section's lead-in). An agreement counts only with at least
+    RUNON_MIN_SECTIONS such sections; then a later section that starts above the last letter (a gap) qualifies
+    too, unless it opens with "(i)", "(v)" or "(x)". Every lettered paragraph of the section must belong to the run
+    (a roman item may sit between). Returns section -> (the letter before the run, printed -> position letter).
+    """
+    exact: list[ET.Element] = []
+    runs: dict[ET.Element, tuple[str, list[str]]] = {}
+    prev_last: str | None = None
+    body = root.find("body")
+    for sec in body.iter("section") if body is not None else ():
+        texts = [tn.text for t_el in sec.iter("text") if (tn := by_el.get(t_el)) is not None]
+        if _lettered_groups(texts) or any(DECIMAL_PARA.match(t) for t in texts):
+            continue
+        toks: list[str] = []
+        lead: list[str] = []
+        for t in texts:
+            pm = ENUM_PREFIX.match(t)
+            if pm:
+                toks.append(ENUM_TOKEN.findall(pm.group(1))[0])
+            elif not toks:
+                lead.append(t)
+        if not toks or not _LETTER_TOKEN.fullmatch(toks[0]):
+            continue  # no lettered paragraphs: the run goes on past this section
+        t0 = toks[0]
+        chain = [t0]
+        for tok in toks[1:]:
+            if tok in _letter_succ(chain[-1]):
+                chain.append(tok)
+        strays = [tok for tok in toks if _LETTER_TOKEN.fullmatch(tok) and tok not in chain and tok not in _LOWER_ROMANS]
+        inline_a = any(_INLINE_A.search(t) for t in lead)
+        if t0 != "a" and prev_last is not None and not inline_a and not strays:
+            if t0 in _letter_succ(prev_last):
+                exact.append(sec)
+                runs[sec] = (prev_last, chain)
+            elif _letter_rank(t0) > _letter_rank(prev_last) and t0 not in ("i", "v", "x"):
+                runs[sec] = (prev_last, chain)
+        prev_last = chain[-1]
+    if len(exact) < RUNON_MIN_SECTIONS:
+        return {}
+    return {sec: (before, {tok: _position_letter(i + 1) for i, tok in enumerate(chain)}) for sec, (before, chain) in runs.items()}
 
 
 # "this Section 4.2" inside a section, "this Article IV" inside an article: the text's own statement of the number
@@ -598,6 +683,7 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
     ol.roman_sections = _roman_scheme(root)
     pos = _positional_numbers(root, by_el, ol.roman_sections)
     ol.positional_sections = len(pos.sections)
+    runon = _runon_letters(root, by_el)
     renumbered: dict[ET.Element, tuple[str, str] | None] = {}  # body sections, once any number is inferred
 
     def add_section(sec: ET.Element, parent: list[_Node]) -> None:
@@ -620,7 +706,7 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
         if len(ol.sections[num]) > 1:
             return  # duplicate number after a bad parse: no subsection targets either
         n0 = len(ol.subs)
-        add_subs(sec, num, uuid, node)
+        add_subs(sec, num, uuid, node, runon.get(sec))
         first = min((n.anchor["t"] for n in list(ol.subs.values())[n0:] if "t" in n.anchor), default=None)
         lead = [tn.text for t_el in sec.iter("text") if (tn := by_el.get(t_el)) is not None and (first is None or tn.t < first)]
         if lead:
@@ -637,8 +723,18 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
                         break
                 relabel.extend(sub.children)
 
-    def add_subs(el: ET.Element, num: str, uuid: str, node: _Node) -> None:
-        """Subsection nodes under `node` from the numbered paragraphs inside `el`."""
+    def add_subs(el: ET.Element, num: str, uuid: str, node: _Node, run: tuple[str, dict[str, str]] | None = None) -> None:
+        """Subsection nodes under `node` from the numbered paragraphs inside `el`.
+
+        `run` (R3, _runon_letters): the letter before this section's run-on letters and the printed -> position map.
+        The section's own paragraph letters then follow position ("(d)" is key "3.2(a)"), and those nodes are inferred.
+        """
+        seed, remap = run if run else (None, {})
+
+        def make_key(stk: list[tuple[str, str]]) -> tuple[str, bool]:
+            if remap and base == num and stk and stk[0][0] == "alpha" and stk[0][1] in remap:
+                return base + f"({remap[stk[0][1]]})" + "".join(f"({tk})" for _, tk in stk[1:]), True
+            return base + "".join(f"({tk})" for _, tk in stk), False
         stack: list[tuple[str, str]] = []  # (kind, token) per level
         base = num  # the latest dotted paragraph ("5.16.1") owns the "(a)" paragraphs after it
         outer: list[tuple[str, str]] = []  # the section-level stack from before the first dotted paragraph
@@ -699,19 +795,20 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
             ):
                 base, stack = num, outer[: og + 1]
             g = 1 if stack and stack[0][0] == "GROUP" else 0  # the group letter stays above every level
-            kinds = _classify_tokens(tokens, stack[g:])
+            # R3: a run-on section's first "(i)" continues the letter before it ("(h)"), so it is not a roman item
+            kinds = _classify_tokens(tokens, stack[g:] if stack or seed is None or base != num else [("alpha", seed)])
             level = next((i for i, (k, _) in enumerate(stack) if i >= g and k == kinds[0]), len(stack))
             stack = stack[:level]
             for i, (k, tok) in enumerate(zip(kinds, tokens)):
                 stack.append((k, tok))
-                key = base + "".join(f"({tk})" for _, tk in stack)
+                key, by_position = make_key(stack)
                 if key in ol.subs:
                     if i == len(tokens) - 1:  # this paragraph's own number again ("(e)" twice), not "(a)(i)" after "(a)"
                         ol.dup_subs.add(key)
                     continue
                 parent_key = key[: key.rfind("(")]
                 parent_node = ol.subs.get(parent_key, node)
-                sub = _Node(ol.unique_id(f"s{key}"), "sub", key, txt.strip()[:80], {"s": uuid, "t": tn.t})
+                sub = _Node(ol.unique_id(f"s{key}"), "sub", key, txt.strip()[:80], {"s": uuid, "t": tn.t}, inferred=by_position)
                 ol.subs[key] = sub
                 parent_node.children.append(sub)
 
