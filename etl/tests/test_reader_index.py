@@ -2771,23 +2771,31 @@ class RunOnLetterTests(unittest.TestCase):
 
 
 class DoubledLetterTests(unittest.TestCase):
-    """D2: "(ii)" after a "(hh)" paragraph is the next doubled letter; a roman list under (hh) stays a list."""
+    """D2: in a run-on section, "(ii)" after a "(hh)" paragraph is the next doubled letter; a roman list stays a list."""
 
-    def _labels(self, *paras: str) -> list[str]:
-        p = build_reader_index(_doc(_article("a3", "ARTICLE III REPRESENTATIONS", _section("s31", "Section 3.1 Taxes", *paras))))
-        return sorted(n["label"] for n in _nodes(p).values() if n["kind"] == "sub")
+    LETTERS = [f"({chr(c)}) Item." for c in range(97, 123)] + ["(aa) Item.", "(bb) Item."]
+    RUN = (
+        _section("s31", "Section 3.1 Organization", *LETTERS),
+        _section("s32", "Section 3.2 Authority", "(cc) Power.", "(dd) Approval."),
+        _section("s33", "Section 3.3 Consents", "(ee) None.", "(ff) None."),
+    )
+    RESTART = tuple(_section(f"s3{i}", f"Section 3.{i} Topic", "(a) First.", "(b) Second.") for i in range(1, 4))
 
-    def test_doubled_letters_are_siblings(self) -> None:
-        self.assertEqual(self._labels("(gg) Returns.", "(hh) Payments.", "(ii) Liens.", "(jj) Audits."), ["3.1(gg)", "3.1(hh)", "3.1(ii)", "3.1(jj)"])
+    def _labels(self, *paras: str, run_on: bool = True) -> list[str]:
+        secs = "".join(self.RUN if run_on else self.RESTART) + _section("s34", "Section 3.4 Taxes", "(gg) Filings.", *paras)
+        p = build_reader_index(_doc(_article("a3", "ARTICLE III REPRESENTATIONS", secs)))
+        return [n["label"] for n in sorted(_nodes(p).values(), key=lambda n: n["anchor"].get("t", -1)) if n["kind"] == "sub" and n["anchor"]["s"] == "s34"]
+
+    def test_doubled_letters_in_a_run_on_section_are_siblings(self) -> None:
+        self.assertEqual(self._labels("(hh) Payments.", "(ii) Liens.", "(jj) Audits."), ["3.4(a)", "3.4(b)", "3.4(c)", "3.4(d)"])
 
     def test_a_roman_list_under_hh_stays_nested(self) -> None:
-        self.assertEqual(
-            self._labels("(hh) Payments:", "(i) federal;", "(ii) state.", "(jj) Audits."),
-            ["3.1(hh)", "3.1(hh)(i)", "3.1(hh)(ii)", "3.1(jj)"],
-        )
+        got = self._labels("(hh) Payments:", "(i) federal;", "(ii) state.", "(ii) Liens.", "(jj) Audits.")
+        self.assertEqual(got, ["3.4(a)", "3.4(b)", "3.4(b)(i)", "3.4(b)(ii)", "3.4(c)", "3.4(d)"])
 
-    def test_roman_after_a_single_letter_is_unchanged(self) -> None:
-        self.assertEqual(self._labels("(a) Payments:", "(ii) state."), ["3.1(a)", "3.1(a)(ii)"])
+    def test_doubled_letters_elsewhere_are_unchanged(self) -> None:
+        # a definitions list (gg), (hh), (ii) keeps the old reading, so "clause (ii)" items do not become ambiguous
+        self.assertEqual(self._labels("(hh) Payments.", "(ii) Liens.", "(jj) Audits.", run_on=False), ["3.4(gg)", "3.4(hh)", "3.4(hh)(ii)", "3.4(jj)"])
 
 
 if __name__ == "__main__":

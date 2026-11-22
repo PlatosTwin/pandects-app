@@ -240,9 +240,9 @@ def _follows(prev: tuple[str, str], tok: str) -> bool:
     return _enum_ordinal(tok) == _enum_ordinal(ptok) + step
 
 
-def _classify_tokens(tokens: list[str], prev_by_level: list[tuple[str, str]]) -> list[str]:
+def _classify_tokens(tokens: list[str], prev_by_level: list[tuple[str, str]], doubled: bool = False) -> list[str]:
     """Pick alpha vs roman for ambiguous single letters (i, v, x) using the
-    previous sibling at the same level."""
+    previous sibling at the same level. With `doubled` (a run-on section, R3), also for doubled letters (D2)."""
     kinds = []
     for depth, tok in enumerate(tokens):
         k = _enum_kind(tok)
@@ -251,11 +251,15 @@ def _classify_tokens(tokens: list[str], prev_by_level: list[tuple[str, str]]) ->
             if pk == "alpha" and len(ptok) == 1 and ord(tok) == ord(ptok) + 1:
                 k = "alpha"
         # D2: "(ii)" right after a "(hh)" paragraph is the next doubled letter, not a roman item under (hh),
-        # unless a roman list "(i)" is open below (hh); the same for "(xx)" after "(ww)" and "(iii)" after "(hhh)"
-        elif k == "roman" and len(tok) > 1 and len(set(tok)) == 1 and depth < len(prev_by_level):
+        # unless it is the next item of a roman list open below (hh) ("(i)" then "(ii)"); the same for "(xx)" after
+        # "(ww)" and "(iii)" after "(hhh)". Only in a run-on section, whose paragraphs then take position letters:
+        # elsewhere a paragraph keyed "(ii)" competes with the roman items "(ii)" of a clause list ("clause (ii)
+        # above") and makes them ambiguous.
+        elif doubled and k == "roman" and len(tok) > 1 and len(set(tok)) == 1 and depth < len(prev_by_level):
             pk, ptok = prev_by_level[depth]
-            below = prev_by_level[depth + 1][0] if depth + 1 < len(prev_by_level) else None
-            if pk == "alpha" and len(ptok) == len(tok) and len(set(ptok)) == 1 and ord(tok[0]) == ord(ptok[0]) + 1 and below != "roman":
+            below = prev_by_level[depth + 1] if depth + 1 < len(prev_by_level) else None
+            roman_next = below is not None and below[0] == "roman" and _enum_ordinal(tok) == _enum_ordinal(below[1]) + 1
+            if pk == "alpha" and len(ptok) == len(tok) and len(set(ptok)) == 1 and ord(tok[0]) == ord(ptok[0]) + 1 and not roman_next:
                 k = "alpha"
         kinds.append(k)
     return kinds
@@ -416,8 +420,13 @@ def _runon_letters(root: ET.Element, by_el: dict[ET.Element, _Text]) -> dict[ET.
             continue  # no lettered paragraphs: the run goes on past this section
         t0 = toks[0]
         chain = [t0]
-        for tok in toks[1:]:
-            if tok in _letter_succ(chain[-1]):
+        for prev, tok in zip(toks, toks[1:]):
+            # "(ii)" right after a roman "(i)" item (not the run's own last letter) continues that roman list
+            roman_next = (
+                tok in _LOWER_ROMANS and prev in _LOWER_ROMANS and prev != chain[-1]
+                and _roman_to_int(tok.upper()) == (_roman_to_int(prev.upper()) or 0) + 1
+            )
+            if tok in _letter_succ(chain[-1]) and not roman_next:
                 chain.append(tok)
         strays = [tok for tok in toks if _LETTER_TOKEN.fullmatch(tok) and tok not in chain and tok not in _LOWER_ROMANS]
         inline_a = any(_INLINE_A.search(t) for t in lead)
@@ -796,7 +805,7 @@ def _build_outline(root: ET.Element, by_el: dict[ET.Element, _Text]) -> _Outline
                 base, stack = num, outer[: og + 1]
             g = 1 if stack and stack[0][0] == "GROUP" else 0  # the group letter stays above every level
             # R3: a run-on section's first "(i)" continues the letter before it ("(h)"), so it is not a roman item
-            kinds = _classify_tokens(tokens, stack[g:] if stack or seed is None or base != num else [("alpha", seed)])
+            kinds = _classify_tokens(tokens, stack[g:] if stack or seed is None or base != num else [("alpha", seed)], bool(remap))
             level = next((i for i, (k, _) in enumerate(stack) if i >= g and k == kinds[0]), len(stack))
             stack = stack[:level]
             for i, (k, tok) in enumerate(zip(kinds, tokens)):
