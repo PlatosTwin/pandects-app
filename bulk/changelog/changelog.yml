@@ -25,7 +25,7 @@
 unreleased:
 - type: data
   severity: notable
-  summary: 'reader_index rebuilt with enricher 0.10.0: 2,488,783 cross-references in the main agreement text now link to their target, 28,434 more than at 0.9.0.'
+  summary: 'reader_index rebuilt with enricher 0.10.0: 2,488,796 cross-references in the main agreement text now link to their target, 28,447 more than at 0.9.0.'
   details: >
     The reader index of every served agreement was rebuilt, and each row for a served
     agreement's current XML now carries enricher_version 0.10.0 (0.7.0 in the previous
@@ -40,14 +40,14 @@ unreleased:
     articles, sections and paragraphs), section_fallback (the exact clause has no place, so it links
     to the section or to the nearest paragraph that has one), unresolved (it seems to cite this agreement, but no place was
     found) or ambiguous (more than one place fits). The body holds 3,940,063 references.
-    2,488,783 have a link (2,392,604 resolved, 96,179 section_fallback), against 2,460,349 at
-    0.9.0, and 270,352 are unresolved or ambiguous, against 340,524. Against 0.9.0, 188,752
-    body references in 11,667 agreements changed: 30,947 gained a link, 2,513 lost one and
-    30,813 point to a different place. Nearly all of the last group (30,301) are citations
-    with several paragraph levels: "Section 6.4(e)(ii)", where item (ii) has no place of its
+    2,488,796 have a link (2,394,234 resolved, 94,562 section_fallback), against 2,460,349 at
+    0.9.0, and 270,339 are unresolved or ambiguous, against 340,524. Against 0.9.0, 189,902
+    body references in 11,667 agreements changed: 30,960 gained a link, 2,513 lost one and
+    31,979 point to a different place. 30,373 of the last group keep the status
+    section_fallback, and most of them are citations with several paragraph levels: "Section 6.4(e)(ii)", where item (ii) has no place of its
     own, used to link Section 6.4 and now links paragraph 6.4(e). The status stays
-    section_fallback and the linked text is the whole citation. Of the 96,179 body
-    section_fallback references, 43,954 now link a paragraph and 52,225 a section. Clause
+    section_fallback and the linked text is the whole citation. Of the 94,562 body
+    section_fallback references, 44,034 now link a paragraph and 50,528 a section. Clause
     references gained links: "clauses (i) through (xxi) of Section 6.3(b)" links to that
     section's clauses, and "this clause (b)" inside paragraph (b) links to that paragraph.
     Lost section numbers gained links (see below). Split or glued numbers gained links:
@@ -65,8 +65,25 @@ unreleased:
     article. The XML stays as filed. The reader infers each number from the agreement's own
     "this Section N.M" citations and from position, and numbers a stretch only when the count
     agrees. Outline nodes have a new optional boolean field, inferred. It is true on 6,094
-    sections, 146 articles and the 9,499 paragraphs under them, and absent on every other
-    node. The labels and link targets of these nodes use the inferred number.
+    sections and 146 articles, on the paragraphs under them and on the run-on paragraphs below
+    (11,420 paragraphs in 154 agreements in all), and absent on every other node. The labels
+    and link targets of these nodes use the inferred number.
+
+    Run-on paragraph letters. In 29 agreements the paragraph letters do not restart in each
+    section: Section 3.1 prints (a) to (c), Section 3.2 prints (d) to (g), and so on. The
+    drafters cite the real letters, so "Section 3.02(d)" means the fourth paragraph of Section
+    3.2. The reader now numbers the paragraphs of such sections by position: the paragraph
+    printed "(d)" is node 3.2(a), its text stays as filed, and the node carries inferred: true.
+    An agreement qualifies only when at least 3 sections continue the letters of the section
+    before, and nothing changes when its own citations fit the printed letters better. 10 of
+    the 29 agreements also have inferred section numbers; in the other 19, 1,797 paragraphs
+    now carry inferred: true. Against the same build without this rule, 1,618 body references
+    that linked only the section now link the cited paragraph, 52 move to another paragraph,
+    85 fall back to another paragraph, 14 gain a link, and 2 that linked a wrong paragraph now
+    link the section or nothing. A read of 96 of these changed references found 94 better, 2
+    the same and none worse. Among the 31,979 references above that point to a different
+    place, 29 keep the node id they had at 0.9.0 ("s3.2(d)"), which now names another
+    paragraph.
 
     Statuses. References to another agreement, a statute or a rule that were unresolved are
     now external, for example "Section 280G" in an agreement with no such section, or "Section
@@ -84,16 +101,16 @@ unreleased:
     links to the main agreement. In back matter 69,707 links were removed and 23,657 added.
     Most of the fall in n_xrefs comes from back matter.
 
-    Outline and defined terms. The outline changed in 672 agreements, which now hold 220,767
-    nodes against 207,267 at 0.9.0. In 439 of them only attachment nodes changed (1,811 ids
+    Outline and defined terms. The outline changed in 691 agreements, which now hold 228,185
+    nodes against 214,678 at 0.9.0. In 439 of them only attachment nodes changed (1,811 ids
     added, 955 removed): an attachment heading keeps its enumerators, so "SCHEDULE 3.3(a)" and
     "SCHEDULE 3.3(b)" are two nodes, where 0.9.0 made one node "3.3". In 84 agreements only
     article nodes were added (824): articles titled "VI. CONDITIONS" (678 in 70 agreements) or
     "ARTICLE SEVEN" (146 in 14 agreements) had no node at 0.9.0. In 114 agreements section
-    nodes changed, with their paragraphs in 73 of them (net 3,200 more sections and 5,952 more
+    nodes changed, with their paragraphs in 73 of them (net 3,200 more sections and 5,958 more
     paragraphs). These are agreements with inferred section numbers: a section that had no
     node, a repeated id such as "s1.6~2" or an id read from a broken number ("s5" for "5. 16")
-    now has its inferred number. The other 35 agreements combine these changes, except 4 where
+    now has its inferred number. The other 54 agreements combine these changes or have run-on paragraph letters, except 4 where
     a paragraph that opens "Section 3.16.1 of the Company Disclosure Schedule" is no longer
     read as a numbered paragraph. The ids of the changed nodes differ from the previous
     release. Term uses do not change, and every agreement has as many defined terms as before.
@@ -108,8 +125,8 @@ unreleased:
     worse ones led to the "Exhibit L-1" rule above.
 
     Totals over the 12,198 served agreements, against the previous release (0.7.0): n_xrefs
-    falls from 4,543,554 to 4,432,965, n_xrefs_resolved from 2,652,005 to 2,623,965 and
-    n_xrefs_unresolved from 717,094 to 630,410. 11,654 agreements have a changed count.
+    falls from 4,543,554 to 4,432,965, n_xrefs_resolved from 2,652,005 to 2,623,978 and
+    n_xrefs_unresolved from 717,094 to 630,397. 11,655 agreements have a changed count.
     n_xrefs_resolved counts resolved and section_fallback references in the body and back
     matter, and n_xrefs_unresolved counts unresolved, ambiguous and unlocated_attachment
     references. The total of resolved references falls only because of back matter; body links
@@ -120,9 +137,9 @@ unreleased:
     No action is needed for most consumers. The reader-index endpoint's ETag includes the
     enricher version, so a client that caches payloads fetches the new ones. A consumer that
     checks outline nodes against a closed schema must allow the new optional boolean field
-    inferred. A consumer that stores outline node ids should read them again for the 672
+    inferred. A consumer that stores outline node ids should read them again for the 691
     agreements whose outline changed.
-  refs: ['#280', '#285', '#286', '#287']
+  refs: ['#280', '#285', '#286', '#287', '#290']
 - type: api
   severity: minor
   summary: 'ReaderOutlineNode has a new optional boolean field, inferred, for outline numbers the filed text does not print.'
