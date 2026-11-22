@@ -2678,5 +2678,117 @@ class AttachmentParentTests(unittest.TestCase):
         self.assertEqual(self._all(sentence, back), [("Exhibits C-1", "resolved", "x-exhibit-c-1"), ("C-2", "unlocated_attachment", None)])
 
 
+
+def _nodes(p: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    out: dict[str, dict[str, Any]] = {}
+    stack = list(p["outline"])
+    while stack:
+        n = stack.pop()
+        out[n["id"]] = n
+        stack.extend(n.get("children") or [])
+    return out
+
+
+class RunOnLetterTests(unittest.TestCase):
+    """R3: paragraph letters that run on from section to section ("(d)" opens Section 3.2) are numbered by position."""
+
+    REPS = (
+        _section("s31", "Section 3.1 Organization", "(a) The Company is duly organized.", "(b) Each Subsidiary is in good standing.", "(c) No violation."),
+        _section("s32", "Section 3.2 Capitalization", "(d) Capital Stock. The authorized stock is 100 shares.", "(e) Awards. Each award:", "(i) vests;", "(ii) settles.", "(f) Voting Debt. None."),
+        _section("s33", "Section 3.3 Authority", "(g) Authority. The Company has power.", "(h) Board Approval. The board approved."),
+        _section("s34", "Section 3.4 Consents", "(i) Governmental Consents. None are needed.", "(j) Third Party Consents. None are needed."),
+        _section("s35", "Section 3.5 Litigation", "(k) There is no action.", "(l) There is no order."),
+    )
+    CITES = "The representations in Section 3.2(a), clause (ii) of Section 3.2(b), Section 3.4(b) and Section 3.2(f) survive."
+
+    def _build(self, *sections: str, cites: str = CITES) -> dict[str, Any]:
+        reps = _article("a3", "ARTICLE III REPRESENTATIONS", "".join(sections))
+        cond = _article("a7", "ARTICLE VII CONDITIONS", _section("s71", "Section 7.1 Conditions", cites))
+        return build_reader_index(_doc(reps + cond))
+
+    def _links(self, p: dict[str, Any]) -> list[tuple[str, str, Any]]:
+        nodes = _nodes(p)
+        out = []
+        for x in p["xrefs"]:
+            if x["at"]["s"] == "s71":
+                n = nodes.get(x.get("target"))
+                out.append((x["text"], x["status"], (n["anchor"]["s"], n["anchor"].get("t")) if n else None))
+        return out
+
+    def test_run_on_letters_follow_position(self) -> None:
+        p = self._build(*self.REPS)
+        self.assertEqual(
+            self._links(p),
+            [
+                ("Section 3.2(a)", "resolved", ("s32", 0)),  # printed "(d)"
+                ("clause (ii)", "resolved", ("s32", 3)),  # the item "(ii)" under printed "(e)"
+                ("Section 3.2(b)", "resolved", ("s32", 1)),
+                ("Section 3.4(b)", "resolved", ("s34", 1)),  # printed "(j)"; "(i)" opens the section as a letter
+                ("Section 3.2", "section_fallback", ("s32", None)),  # printed "(f)" is position (c); no (f) by position
+            ],
+        )
+        nodes = _nodes(p)
+        self.assertEqual([c["label"] for c in nodes["s3.4"]["children"]], ["3.4(a)", "3.4(b)"])
+        self.assertTrue(nodes["s3.2(a)"]["inferred"] and nodes["s3.2(b)(ii)"]["inferred"])
+        self.assertTrue(nodes["s3.2(a)"]["title"].startswith("(d) Capital Stock"))  # the printed text stays as filed
+        self.assertNotIn("inferred", nodes["s3.1(a)"])  # the first section prints its own letters
+
+    def test_two_run_on_sections_are_not_enough(self) -> None:
+        p = self._build(*self.REPS[:3])
+        nodes = _nodes(p)
+        self.assertIn("s3.2(d)", nodes)
+        self.assertNotIn("inferred", nodes["s3.2(d)"])
+        self.assertIn(("Section 3.2(f)", "resolved", ("s32", 4)), self._links(p))
+
+    def test_letters_that_restart_are_unchanged(self) -> None:
+        secs = [
+            _section(f"s3{i}", f"Section 3.{i} Topic", "(a) First.", "(b) Second.") for i in range(1, 6)
+        ]
+        p = self._build(*secs, cites="Section 3.2(b) and Section 3.4(a) apply.")
+        self.assertEqual(self._links(p), [("Section 3.2(b)", "resolved", ("s32", 1)), ("Section 3.4(a)", "resolved", ("s34", 0))])
+        self.assertFalse(any(n.get("inferred") for n in _nodes(p).values()))
+
+    def test_an_inline_list_in_the_lead_in_keeps_the_printed_letters(self) -> None:
+        lead = _section("s32", "Section 3.2 Capitalization", "Except as disclosed: (a) no shares are issued; (b) no options exist;", "(c) no debt exists.", "(d) no rights exist.")
+        more = (
+            _section("s36", "Section 3.6 Taxes", "(m) Returns are filed.", "(n) Taxes are paid."),
+            _section("s37", "Section 3.7 Contracts", "(o) Each Contract is valid.", "(p) No breach exists."),
+        )
+        secs = (self.REPS[0], lead) + self.REPS[2:] + more
+        nodes = _nodes(self._build(*secs))
+        self.assertIn("s3.4(a)", nodes)  # the agreement qualifies
+        self.assertIn("s3.2(c)", nodes)
+        self.assertNotIn("inferred", nodes["s3.2(c)"])
+
+    def test_a_stray_letter_keeps_the_printed_letters(self) -> None:
+        stray = _section("s33", "Section 3.3 Authority", "(g) Authority. The Company has power.", "(a) The board approved.")
+        secs = self.REPS[:2] + (stray,) + self.REPS[3:] + (
+            _section("s36", "Section 3.6 Taxes", "(m) Returns are filed.", "(n) Taxes are paid."),
+        )
+        nodes = _nodes(self._build(*secs))
+        self.assertIn("s3.3(g)", nodes)
+        self.assertIn("s3.2(a)", nodes)
+
+
+class DoubledLetterTests(unittest.TestCase):
+    """D2: "(ii)" after a "(hh)" paragraph is the next doubled letter; a roman list under (hh) stays a list."""
+
+    def _labels(self, *paras: str) -> list[str]:
+        p = build_reader_index(_doc(_article("a3", "ARTICLE III REPRESENTATIONS", _section("s31", "Section 3.1 Taxes", *paras))))
+        return sorted(n["label"] for n in _nodes(p).values() if n["kind"] == "sub")
+
+    def test_doubled_letters_are_siblings(self) -> None:
+        self.assertEqual(self._labels("(gg) Returns.", "(hh) Payments.", "(ii) Liens.", "(jj) Audits."), ["3.1(gg)", "3.1(hh)", "3.1(ii)", "3.1(jj)"])
+
+    def test_a_roman_list_under_hh_stays_nested(self) -> None:
+        self.assertEqual(
+            self._labels("(hh) Payments:", "(i) federal;", "(ii) state.", "(jj) Audits."),
+            ["3.1(hh)", "3.1(hh)(i)", "3.1(hh)(ii)", "3.1(jj)"],
+        )
+
+    def test_roman_after_a_single_letter_is_unchanged(self) -> None:
+        self.assertEqual(self._labels("(a) Payments:", "(ii) state."), ["3.1(a)", "3.1(a)(ii)"])
+
+
 if __name__ == "__main__":
     unittest.main()
