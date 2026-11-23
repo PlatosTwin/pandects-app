@@ -53,7 +53,9 @@ concepts:
     wave: 1
     description: >-
       What each target share converts into at the effective time: cash, buyer stock or both. It also covers
-      the cancellation of treasury and buyer-owned shares and the conversion of merger sub shares.
+      the cancellation of treasury and buyer-owned shares and the conversion of merger sub shares. A ticking
+      fee, which raises the price per share for each period that closing is delayed past a stated date,
+      is part of this concept.
     canonical_terms:
       - Merger Consideration
       - Per Share Merger Consideration
@@ -61,6 +63,7 @@ concepts:
       - conversion of shares
       - effect on capital stock
       - cancelled and retired
+      - ticking fee
     example_phrases:
       - >-
         Each share of Company Common Stock issued and outstanding immediately prior to the Effective Time
@@ -75,6 +78,8 @@ concepts:
     value_schema:
       status: stub
       fields:
+        - name: ticking_fee
+          type: boolean
         - name: cash_per_share
           type: Money
         - name: form

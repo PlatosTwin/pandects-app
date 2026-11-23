@@ -424,6 +424,11 @@ concepts:
         The Indemnifying Party shall have the right to assume the defense of any Third Party Claim with
         counsel of its choice, and shall not settle such claim without the consent of the Indemnified
         Party unless the settlement provides solely for money damages.
+    value_schema:
+      status: stub
+      fields:
+        - name: defense_control
+          type: 'enum: indemnitor | indemnitee | conditional'
     crosswalk:
       section_v1:
         - id: 361e70447fa67575

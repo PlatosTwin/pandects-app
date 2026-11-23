@@ -187,14 +187,15 @@ concepts:
     introduced_in: '2026.1'
 
   - id: ma.specific_performance
-    label: Specific Performance
+    label: Specific Performance; Remedies Cumulative
     kind: provision
     nav_parent: ma.nav.remedies.enforcement
     tier: label
     wave: 1
     description: >-
       The parties' right to an order that forces the other side to perform, including any limits on forcing
-      the buyer to fund its equity and close.
+      the buyer to fund its equity and close. It also covers the clause that the remedies in the agreement
+      add to, and do not replace, other remedies available at law or in equity.
     canonical_terms:
       - specific performance
       - injunction or injunctions
@@ -202,6 +203,9 @@ concepts:
       - without proof of actual damages
       - no bond
       - specific enforcement
+      - remedies cumulative
+      - cumulative and not exclusive
+      - other remedies
     example_phrases:
       - >-
         The parties agree that irreparable damage would occur and that the parties shall be entitled to
@@ -211,6 +215,9 @@ concepts:
       - >-
         Each party waives (i) any defense that a remedy at law would be adequate and (ii) any requirement
         to post a bond or other security in connection with any such equitable relief.
+      - >-
+        All rights and remedies under this Agreement are cumulative and not exclusive of any rights or
+        remedies provided by Law.
     exclusion_cues:
       - The reverse termination fee as an alternative remedy is ma.termination.fee.reverse.
     value_schema:
@@ -225,10 +232,10 @@ concepts:
     crosswalk:
       section_v1:
         - id: 1e8533df50fcc2fd
-          relation: exact
+          relation: broader
       section_v2:
         - id: 5bb8bdc433032a74
-          relation: exact
+          relation: broader
     introduced_in: '2026.1'
 
   - id: ma.damages_waiver

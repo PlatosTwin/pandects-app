@@ -18,7 +18,7 @@ groups:
     label: Mutual Conditions
     kind: group
     nav_parent: ma.nav.conditions
-    description: Conditions to the obligations of every party.
+    description: Conditions to the obligations of every party, and the rule on frustration of conditions.
     introduced_in: '2026.1'
 
   - id: ma.nav.conditions.party
@@ -164,7 +164,7 @@ concepts:
     introduced_in: '2026.1'
 
   - id: ma.condition.reps_bringdown
-    label: Bring-Down of Representations; Performance of Covenants
+    label: Accuracy of Representations (Bring-Down)
     kind: provision
     nav_parent: ma.nav.conditions.party
     tier: label
@@ -172,19 +172,15 @@ concepts:
     attributes:
       party: tested_party
     description: >-
-      Closing depends on the other party's representations being true at signing and at closing, under a
-      stated standard (in all respects, in all material respects, or except where the failure has no
-      material adverse effect), and on the other party having performed its covenants in all material
-      respects.
+      Closing depends on the other party's representations being true at signing and at closing, under
+      a stated standard: in all respects, in all material respects, or except where the failure has no
+      material adverse effect.
     canonical_terms:
       - representations and warranties shall be true and correct
       - as of the Closing Date as though made on such date
       - without giving effect to any materiality or Material Adverse Effect qualifiers
       - other than de minimis inaccuracies
       - bring-down
-      - shall have performed in all material respects
-      - all obligations required to be performed by it
-      - at or prior to the Closing
     example_phrases:
       - >-
         The representations and warranties of the Company set forth in Article [•] shall be true and correct
@@ -195,15 +191,11 @@ concepts:
       - >-
         The Fundamental Representations shall be true and correct in all respects (other than de minimis
         inaccuracies) as of the Closing Date.
-      - >-
-        The Company shall have performed or complied in all material respects with all agreements and
-        covenants required by this Agreement to be performed or complied with by it on or prior to the
-        Closing Date.
     exclusion_cues:
       - The representations are under ma.nav.reps.
       - >-
         The separate condition that no material adverse effect has occurred is ma.condition.no_mae.
-      - The officer's certificate that confirms the conditions is ma.condition.other.
+      - The condition that the other party has performed its covenants is ma.condition.covenant_performance.
     value_schema:
       status: stub
       fields:
@@ -216,21 +208,58 @@ concepts:
     crosswalk:
       section_v1:
         - id: 7d48665e743cf70e
-          relation: broader
-        - id: 2f824e0e518c0009
-          relation: broader
+          relation: exact
       section_v2:
         - id: 599e2650722eff66
-          relation: broader
+          relation: exact
           party: target
         - id: 375b798822ae7ee5
-          relation: broader
+          relation: exact
           party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.condition.covenant_performance
+    label: Performance of Covenants
+    kind: provision
+    nav_parent: ma.nav.conditions.party
+    tier: label
+    wave: 1
+    attributes:
+      party: tested_party
+    description: >-
+      Closing depends on the other party having performed its covenants, under a stated standard, usually
+      in all material respects. Some agreements let the party cure a failure before the condition fails.
+    canonical_terms:
+      - shall have performed in all material respects
+      - all obligations required to be performed by it
+      - at or prior to the Closing
+    example_phrases:
+      - >-
+        The Company shall have performed or complied in all material respects with all agreements and
+        covenants required by this Agreement to be performed or complied with by it on or prior to the
+        Closing Date.
+    exclusion_cues:
+      - The officer's certificate that confirms the conditions is ma.condition.other.
+      - The condition on the accuracy of representations is ma.condition.reps_bringdown.
+    value_schema:
+      status: stub
+      fields:
+        - name: covenant_standard
+          type: 'enum: all_respects | material | other'
+        - name: cure_right
+          type: boolean
+        - name: cure_period
+          type: Duration
+    crosswalk:
+      section_v1:
+        - id: 2f824e0e518c0009
+          relation: exact
+      section_v2:
         - id: 452a003ee641f64b
-          relation: broader
+          relation: exact
           party: target
         - id: 949c5df3928699f5
-          relation: broader
+          relation: exact
           party: buyer
     introduced_in: '2026.1'
 
@@ -384,30 +413,45 @@ concepts:
       party: tested_party
     description: >-
       Another closing condition, such as delivery of an officer's certificate or an ancillary agreement,
-      continued employment of key employees, or a payoff letter. It also covers the rule that a party may
-      not rely on the failure of a condition that its own breach caused.
+      continued employment of key employees, or a payoff letter.
     canonical_terms:
       - officer's certificate
       - certificate signed by an executive officer
       - Key Employees
       - ancillary agreements shall have been executed
-      - frustration of closing conditions
-      - may not rely on the failure of any condition
-      - if such failure was caused by such party's breach
     example_phrases:
       - >-
         Parent shall have received a certificate signed by an executive officer of the Company certifying
         that the conditions set forth in Sections [•] and [•] have been satisfied.
-      - >-
-        None of the parties may rely on the failure of any condition set forth in this Article to be satisfied
-        if such failure was caused by such party's failure to perform any of its obligations under this
-        Agreement.
     exclusion_cues:
       - A tax opinion condition is tax.opinion.closing_condition.
     crosswalk:
       section_v2:
         - id: d6c13c12f0313084
-          relation: related
+          relation: narrower
         - id: 8e652eaa2ad91753
-          relation: broader
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.condition.frustration
+    label: Frustration of Closing Conditions
+    kind: provision
+    nav_parent: ma.nav.conditions.mutual
+    tier: label
+    wave: 1
+    description: >-
+      A party may not rely on the failure of a condition that its own breach caused. The rule applies
+      to every party's conditions.
+    canonical_terms:
+      - frustration of closing conditions
+      - may not rely on the failure of any condition
+      - if such failure was caused by such party's breach
+      - prevention doctrine
+    example_phrases:
+      - >-
+        None of the parties may rely on the failure of any condition set forth in this Article to be satisfied
+        if such failure was caused by such party's failure to perform any of its obligations under this
+        Agreement.
+    exclusion_cues:
+      - The same rule as a limit on a termination right is ma.termination.outside_date or ma.termination.right.breach.
     introduced_in: '2026.1'

@@ -1514,16 +1514,23 @@ concepts:
       party: maker
     description: >-
       The merger subsidiary was formed only for the deal, has carried on no other business, and is wholly
-      owned by the buyer.
+      owned by the buyer. It also covers a SPAC's statement that it has carried on no business other than
+      its formation, its public offering and its search for a business combination.
     canonical_terms:
       - operations of Merger Sub
       - formed solely for the purpose of
       - no prior activities
       - has not engaged in any business activities
+      - Business Activities
+      - has not conducted any business activities other than
+      - directed toward the accomplishment of a Business Combination
     example_phrases:
       - >-
         Merger Sub was formed solely for the purpose of engaging in the transactions contemplated by this
         Agreement and has not engaged in any other business activities.
+      - >-
+        Since its incorporation, Acquiror has not conducted any business activities other than activities
+        directed toward the accomplishment of a Business Combination.
     exclusion_cues:
       - The buyer's duty to cause the merger subsidiary to perform is ma.merger_sub_obligations.
     introduced_in: '2026.1'
@@ -1754,18 +1761,7 @@ concepts:
     wave: 1
     attributes:
       party: maker
-    description: >-
-      A representation that fits no other concept in this branch. Use it rarely. It includes a SPAC's
-      statement that it has carried on no business other than its search for a business combination.
-    canonical_terms:
-      - Business Activities
-      - has not conducted any business activities other than
-      - directed toward the accomplishment of a Business Combination
-    example_phrases:
-      - >-
-        Since its incorporation, Acquiror has not conducted any business activities other than activities
-        directed toward the accomplishment of a Business Combination.
+    description: A representation that fits no other concept in this branch. Use it rarely.
     exclusion_cues:
       - Check the industry-specific concepts first.
-      - The matching statement about a merger subsidiary is ma.rep.merger_sub.
     introduced_in: '2026.1'

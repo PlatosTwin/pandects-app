@@ -165,6 +165,9 @@ concepts:
       - >-
         Board seats and management of the combined public company are ma.governance.post_closing.
       - Resignation letters delivered at closing are ma.governance.resignations.
+      - >-
+        Board seats and officer roles at the parent after closing, as in a merger of equals, are
+        ma.governance.post_closing.
     crosswalk:
       section_v1:
         - id: 92d4aee1b80c2134
@@ -753,4 +756,52 @@ concepts:
         Agreement, pursuant to which the Sponsor has agreed to vote in favor of the Transactions.
     exclusion_cues:
       - Voting agreements by the target's stockholders are ma.approval.voting_agreements.
+    introduced_in: '2026.1'
+
+  - id: ma.spac.extension
+    label: Extension of the SPAC Deadline
+    kind: provision
+    nav_parent: ma.nav.structure.spac
+    tier: label
+    wave: 1
+    description: >-
+      The SPAC's duty or right to extend the deadline by which it must complete a business combination,
+      including the stockholder vote on the extension and who pays for it.
+    canonical_terms:
+      - Extension
+      - extend the deadline to consummate a Business Combination
+      - Extension Proposal
+      - Extension Meeting
+      - Business Combination Deadline
+    example_phrases:
+      - >-
+        If the Closing has not occurred by [•], Acquiror shall seek the approval of its stockholders to
+        extend the deadline by which it must complete a Business Combination.
+    exclusion_cues:
+      - The outside date of the merger agreement is ma.termination.outside_date.
+      - Redemptions by the public stockholders are ma.spac.redemption.
+    introduced_in: '2026.1'
+
+  - id: ma.spac.domestication
+    label: SPAC Domestication
+    kind: provision
+    nav_parent: ma.nav.structure.spac
+    also_listed_under:
+      - tax.nav.deal.restructuring
+    tier: label
+    wave: 1
+    description: >-
+      The SPAC's change of its jurisdiction of incorporation before closing, usually from the Cayman Islands
+      to Delaware.
+    canonical_terms:
+      - Domestication
+      - continue as a Delaware corporation
+      - de-register as an exempted company
+      - Certificate of Domestication
+    example_phrases:
+      - >-
+        Prior to the Closing, Acquiror shall change its jurisdiction of incorporation by de-registering
+        as a Cayman Islands exempted company and domesticating as a Delaware corporation (the "Domestication").
+    exclusion_cues:
+      - A restructuring of the target before closing is tax.restructuring.pre_closing.
     introduced_in: '2026.1'

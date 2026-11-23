@@ -42,7 +42,8 @@ PILOT_SIBLING_IDS = (
     "ma.regulatory.filing_fee_allocation",
 )
 
-# Leaves folded into a sibling on 2026-11-22 (docs/plans/full-taxonomy.md, section 4.4).
+# Leaves folded into a neighbor on 2026-11-22 (docs/plans/full-taxonomy.md, section 4.4).
+# An independent review on 2026-11-23 split five of the first 20 back out. See RESTORED_2026_11_23.
 MERGED_2026_11_22 = (
     "ma.structure.effects_of_merger",
     "ma.structure.governing_documents",
@@ -55,16 +56,20 @@ MERGED_2026_11_22 = (
     "ma.tender.board_designees",
     "ma.spac.trust_waiver",
     "ma.spac.business_activities",
-    "ma.spac.extension",
-    "ma.spac.domestication",
     "ma.employee.service_credit",
-    "ma.employee.no_third_party_rights",
     "ma.employee.plan_termination",
-    "ma.condition.covenant_performance",
-    "ma.condition.frustration",
     "ma.termination.notice",
     "ma.indemn.third_party_claims",
 )
+
+# Restored id: (kind, wave). The wave follows the 1% heading rule. A component is always in wave 2.
+RESTORED_2026_11_23 = {
+    "ma.spac.extension": ("provision", 1),
+    "ma.spac.domestication": ("provision", 1),
+    "ma.condition.frustration": ("provision", 1),
+    "ma.condition.covenant_performance": ("provision", 1),
+    "ma.employee.no_third_party_rights": ("component", 2),
+}
 
 Change = Callable[[dict[str, Any]], None]
 
@@ -176,11 +181,23 @@ class ShippedPacksTest(unittest.TestCase):
         self.assertGreater(waves[2], 0)
 
     def test_merged_leaves_are_gone(self) -> None:
-        """The 20 leaves merged on 2026-11-22 were never released, so they are removed, not deprecated."""
+        """The 15 leaves that stay merged were never released, so they are removed, not deprecated."""
+        self.assertEqual(len(MERGED_2026_11_22), 15)
         for concept_id in MERGED_2026_11_22:
             self.assertNotIn(concept_id, self.taxonomy.nodes)
         for node in self.taxonomy.nodes.values():
             self.assertNotIn("deprecated_in", node.data, node.id)
+
+    def test_restored_leaves_are_back(self) -> None:
+        """The review of 2026-11-23 split five merged leaves back out, each with its old id."""
+        nodes = self.taxonomy.nodes
+        for concept_id, (kind, wave) in RESTORED_2026_11_23.items():
+            self.assertEqual((nodes[concept_id].kind, nodes[concept_id].data["wave"]), (kind, wave), concept_id)
+        self.assertEqual(
+            nodes["ma.employee.no_third_party_rights"].data["parent"], "ma.employee.comp_benefits_continuation"
+        )
+        self.assertEqual(nodes["ma.condition.covenant_performance"].data["value_schema"]["status"], "stub")
+        self.assertIn("tax.nav.deal.restructuring", nodes["ma.spac.domestication"].data["also_listed_under"])
 
 
 class ValidatorCatchesProblemsTest(unittest.TestCase):

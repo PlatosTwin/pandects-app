@@ -68,7 +68,7 @@ RULES: list[tuple[str | None, str, str]] = [
     (None, r"reservation of|reserve for issuance", "ma.consideration.buyer_securities"),
     (None, r"long.?stop date", "ma.termination.outside_date"),
     (None, r"^no trading|trading in (acquiror|spac|parent) securities", "ma.covenant.other"),
-    (None, r"^business activities$|business activities of|activities of (acquiror|spac|purchaser|parent)$", "ma.rep.other"),
+    (None, r"^business activities$|business activities of|activities of (acquiror|spac|purchaser|parent)$", "ma.rep.merger_sub"),
     (None, r"restrictions? on business", "ma.rep.material_contracts"),
     (None, r"jobs act|emerging growth", "ma.rep.investment_company"),
     (None, r"accuracy of representations|representations (and warranties )?(true|accurate)", "ma.condition.reps_bringdown"),
@@ -132,11 +132,13 @@ RULES: list[tuple[str | None, str, str]] = [
     ("REP", r"representations and warranties|^general$|^representations$|schedules|^survival", "ma.nav.reps"),
     ("REP", r"indebtedness|^debt", "ma.rep.other"),
     # ---- conditions (context)
+    # These two come before the group rules below, which match any title with "conditions" or "obligation".
+    ("COND", r"frustration", "ma.condition.frustration"),
+    ("COND", r"^(performance|compliance)(?!.*represent)|^(covenants|agreements)( and (covenants|agreements))?$", "ma.condition.covenant_performance"),
     ("COND", r"each party|all parties|both parties|mutual|the parties|obligations of (the )?(company|seller|sellers|target) and|each of the parties|to the merger$|^conditions to (the )?(closing|merger)$|precedent to (the )?(obligations of )?(each|all|both)", "ma.nav.conditions.mutual"),
     ("COND", r"conditions|obligation", "ma.nav.conditions.party"),
-    ("COND", r"frustration", "ma.condition.other"),
     ("COND", r"representations|accuracy|bring.?down", "ma.condition.reps_bringdown"),
-    ("COND", r"performance|covenants|compliance with (agreement|obligations)", "ma.condition.reps_bringdown"),
+    ("COND", r"performance|covenants|compliance with (agreement|obligations)", "ma.condition.covenant_performance"),
     ("COND", r"material adverse|no (adverse )?change", "ma.condition.no_mae"),
     ("COND", r"stockholder|shareholder|vote", "ma.condition.stockholder_approval"),
     ("COND", r"injunction|restraint|illegality|legal (prohibition|impediment)|orders?$|no (law|prohibition|order)", "ma.condition.no_legal_restraint"),
@@ -176,6 +178,8 @@ RULES: list[tuple[str | None, str, str]] = [
     ("INDEM", r"special|specific|environmental|certain (matters|indemn)", "ma.indemn.specific"),
     ("INDEM", r"tax", "tax.nav.indemnity"),
     ("INDEM", r"indemni|obligation|agreement to|general|by (the )?(seller|buyer|purchaser|parent|company|stockholders|shareholders|members)", "ma.indemn.obligation"),
+    # ---- employee article (context)
+    ("EMP", r"third.?part|beneficiar|no (rights|amendment)|not an amendment", "ma.employee.no_third_party_rights"),
     # ---- tax article (context)
     ("TAX", r"transfer tax|conveyance|sales (and use )?tax", "tax.transfer.allocation"),
     ("TAX", r"straddle|allocation of (taxes|certain taxes|tax)|apportionment|proration", "tax.nav.indemnity.straddle"),
@@ -231,7 +235,7 @@ RULES: list[tuple[str | None, str, str]] = [
     (None, r"minimum cash|available closing cash", "ma.spac.minimum_cash"),
     (None, r"redemption", "ma.spac.redemption"),
     (None, r"sponsor", "ma.spac.sponsor_support"),
-    (None, r"extension (of|proposal)|business combination deadline", "ma.covenant.other"),
+    (None, r"extension (of|proposal)|business combination deadline", "ma.spac.extension"),
     # ---- consideration
     (None, r"exchange ratio", "ma.consideration.exchange_ratio"),
     (None, r"election|proration", "ma.consideration.election_proration"),
@@ -349,7 +353,7 @@ RULES: list[tuple[str | None, str, str]] = [
     (None, r"net operating loss|nol|382|tax attributes|tax benefit preservation", "tax.nav.attributes"),
     (None, r"^tax|taxes|taxation|tax (matters|covenants|provisions)", "tax.nav.compliance"),
     # ---- conditions (global)
-    (None, r"frustration", "ma.condition.other"),
+    (None, r"frustration", "ma.condition.frustration"),
     (None, r"conditions? (precedent )?(to|of) (the )?(obligations? of )?(each|all|both|the parties|every)|mutual conditions|conditions to (the )?(merger|closing|each|obligations of the parties)$|joint conditions|conditions (applicable )?to all|general conditions|conditions to (the )?respective", "ma.nav.conditions.mutual"),
     (None, r"conditions?|officer.?s certificate|bring.?down|closing certificate", "ma.nav.conditions.party"),
     # ---- termination (global)
@@ -369,7 +373,7 @@ RULES: list[tuple[str | None, str, str]] = [
     (None, r"consequential|punitive|limitation (of|on) (liability|damages)|no (consequential|special|punitive)|waiver of (certain )?damages|damages waiver|exclusion of|special damages|certain damages|limited liability|limitations on liability|no liability|limitation of liability", "ma.damages_waiver"),
     (None, r"non-?recourse|no recourse|no personal liability|recourse|no liability of|personal liability|limited recourse", "ma.non_recourse"),
     (None, r"attorney|legal fees|prevailing party|costs of enforcement|enforcement costs|collection (costs|expenses)", "ma.attorneys_fees"),
-    (None, r"remedies|cumulative|rights and remedies|other remedies|no election", "ma.severability"),
+    (None, r"remedies|cumulative|rights and remedies|other remedies|no election", "ma.specific_performance"),
     # ---- definitions and interpretation
     (None, r"material adverse", "ma.mae.definition"),
     (None, r"knowledge", "ma.def.knowledge"),
@@ -401,7 +405,7 @@ RULES: list[tuple[str | None, str, str]] = [
     (None, r"payment of (borrowed|debt)|method of payment", "ma.closing.payments"),
     (None, r"products? liability|warranty obligations", "ma.rep.product_liability_warranty"),
     (None, r"contact with|pcaob", "ma.access.information"),
-    (None, r"domestication", "ma.covenant.other"),
+    (None, r"domestication", "ma.spac.domestication"),
     (None, r"covid|pandemic", "ma.conduct.emergency_exception"),
     (None, r"capital expenditures", "ma.conduct.restriction.capex"),
     (None, r"no (right of )?contribution", "ma.release"),
@@ -452,7 +456,7 @@ RULES: list[tuple[str | None, str, str]] = [
     (None, r"entire (agreement|understanding)|complete agreement|integration|whole agreement|prior agreements|entirety|merger clause|sole agreement|supersedes?|^agreement$", "ma.entire_agreement"),
     (None, r"sever|invalid|partial invalidity|enforceability|unenforceab|validity$|separab|illegal|legality", "ma.severability"),
     (None, r"counterpart|facsimile|electronic (signature|delivery|transmission|execution)|execution (of|in|and)|signatures?$|pdf|multiple (originals|copies)|effectiveness$|execution$|duplicate originals|delivery by|originals", "ma.severability"),
-    (None, r"amend|modif|supplement$|changes$|variation", "ma.amendment"),
+    (None, r"amend|modif|supplement$|changes$|variation|special committee", "ma.amendment"),
     (None, r"waiver|extension$|extension of time|extension;|no (implied )?waiver|failure or (delay|indulgence)|delay|forbearance|extensions$", "ma.amendment"),
     (None, r"assign|successor|binding (effect|agreement|nature|upon)|benefit$|inure|parties bound|binding$|heirs|transfer of (rights|agreement)|delegation|benefits of agreement", "ma.assignment"),
     (None, r"third.?part(y|ies) (beneficiar|rights)|beneficiar|parties in interest|rights of third|no (third|other) (party|parties|person)|no benefit to others|no rights in third|persons (having|bound|benefit)|third part(y|ies)$|benefit of (the )?parties|no third-|contracts \(rights of third", "ma.third_party_beneficiaries"),

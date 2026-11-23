@@ -232,9 +232,9 @@ links:
   - concept: ma.condition.third_party_consents
     dealos_id: cra:131
     relation: related
-  - concept: ma.condition.other
+  - concept: ma.condition.frustration
     dealos_id: cra:39
-    relation: related
+    relation: narrower
   - concept: ma.termination.right.mutual_consent
     dealos_id: cra:113
     relation: narrower
@@ -316,7 +316,7 @@ links:
   - concept: ma.attorneys_fees
     dealos_id: ai:r-prevailing-party-attorneys-fees
     relation: exact
-  - concept: ma.severability
+  - concept: ma.specific_performance
     dealos_id: ai:77
     relation: broader
   - concept: ma.definitions.general

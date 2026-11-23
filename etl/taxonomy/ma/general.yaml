@@ -105,7 +105,9 @@ concepts:
     wave: 1
     description: >-
       How the agreement may be amended, including limits on amendments after the stockholder vote, and how
-      a party may waive a right or extend the time for performance.
+      a party may waive a right or extend the time for performance. It also covers a clause that requires
+      the approval of a special committee of the board for an amendment, a waiver or another action of
+      the company under the agreement.
     canonical_terms:
       - amendment
       - modification
@@ -115,6 +117,8 @@ concepts:
       - extension; waiver
       - no failure or delay shall operate as a waiver
       - extend the time for the performance
+      - Special Committee
+      - approval of the Special Committee
     example_phrases:
       - >-
         This Agreement may be amended, modified, or supplemented only by a written instrument duly executed
@@ -197,7 +201,7 @@ concepts:
         are intended third-party beneficiaries of the right to receive the Merger Consideration.
     exclusion_cues:
       - The lenders' rights are ma.financing.source_protections.
-      - The rule for employees is ma.employee.comp_benefits_continuation.
+      - The rule for employees is ma.employee.no_third_party_rights.
     crosswalk:
       section_v1:
         - id: e63ceec3215c234b
@@ -208,15 +212,14 @@ concepts:
     introduced_in: '2026.1'
 
   - id: ma.severability
-    label: Severability; Counterparts; Remedies Cumulative
+    label: Severability; Counterparts
     kind: provision
     nav_parent: ma.nav.general.agreement
     tier: label
     wave: 1
     description: >-
-      Three standard clauses. An invalid term does not affect the rest of the agreement. The agreement may
-      be signed in counterparts and by electronic means. The remedies in the agreement add to those
-      available at law or in equity.
+      Two standard clauses. An invalid term does not affect the rest of the agreement. The agreement may
+      be signed in counterparts and by electronic means.
     canonical_terms:
       - severability
       - invalid, illegal or incapable of being enforced
@@ -226,9 +229,6 @@ concepts:
       - facsimile
       - .pdf
       - effectiveness
-      - remedies cumulative
-      - cumulative and not exclusive
-      - other remedies
     example_phrases:
       - >-
         If any term or other provision of this Agreement is held to be invalid, illegal, or incapable
@@ -244,13 +244,12 @@ concepts:
       - >-
         Delivery of an executed counterpart of a signature page by facsimile or by email in .pdf or other
         electronic format shall be as effective as delivery of a manually executed counterpart.
-      - >-
-        All rights and remedies under this Agreement are cumulative and not exclusive of any rights or
-        remedies provided by Law.
+    exclusion_cues:
+      - The clause that remedies are cumulative is ma.specific_performance.
     crosswalk:
       section_v1:
         - id: e63ceec3215c234b
-          relation: related
+          relation: narrower
       section_v2:
         - id: 0d45fa1a398d6a35
           relation: broader

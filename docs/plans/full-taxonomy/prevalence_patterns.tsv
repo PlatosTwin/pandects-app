@@ -29,7 +29,7 @@ ma.def.permitted_liens	permitted (liens|encumbrances|exceptions).{0,3} (means|sh
 ma.def.fraud	fraud.{0,3} (means|shall mean)
 ma.def.knowledge	knowledge[^.]{0,40} (means|shall mean)
 ma.employee.comp_benefits_continuation	no less favorable[^.]*(base salary|compensation|employee benefits|benefits)|(base salary|base compensation|wage rate)[^.]*no less favorable|substantially comparable in the aggregate|continuation period
-ma.employee.comp_benefits_continuation	(nothing|no provision)[^.]*(shall|will|is intended to)[^.]*(be (deemed|treated|construed)|constitute)[^.]*amendment (of|to)[^.]*plan|(nothing|no provision)[^.]*right to (continued )?employment
+ma.employee.no_third_party_rights	(nothing|no provision)[^.]*(shall|will|is intended to)[^.]*(be (deemed|treated|construed)|constitute)[^.]*amendment (of|to)[^.]*plan|(nothing|no provision)[^.]*right to (continued )?employment
 ma.employee.comp_benefits_continuation	(credit|recognize|recognition|recognized)[^.]*(service with|years of service|prior service|service credit)|pre-existing condition
 ma.financing.cooperation_costs	reimburse[^.]*(financing|debt financing)[^.]*|(indemnify|indemnified|hold harmless)[^.]*(arrangement of the|in connection with the) (debt )?financing
 ma.financing.structure	commitment letters?
@@ -69,7 +69,7 @@ ma.condition.reps_bringdown	representations and warranties[^.]*(shall be|shall h
 ma.spac.trust_account	trust account
 ma.rep.investment_company	investment company act
 ma.condition.regulatory_approval	(waiting period|hsr act|regulatory approvals?|governmental approvals?|requisite approvals?)[^.]*shall have (expired|been (obtained|terminated|received))
-ma.condition.reps_bringdown	shall have (performed|complied)[^.]*in all material respects
+ma.condition.covenant_performance	shall have (performed|complied)[^.]*in all material respects
 ma.takeover.rights_plan	rights plan|poison pill|(stockholder|shareholder|company|preferred share|preferred stock) rights (agreement|plan)|rights agent
 ma.rep.ownership_of_target_stock	interested stockholder|interested shareholder|(beneficially )?owns?[^.]{0,60}(any|no) shares of (company|target) (common|capital) stock
 ma.condition.no_legal_restraint	no (order|injunction|law|judgment|restraint|governmental)[^.]*(in effect|enacted|issued|entered)[^.]*(prohibit|enjoin|restrain|illegal)|temporary restraining order|preliminary or permanent injunction
@@ -152,3 +152,6 @@ ma.consideration.earnout	earn-?out|contingent (consideration|payment)|milestone 
 ma.indemn.rwi	r&w (insurance|policy)|rwi policy|representations? and warrant(y|ies) (insurance|policy)|buyer-side (insurance|policy)
 ma.arbitration	(shall be|will be) (finally )?(settled|resolved|determined|submitted)[^.]*arbitration|binding arbitration|american arbitration association|\bjams\b
 ma.restrictive.non_compete	non-?competition|covenant not to compete
+ma.spac.extension	extension (proposal|meeting|amendment)|extend the (deadline|date|time|period)[^.]{0,120}business combination
+ma.spac.domestication	domestication
+ma.condition.frustration	frustration of (closing )?conditions|may (not )?rely[^.]{0,80}failure of any condition

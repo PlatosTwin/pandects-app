@@ -611,22 +611,5 @@ concepts:
     nav_parent: ma.nav.covenants.post_closing
     tier: label
     wave: 1
-    description: >-
-      A covenant that fits no other concept. Use it rarely. It includes a SPAC's extension of its deadline
-      and its change of jurisdiction before closing (domestication).
-    canonical_terms:
-      - Extension
-      - extend the deadline to consummate a Business Combination
-      - Extension Proposal
-      - Domestication
-      - continue as a Delaware corporation
-      - de-register as an exempted company
-      - Certificate of Domestication
-    example_phrases:
-      - >-
-        If the Closing has not occurred by [•], Acquiror shall seek the approval of its stockholders to
-        extend the deadline by which it must complete a Business Combination.
-      - >-
-        Prior to the Closing, Acquiror shall change its jurisdiction of incorporation by de-registering
-        as a Cayman Islands exempted company and domesticating as a Delaware corporation (the "Domestication").
+    description: A covenant that fits no other concept. Use it rarely.
     introduced_in: '2026.1'

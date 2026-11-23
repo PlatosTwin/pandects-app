@@ -42,6 +42,8 @@ In the M&A pack, † after a group name means that the group can be the label of
 | SPAC Transactions † | `ma.spac.minimum_cash` | Minimum Cash Condition | wave 2; value stub; also under `ma.nav.conditions.party` |
 | SPAC Transactions † | `ma.spac.redemption` | SPAC Stockholder Redemptions |  |
 | SPAC Transactions † | `ma.spac.sponsor_support` | Sponsor Support Agreement |  |
+| SPAC Transactions † | `ma.spac.extension` | Extension of the SPAC Deadline |  |
+| SPAC Transactions † | `ma.spac.domestication` | SPAC Domestication | also under `tax.nav.deal.restructuring` |
 
 ### Consideration and Payment Mechanics
 
@@ -217,6 +219,7 @@ In the M&A pack, † after a group name means that the group can be the label of
 | Group | Id | Label | Marks |
 |---|---|---|---|
 | Continuing Employees | `ma.employee.comp_benefits_continuation` | Continuing Employees; Compensation, Benefits and Plan Transition | value stub |
+| Continuing Employees | `ma.employee.no_third_party_rights` | No Employee Third-Party Rights | component; wave 2; part of `ma.employee.comp_benefits_continuation` |
 | Transaction-Related Employee Matters | `ma.employee.retention_severance` | Severance, Retention and Bonuses |  |
 | Transaction-Related Employee Matters | `ma.employee.warn` | WARN Act |  |
 | Transaction-Related Employee Matters | `ma.employee.section_280g` | Section 280G Stockholder Vote | also under `tax.nav.other` |
@@ -261,7 +264,9 @@ In the M&A pack, † after a group name means that the group can be the label of
 | Mutual Conditions | `ma.condition.regulatory_approval` | Regulatory Approval Condition | value stub |
 | Mutual Conditions | `ma.condition.no_legal_restraint` | No Legal Restraint Condition |  |
 | Mutual Conditions | `ma.condition.registration_listing` | Registration Statement and Listing Condition |  |
-| Conditions for One Party † | `ma.condition.reps_bringdown` | Bring-Down of Representations; Performance of Covenants | value stub; party: tested_party |
+| Mutual Conditions | `ma.condition.frustration` | Frustration of Closing Conditions |  |
+| Conditions for One Party † | `ma.condition.reps_bringdown` | Accuracy of Representations (Bring-Down) | value stub; party: tested_party |
+| Conditions for One Party † | `ma.condition.covenant_performance` | Performance of Covenants | value stub; party: tested_party |
 | Conditions for One Party † | `ma.condition.no_mae` | No Material Adverse Effect Condition | party: tested_party |
 | Conditions for One Party † | `ma.condition.financing` | Financing Condition | wave 2; also under `ma.nav.financing.arrangements` |
 | Conditions for One Party † | `ma.condition.dissenting_shares` | Dissenting Shares Condition | wave 2; value stub |
@@ -308,7 +313,7 @@ In the M&A pack, † after a group name means that the group can be the label of
 | Limits on Recovery † | `ma.indemn.exclusive_remedy` | Exclusive Remedy | value stub |
 | Limits on Recovery † | `ma.indemn.mitigation` | Mitigation of Losses |  |
 | Limits on Recovery † | `ma.indemn.recovery_offsets` | Insurance and Other Recovery Offsets |  |
-| Claims and Sources of Recovery | `ma.indemn.claims_procedure` | Indemnification Claims Procedure; Third-Party Claims |  |
+| Claims and Sources of Recovery | `ma.indemn.claims_procedure` | Indemnification Claims Procedure; Third-Party Claims | value stub |
 | Claims and Sources of Recovery | `ma.indemn.escrow` | Indemnity Escrow; Holdback | value stub; also under `ma.nav.consideration.adjustment` |
 | Claims and Sources of Recovery | `ma.indemn.setoff` | Right of Setoff |  |
 | Claims and Sources of Recovery | `ma.indemn.order_of_recovery` | Order and Source of Recovery |  |
@@ -325,7 +330,7 @@ In the M&A pack, † after a group name means that the group can be the label of
 | Governing Law and Forum | `ma.forum_selection` | Forum Selection; Submission to Jurisdiction | value stub |
 | Governing Law and Forum | `ma.jury_waiver` | Waiver of Jury Trial | value stub |
 | Governing Law and Forum | `ma.arbitration` | Arbitration; Dispute Resolution Procedures | value stub |
-| Remedies and Enforcement | `ma.specific_performance` | Specific Performance | value stub |
+| Remedies and Enforcement | `ma.specific_performance` | Specific Performance; Remedies Cumulative | value stub |
 | Remedies and Enforcement | `ma.damages_waiver` | Waiver of Consequential and Punitive Damages | value stub |
 | Remedies and Enforcement | `ma.non_recourse` | Non-Recourse |  |
 | Remedies and Enforcement | `ma.attorneys_fees` | Attorneys' Fees |  |
@@ -370,7 +375,7 @@ In the M&A pack, † after a group name means that the group can be the label of
 | The Agreement | `ma.amendment` | Amendment; Waiver; Extension |  |
 | The Agreement | `ma.assignment` | Assignment; Successors and Assigns |  |
 | The Agreement | `ma.third_party_beneficiaries` | No Third-Party Beneficiaries |  |
-| The Agreement | `ma.severability` | Severability; Counterparts; Remedies Cumulative |  |
+| The Agreement | `ma.severability` | Severability; Counterparts |  |
 | Costs and Parties | `ma.expenses` | Fees and Expenses |  |
 | Costs and Parties | `ma.merger_sub_obligations` | Obligations of Merger Sub; Parent Undertaking |  |
 | Costs and Parties | `ma.legal_representation` | Legal Representation; Privilege |  |
@@ -569,6 +574,7 @@ Each node below has one owner pack and is also listed under a navigation node of
 | Owner | Node | Label | Also listed under |
 |---|---|---|---|
 | ma | `ma.employee.section_280g` | Section 280G Stockholder Vote | `tax.nav.other` |
+| ma | `ma.spac.domestication` | SPAC Domestication | `tax.nav.deal.restructuring` |
 | tax | `tax.nav.attributes` | Tax Attributes | `ma.nav.covenants.tax` |
 | tax | `tax.nav.compliance` | Tax Cooperation, Returns, Contests, and Refunds | `ma.nav.covenants.tax` |
 | tax | `tax.nav.deal` | Intended Tax Treatment, Elections, and Purchase Price Allocation | `ma.nav.structure.transaction` |
