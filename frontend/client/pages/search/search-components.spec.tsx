@@ -10,7 +10,6 @@ vi.mock("@/components/FlagAsInaccurateButton", () => ({
 }));
 vi.mock("@/hooks/use-toast", () => ({ useToast: () => ({ toast: vi.fn() }) }));
 
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { SearchResultsTable, type SearchResultsTableProps } from "@/components/SearchResultsTable";
 import { SearchSidebar, type SearchSidebarProps } from "@/components/SearchSidebar";
 import {
@@ -26,7 +25,7 @@ afterEach(cleanup);
 function wrap(children: ReactNode) {
   return render(
     <MemoryRouter>
-      <TooltipProvider>{children}</TooltipProvider>
+      {children}
     </MemoryRouter>,
   );
 }
