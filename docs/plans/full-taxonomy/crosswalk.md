@@ -409,7 +409,7 @@ The relation describes the new node compared with the older node.
 | `tax.8.5.1` | Other Tax Attributes | `tax.attribute.other` (exact) |
 | `tax.9.1.1` | Other / Unclassified Tax Provision | `tax.other.unclassified` (exact) |
 
-## M&A concepts with no older leaf (95)
+## M&A concepts with no older leaf (100)
 
 These concepts are new. No leaf of either older section tree has the same or a wider scope.
 
@@ -419,7 +419,8 @@ These concepts are new. No leaf of either older section tree has the same or a w
 - `ma.conduct.integration_planning`: Integration Planning; Systems Conversion
 - `ma.access.schedule_updates`: Disclosure Schedule Updates
 - `ma.consideration.election_proration`: Cash or Stock Election; Proration
-- `ma.consideration.buyer_securities`: Buyer Securities as Consideration; Reservation, Lock-Up and Registration
+- `ma.consideration.buyer_securities`: Buyer Stock as Consideration; Reservation, Lock-Up and Registration
+- `ma.consideration.seller_note`: Seller Note; Deferred Purchase Price
 - `ma.consideration.deposit`: Deposit
 - `ma.consideration.anti_dilution`: Adjustments to Prevent Dilution
 - `ma.exchange.payment_schedule`: Allocation Schedule; Payment Spreadsheet
@@ -431,14 +432,17 @@ These concepts are new. No leaf of either older section tree has the same or a w
 - `ma.rule_145_affiliates`: Rule 145 Affiliates; Affiliate Letters
 - `ma.restrictive.non_compete`: Non-Competition
 - `ma.restrictive.non_solicit`: Non-Solicitation of Employees and Customers
+- `ma.restrictive.confidentiality`: Post-Closing Confidentiality of the Sellers
 - `ma.release`: Release of Claims
 - `ma.records_access`: Post-Closing Access to Records; Litigation Support
 - `ma.wrong_pockets`: Wrong Pockets; Misdirected Payments
 - `ma.use_of_name`: Use of Seller Names and Marks
 - `ma.transition_services`: Transition Services
 - `ma.intercompany_termination`: Termination of Affiliate Agreements; Intercompany Accounts
+- `ma.credit_support_release`: Release of Seller Guarantees and Credit Support
 - `ma.covenant.other`: Other Covenant
 - `ma.noshop.standstill_waiver`: Standstill Waivers
+- `ma.recommendation.permitted_disclosure`: Permitted Disclosure; Stop, Look and Listen
 - `ma.mae.definition`: Material Adverse Effect Definition
 - `ma.mae.carveout`: MAE Carve-Out
 - `ma.mae.disproportionate_effect`: MAE Disproportionate Effect Exception
@@ -468,6 +472,7 @@ These concepts are new. No leaf of either older section tree has the same or a w
 - `ma.indemn.specific`: Specific Indemnities
 - `ma.seller_representative`: Sellers' Representative
 - `ma.efforts.third_party_consents`: Third-Party Consents
+- `ma.regulatory.no_interfering_acquisitions`: No Acquisitions That Delay Clearance
 - `ma.regulatory.filing_fee_allocation`: Allocation of Regulatory Filing Fees
 - `ma.non_recourse`: Non-Recourse
 - `ma.attorneys_fees`: Attorneys' Fees

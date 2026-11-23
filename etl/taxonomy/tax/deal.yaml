@@ -368,7 +368,7 @@ concepts:
     kind: provision
     nav_parent: tax.nav.deal.opinions
     also_listed_under:
-      - ma.nav.conditions.mutual
+      - ma.nav.conditions.party
     tier: label
     description: >-
       A closing condition that a party receive an opinion of counsel on the tax treatment of the transaction.
@@ -483,6 +483,8 @@ concepts:
       - >-
         Within 90 days after the Closing Date, Buyer shall deliver to Seller a statement allocating the
         Purchase Price in accordance with the methodology set forth on Schedule [•].
+    exclusion_cues:
+      - A schedule that divides the consideration among the holders is ma.exchange.payment_schedule.
     crosswalk:
       tax_v1:
         - id: tax.1.6.2
@@ -515,7 +517,7 @@ concepts:
     kind: provision
     nav_parent: tax.nav.deal.adjustment_treatment
     also_listed_under:
-      - ma.nav.indemnification.limits
+      - ma.nav.indemnification.procedure
     tier: label
     description: >-
       The agreement to treat indemnity payments and price adjustment payments as adjustments to the purchase

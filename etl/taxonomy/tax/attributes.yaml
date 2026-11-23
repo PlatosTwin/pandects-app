@@ -119,7 +119,12 @@ concepts:
       - Tax Benefit Preservation Plan
     example_phrases:
       - >-
-        The Company has not undergone an "ownership change" within the meaning of Section 382 of the Code.
+        Prior to the Closing, the Company shall not take any action that would reasonably be expected to
+        result in an "ownership change" within the meaning of Section 382 of the Code.
+    exclusion_cues:
+      - >-
+        A representation that the losses are not limited, or that no ownership change has occurred, is
+        tax.rep.attribute_availability.
     crosswalk:
       tax_v1:
         - id: tax.8.1.2
@@ -156,7 +161,11 @@ concepts:
       - limitation on credits
     example_phrases:
       - >-
-        None of the Tax credits of the Company is subject to limitation under Section 383 of the Code.
+        Buyer acknowledges that the Tax credits of the Company may be subject to limitation under Section
+        383 of the Code as a result of the transactions, and the Purchase Price shall not be adjusted
+        for any such limitation.
+    exclusion_cues:
+      - A representation that the credits are not limited is tax.rep.attribute_availability.
     crosswalk:
       tax_v1:
         - id: tax.8.2.2

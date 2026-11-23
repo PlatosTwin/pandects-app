@@ -128,9 +128,6 @@ concepts:
         No Governmental Authority of competent jurisdiction shall have enacted, issued, or enforced any
         Law or Order (whether temporary, preliminary, or permanent) that is in effect and restrains, enjoins,
         or otherwise prohibits consummation of the Merger.
-      - >-
-        There shall not be pending any Action by a Governmental Authority seeking to enjoin the consummation
-        of the transactions.
     exclusion_cues:
       - A condition about pending suits, not orders, is ma.condition.no_litigation.
     crosswalk:
@@ -239,9 +236,8 @@ concepts:
         The Company shall have performed or complied in all material respects with all agreements and
         covenants required by this Agreement to be performed or complied with by it on or prior to the
         Closing Date.
-      - >-
-        Parent shall have received a certificate of an executive officer of the Company certifying that
-        the condition set forth in this Section has been satisfied.
+    exclusion_cues:
+      - The officer's certificate that confirms the conditions is ma.condition.other.
     crosswalk:
       section_v1:
         - id: 2f824e0e518c0009

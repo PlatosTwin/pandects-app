@@ -191,10 +191,10 @@ concepts:
     nav_parent: tax.nav.transfer_withholding.gross_up
     tier: label
     description: >-
-      An adjustment to a payment for the tax benefit or tax cost that the payment or the underlying loss
-      creates for the recipient.
+      An adjustment that changes the amount of a payment for the tax cost or tax benefit that the payment
+      creates for the recipient, such as payment on an after-tax basis.
     canonical_terms:
-      - net of any Tax benefit
+      - grossed up for any Taxes imposed on the payment
       - Tax cost
       - after-tax basis
     example_phrases:
@@ -203,6 +203,7 @@ concepts:
         recipient arising from the receipt of the payment.
     exclusion_cues:
       - An offset to a tax indemnity claim is tax.indemnity.benefit_offset.
+      - A reduction of a general indemnity claim for tax benefits is ma.indemn.recovery_offsets.
     crosswalk:
       tax_v1:
         - id: tax.3.3.2

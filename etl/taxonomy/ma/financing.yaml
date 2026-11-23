@@ -72,10 +72,13 @@ concepts:
 
   - id: ma.financing.debt_commitment
     label: Debt Financing; Commitment Letters
-    kind: provision
+    kind: component
     nav_parent: ma.nav.financing.arrangements
+    parent: ma.rep.financing
     tier: label
-    description: Terms on the debt commitment letters and the debt financing they provide for.
+    description: >-
+      The part of the financing representation that describes the debt commitment: the lenders, the amount,
+      the conditions to funding and the fee letter.
     canonical_terms:
       - Debt Commitment Letter
       - Debt Financing
@@ -86,11 +89,13 @@ concepts:
         Parent has delivered to the Company a true, correct, and complete copy of the executed Debt Commitment
         Letter pursuant to which the Lenders have committed to provide the Debt Financing.
       - >-
-        As of the date hereof, the Debt Commitment Letter is in full force and effect and constitutes
-        a legal, valid, and binding obligation of Parent and, to Parent's knowledge, the other parties
-        thereto.
+        The Debt Commitment Letter provides for debt financing in an aggregate amount of $[•], subject
+        only to the conditions expressly set forth therein. The Fee Letter has been redacted only as to
+        fee amounts and other economic terms.
     exclusion_cues:
-      - The representation that the letters are in force is ma.rep.financing.
+      - >-
+        The statements that the letters are in force and that funds are sufficient stay with the parent,
+        ma.rep.financing.
       - Protections for the lenders are ma.financing.source_protections.
     crosswalk:
       section_v1:
@@ -103,12 +108,14 @@ concepts:
 
   - id: ma.financing.equity_commitment
     label: Equity Financing; Equity Commitment Letters
-    kind: provision
+    kind: component
     nav_parent: ma.nav.financing.arrangements
+    parent: ma.rep.financing
     tier: label
     description: >-
-      Terms on the equity commitment letters from a sponsor or other investor, and the target's right
-      to enforce them.
+      The part of the financing representation that describes the equity commitment from a sponsor or
+      other investor: the investor, the amount, and the target's right to enforce the commitment as a
+      third-party beneficiary.
     canonical_terms:
       - Equity Commitment Letter
       - Equity Financing
@@ -126,6 +133,9 @@ concepts:
         set forth therein.
     exclusion_cues:
       - Holders who exchange target equity for buyer equity are ma.consideration.rollover.
+      - >-
+        The statements that the letters are in force and that funds are sufficient stay with the parent,
+        ma.rep.financing.
     crosswalk:
       section_v1:
         - id: 6a2f9e016a48367a

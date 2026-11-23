@@ -257,13 +257,12 @@ concepts:
     nav_parent: ma.nav.deal_protection.recommendation
     tier: label
     description: >-
-      The board's right to change its recommendation, or to terminate the agreement, in order to accept
-      a superior proposal, and the fiduciary finding it must make first.
+      The board's right to change its recommendation in response to a superior proposal, and the fiduciary
+      finding it must make first.
     canonical_terms:
       - Superior Proposal
       - fiduciary out
       - failure to take such action would be inconsistent with its fiduciary duties
-      - terminate this Agreement to enter into a definitive agreement
     example_phrases:
       - >-
         Prior to obtaining the Company Stockholder Approval, the Company Board may make a Change of Recommendation
@@ -327,7 +326,7 @@ concepts:
     label: Match Right
     kind: component
     nav_parent: ma.nav.deal_protection.recommendation
-    parent: ma.recommendation.change_superior_proposal
+    parent: ma.recommendation.board_recommendation
     tier: label
     description: >-
       The buyer's right to notice and a negotiation period before the board changes its recommendation
@@ -352,6 +351,8 @@ concepts:
           type: Duration
         - name: unlimited_rounds
           type: boolean
+        - name: applies_to
+          type: 'set: superior_proposal | intervening_event'
     crosswalk:
       section_v1:
         - id: 3b7a157321c3876f
@@ -359,6 +360,36 @@ concepts:
       section_v2:
         - id: 4eae406295a1787b
           relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.recommendation.permitted_disclosure
+    label: Permitted Disclosure; Stop, Look and Listen
+    kind: component
+    nav_parent: ma.nav.deal_protection.recommendation
+    parent: ma.recommendation.board_recommendation
+    tier: label
+    description: >-
+      The statement that nothing stops the board from making a disclosure that the tender offer rules
+      or its duties require, such as a "stop, look and listen" communication, and whether such a disclosure
+      counts as a change of recommendation.
+    canonical_terms:
+      - Rule 14d-9
+      - Rule 14e-2(a)
+      - stop, look and listen
+      - Rule 14d-9(f)
+      - any disclosure that the Company Board determines is required by applicable Law
+    example_phrases:
+      - >-
+        Nothing in this Agreement shall prohibit the Company or the Company Board from taking and disclosing
+        to the stockholders a position contemplated by Rule 14e-2(a) or Rule 14d-9 under the Exchange
+        Act, or from making any "stop, look and listen" communication pursuant to Rule 14d-9(f).
+    exclusion_cues:
+      - The Schedule 14D-9 that the target files in a tender offer is ma.tender.company_actions.
+    value_schema:
+      status: stub
+      fields:
+        - name: counts_as_change_of_recommendation
+          type: boolean
     introduced_in: '2026.1'
 
   - id: ma.approval.stockholder_meeting

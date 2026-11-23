@@ -241,7 +241,8 @@ RULES: list[tuple[str | None, str, str]] = [
     (None, r"deposit|earnest money", "ma.consideration.deposit"),
     (None, r"dilution|adjustments? (to|of) (the )?(exchange ratio|merger consideration|conversion)|certain adjustments|equitable adjustments?|^adjustments?$|changes in (company )?(stock|capitali[sz]ation)|stock splits|recapitali[sz]ation|reclassification", "ma.consideration.anti_dilution"),
     (None, r"rollover|roll-over|reinvestment", "ma.consideration.rollover"),
-    (None, r"lock-?up|registration rights|legends?$|restrictive legend|restricted (stock|shares|securities)|resale|rule 144|seller notes?|promissory note|transfer restrictions|restrictions on transfer|securities (laws|act) (matters|compliance|exemption)|private placement|registration of (shares|parent|buyer)|form s-[38]|shelf registration|stock consideration", "ma.consideration.buyer_securities"),
+    (None, r"seller notes?|promissory notes?|purchase notes?$", "ma.consideration.seller_note"),
+    (None, r"lock-?up|registration rights|legends?$|restrictive legend|restricted (stock|shares|securities)|resale|rule 144|transfer restrictions|restrictions on transfer|securities (laws|act) (matters|compliance|exemption)|private placement|registration of (shares|parent|buyer)|form s-[38]|shelf registration|stock consideration", "ma.consideration.buyer_securities"),
     (None, r"(stock |share |equity |incentive )?(options?|rsus?|psus?|restricted stock|equity( and equity-based)? awards?|stock (plans?|awards|appreciation|incentive|based)|equity (plans?|incentive|compensation|interests)|performance (shares|units|awards)|phantom|sars?|profits interests|incentive units|deferred (stock|units)|equity-based|share (awards|plans))", "ma.equity.awards"),
     (None, r"espp|stock purchase plan", "ma.equity.espp"),
     (None, r"warrants|convertible|preferred (stock|shares)|notes$|debentures|company securities|other securities|treatment of (company )?(securities|notes)", "ma.equity.warrants_convertibles"),
@@ -286,6 +287,7 @@ RULES: list[tuple[str | None, str, str]] = [
     # ---- financing
     (None, r"financing sources?|lender|debt financing source|financing parties|financing provisions|certain financing|waiver of claims against financing|debt financing matters$", "ma.financing.source_protections"),
     (None, r"financing (cooperation|assistance)|cooperation with (the )?(debt )?financing|assistance with financing|company cooperation|cooperation (in connection|regarding) with (the )?financing|financing; cooperation", "ma.financing.cooperation"),
+    (None, r"release of (seller |parent |certain )?guarant|replacement of (guarant|credit support)|credit support|support obligations|seller guarant", "ma.credit_support_release"),
     (None, r"payoff|pay-off|repayment of|termination of (existing|credit|indebtedness)|existing (indebtedness|credit|debt|notes)|treatment of (existing |certain |company )?(indebtedness|debt|notes|credit)|release of (liens|guarant|encumbrances)|lien releases?|indebtedness|credit (facility|agreement)|senior notes|debt tender|notes (tender|redemption)|consent solicitation|indentures?|redemption of notes|^debt$|company (notes|indebtedness|debt)|discharge of|guarantees?$|release of guarant|replacement of guarant|letters of credit|credit support|surety|bonds", "ma.financing.payoff_letters"),
     (None, r"equity (commitment|financing)|sponsor commitment", "ma.financing.equity_commitment"),
     (None, r"guarant(ee|y|or)|parent undertaking|performance guarant", "ma.financing.limited_guarantee"),

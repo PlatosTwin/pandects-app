@@ -147,7 +147,6 @@ concepts:
       - valid and binding obligation
       - enforceable in accordance with its terms
       - Bankruptcy and Equity Exception
-      - Company Board Recommendation
     example_phrases:
       - >-
         The Company has all requisite corporate power and authority to enter into this Agreement and to
@@ -417,12 +416,10 @@ concepts:
         The Financial Statements were prepared in accordance with GAAP applied on a consistent basis and
         fairly present in all material respects the financial condition and results of operations of the
         Company.
-      - >-
-        The books and records of the Company are accurate and complete in all material respects and have
-        been maintained in accordance with sound business practices.
     exclusion_cues:
       - Liabilities not shown on the balance sheet are ma.rep.undisclosed_liabilities.
       - Changes since the balance sheet date are ma.rep.absence_of_changes.
+      - A statement on the books and records is ma.rep.books_records.
     crosswalk:
       section_v1:
         - id: 0da9daafa2623ea4
@@ -1367,20 +1364,24 @@ concepts:
     canonical_terms:
       - sufficient funds
       - available funds
-      - Debt Commitment Letter
-      - Equity Commitment Letter
+      - Commitment Letters
+      - in full force and effect
       - no side letters
       - Financing
     example_phrases:
       - >-
-        These representations are made by Parent (the acquirer) in favor of the Company, typically in
-        a stock-consideration or public-acquirer context.
+        Parent has delivered to the Company true and complete copies of the executed Commitment Letters.
+        The Commitment Letters are in full force and effect, and there are no side letters or other agreements
+        relating to the Financing other than as expressly set forth in the Commitment Letters.
       - >-
         Parent will have at and after the Closing sufficient cash and immediately available funds to pay
         the aggregate Merger Consideration and all related fees and expenses.
     exclusion_cues:
       - The covenant to obtain the financing is ma.financing.buyer_covenant.
       - A closing condition tied to financing is ma.condition.financing.
+      - >-
+        The spans that describe each commitment (source, amount, conditions) also take the components
+        ma.financing.debt_commitment and ma.financing.equity_commitment.
     crosswalk:
       section_v1:
         - id: 5685fa4f8c2af577

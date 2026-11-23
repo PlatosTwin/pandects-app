@@ -276,16 +276,18 @@ concepts:
       party: maker
     description: >-
       A representation that there is no unpaid tax deficiency, no tax lien other than for taxes not yet
-      due, and no closing agreement or private ruling.
+      due, and no closing agreement or private ruling that binds the company.
     canonical_terms:
       - no deficiency for Taxes
       - no Liens for Taxes other than Permitted Liens
-      - closing agreement
+      - no closing agreement or ruling in effect
       - private letter ruling
     example_phrases:
       - >-
         There are no Liens for Taxes upon any of the assets of the Company, other than Liens for Taxes
         not yet due and payable.
+    exclusion_cues:
+      - A closing agreement listed as a cause of income after closing is tax.rep.no_deferred_income.
     crosswalk:
       tax_v1:
         - id: tax.7.2.3
@@ -311,6 +313,9 @@ concepts:
         income tax purposes.
     exclusion_cues:
       - Partnership and S corporation status have their own groups under tax.nav.reps.
+      - >-
+        Representations on REIT, RIC, PFIC or CFC status, and on tax residency abroad or a permanent establishment,
+        go to the matching node under tax.nav.regimes.
     crosswalk:
       tax_v1:
         - id: tax.7.3.1
@@ -508,7 +513,8 @@ concepts:
       party: maker
     description: >-
       The listed causes of deferred income: a change in accounting method, a closing agreement, an installment
-      sale, a prepaid amount or an intercompany transaction before closing.
+      sale, a prepaid amount or an intercompany transaction before closing. When a sentence holds the list,
+      the whole sentence takes this concept.
     canonical_terms:
       - change in method of accounting
       - Section 481
@@ -522,6 +528,9 @@ concepts:
         Date.
     exclusion_cues:
       - The lead-in statement without the list is tax.rep.no_post_closing_income.
+      - >-
+        A statement that no closing agreement or ruling binds the company, with no income effect, is
+        tax.rep.no_deficiency_lien.
     crosswalk:
       tax_v1:
         - id: tax.7.6.2
@@ -662,6 +671,8 @@ concepts:
       - >-
         No event has occurred that would terminate the Company's status as an S corporation, other than
         the transactions contemplated by this Agreement.
+    exclusion_cues:
+      - Covenants and indemnities on built-in gains tax under Section 1374 are tax.passthrough.s_corporation.
     crosswalk:
       tax_v1:
         - id: tax.7.8.3

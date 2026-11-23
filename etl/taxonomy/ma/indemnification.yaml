@@ -112,13 +112,11 @@ concepts:
         and against any and all Losses actually incurred arising out of or resulting from (i) any breach
         of any representation or warranty of Seller, (ii) any breach of any covenant of Seller, and (iii)
         any Excluded Liability.
-      - >-
-        'Losses' means losses, damages, liabilities, costs, and expenses, including reasonable attorneys'
-        fees.
     exclusion_cues:
       - Indemnification of the target's directors and officers is ma.dando.indemnification.
       - The tax indemnity is tax.indemnity.obligation.
       - An indemnity for one named matter is ma.indemn.specific.
+      - The definition of losses is ma.def.losses.
     crosswalk:
       section_v1:
         - id: ef994612a273fa90
@@ -167,9 +165,7 @@ concepts:
     canonical_terms:
       - Cap
       - shall not exceed
-      - maximum aggregate liability
       - '% of the Purchase Price'
-      - Indemnity Escrow Amount
     example_phrases:
       - >-
         The aggregate amount of all Losses for which Seller shall be liable under Section [•](a) shall
@@ -177,7 +173,7 @@ concepts:
         Representations or to Fraud.
     exclusion_cues:
       - The threshold that losses must pass first is ma.indemn.basket.
-      - A cap on liability after termination is ma.termination.fee.exclusive_remedy.
+      - A cap on liability before closing or after termination is ma.termination.fee.exclusive_remedy.
     value_schema:
       status: piloted
       version: '2.16'
@@ -574,7 +570,6 @@ concepts:
       - representation and warranty insurance
       - Retention
       - waiver of subrogation
-      - except in the case of Fraud
     example_phrases:
       - >-
         Buyer shall obtain, effective as of the Closing, a buyer-side representation and warranty insurance

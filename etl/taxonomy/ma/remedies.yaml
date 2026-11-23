@@ -248,13 +248,10 @@ concepts:
         or punitive damages, or for any damages calculated as a multiple of earnings or based on diminution
         in value or lost profits, arising out of or relating to this Agreement, except to the extent such
         damages are awarded to a third party.
-      - >-
-        Notwithstanding anything to the contrary, the maximum aggregate liability of Parent for monetary
-        damages for any breach of this Agreement prior to the Closing shall not exceed the Parent Liability
-        Cap, except in the case of Fraud or Willful Breach.
     exclusion_cues:
       - The dollar limit on indemnity claims is ma.indemn.cap.
       - The definition of losses is ma.def.losses.
+      - A dollar cap on a party's liability before closing is ma.termination.fee.exclusive_remedy.
     value_schema:
       status: stub
       fields:

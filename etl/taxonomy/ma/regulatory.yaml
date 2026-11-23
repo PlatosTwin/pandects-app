@@ -55,12 +55,10 @@ concepts:
         efforts to take, or cause to be taken, all actions and to do, or cause to be done, all things
         necessary, proper, or advisable to consummate and make effective the transactions contemplated
         hereby as promptly as practicable.
-      - >-
-        Each party shall use reasonable best efforts to obtain all consents, approvals, and authorizations
-        of third parties necessary in connection with the transactions.
     exclusion_cues:
       - Divestiture and other antitrust remedies are ma.regulatory.remedies.
       - Extra documents and acts after closing are ma.further_assurances.
+      - Efforts to obtain consents under contracts are ma.efforts.third_party_consents.
     value_schema:
       status: stub
       fields:
@@ -220,18 +218,18 @@ concepts:
     nav_parent: ma.nav.regulatory.antitrust
     tier: label
     description: >-
-      Which party directs the regulatory strategy, limits on withdrawing a filing or agreeing to a timing
-      agreement, and a ban on other acquisitions that could delay clearance.
+      Which party directs the regulatory strategy, and limits on withdrawing a filing or agreeing to a
+      timing agreement.
     canonical_terms:
       - control and direct the strategy
       - pull and refile
       - timing agreement
-      - >-
-        shall not acquire or agree to acquire any business that would reasonably be expected to delay
     example_phrases:
       - >-
         Parent shall, after consulting with the Company, control and direct the strategy for obtaining
         any clearances required under any Antitrust Law.
+    exclusion_cues:
+      - A ban on other acquisitions that could delay clearance is ma.regulatory.no_interfering_acquisitions.
     value_schema:
       status: stub
       fields:
@@ -244,6 +242,31 @@ concepts:
       section_v2:
         - id: 8ec7524a756ddd05
           relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.regulatory.no_interfering_acquisitions
+    label: No Acquisitions That Delay Clearance
+    kind: provision
+    nav_parent: ma.nav.regulatory.antitrust
+    tier: label
+    attributes:
+      party: obligor
+    description: >-
+      A promise, usually by the buyer, not to acquire or agree to acquire another business if that would
+      delay a regulatory approval for the deal or put it at risk.
+    canonical_terms:
+      - shall not acquire or agree to acquire
+      - would reasonably be expected to delay
+      - impose any delay in the obtaining of
+      - increase the risk of any Governmental Authority entering an order
+    example_phrases:
+      - >-
+        Parent shall not, and shall cause its Affiliates not to, acquire or agree to acquire any business
+        or Person if doing so would reasonably be expected to prevent or materially delay the expiration
+        of the waiting period under the HSR Act or the receipt of any other required approval.
+    exclusion_cues:
+      - Who directs the regulatory strategy is ma.regulatory.strategy_control.
+      - Divestitures that the buyer must offer are ma.regulatory.remedies.
     introduced_in: '2026.1'
 
   - id: ma.regulatory.filing_fee_allocation

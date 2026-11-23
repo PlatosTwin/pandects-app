@@ -360,6 +360,38 @@ concepts:
           type: Duration
     introduced_in: '2026.1'
 
+  - id: ma.restrictive.confidentiality
+    label: Post-Closing Confidentiality of the Sellers
+    kind: provision
+    nav_parent: ma.nav.covenants.post_closing
+    tier: label
+    attributes:
+      party: obligor
+    description: >-
+      A seller's promise, after closing, to keep information about the sold business confidential and
+      not to use it. It is drafted with the non-compete and has its own period and exceptions.
+    canonical_terms:
+      - from and after the Closing
+      - shall hold in confidence
+      - confidential information concerning the Business
+      - except as required by Law
+    example_phrases:
+      - >-
+        From and after the Closing, Seller shall, and shall cause its Affiliates to, hold in confidence
+        all confidential information concerning the Company and the Business, except to the extent that
+        such information is or becomes generally available to the public other than through a breach of
+        this Section.
+    exclusion_cues:
+      - >-
+        Confidentiality before closing, including an existing confidentiality agreement, is ma.access.confidentiality.
+      - The promise not to compete is ma.restrictive.non_compete.
+    value_schema:
+      status: stub
+      fields:
+        - name: period
+          type: Duration
+    introduced_in: '2026.1'
+
   - id: ma.release
     label: Release of Claims
     kind: provision
@@ -369,13 +401,15 @@ concepts:
       party: obligor
     description: >-
       A general release by the sellers, or by both sides, of claims against the target and its officers
-      and directors that arose before closing.
+      and directors that arose before closing. It also covers the sellers' waiver of any right of contribution
+      or indemnity against the target for their own indemnity payments.
     canonical_terms:
       - release
       - releases and forever discharges
       - Released Claims
       - Releasing Parties
       - Section 1542
+      - no right of contribution
     example_phrases:
       - >-
         Effective as of the Closing, each Seller, on behalf of itself and its Affiliates, hereby releases
@@ -403,12 +437,9 @@ concepts:
         execute and deliver such additional instruments of conveyance and assignment and take such other
         actions as may be reasonably necessary to consummate the transactions and to vest in Purchaser
         good title to the Purchased Assets.
-      - >-
-        If, following the Closing, any asset that should have been transferred is found to have been retained,
-        or any Excluded Asset is found to have been transferred, the parties shall promptly take such
-        actions as are necessary to transfer such asset to the appropriate party.
     exclusion_cues:
       - The pre-closing efforts covenant is ma.efforts.general.
+      - The return of an asset that went to the wrong party is ma.wrong_pockets.
     crosswalk:
       section_v1:
         - id: fff743810be2e1d2
@@ -523,6 +554,34 @@ concepts:
     exclusion_cues:
       - The representation on affiliate dealings is ma.rep.affiliate_transactions.
       - Ending tax sharing agreements is tax.cooperation.tax_sharing_termination.
+    introduced_in: '2026.1'
+
+  - id: ma.credit_support_release
+    label: Release of Seller Guarantees and Credit Support
+    kind: provision
+    nav_parent: ma.nav.covenants.post_closing
+    tier: label
+    attributes:
+      party: obligor
+    description: >-
+      The buyer's promise to replace, or to obtain the release of, guarantees, letters of credit, bonds
+      and other credit support that the seller group gave for the sold business, and to indemnify the
+      seller until that happens.
+    canonical_terms:
+      - Seller Guarantees
+      - Credit Support
+      - Support Obligations
+      - release of guarantees
+      - letters of credit, surety bonds
+    example_phrases:
+      - >-
+        Buyer shall use its reasonable best efforts to cause Seller and its Affiliates to be released,
+        effective as of the Closing, from all Seller Guarantees, and shall indemnify Seller for any amount
+        paid under a Seller Guarantee after the Closing.
+    exclusion_cues:
+      - >-
+        A guarantee of the buyer's own obligations by its parent or sponsor is ma.financing.limited_guarantee.
+      - The end of contracts between the target and the seller group is ma.intercompany_termination.
     introduced_in: '2026.1'
 
   - id: ma.covenant.other

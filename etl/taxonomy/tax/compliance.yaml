@@ -445,13 +445,15 @@ concepts:
       - Buyer shall not amend any Tax Return for a Pre-Closing Tax Period
       - voluntary disclosure
       - without the prior written consent of Seller
-      - outside the ordinary course on the Closing Date after the Closing
+      - make or change any Tax election with retroactive effect
     example_phrases:
       - >-
         After the Closing, Buyer shall not, without the prior written consent of Seller, amend any Tax
         Return of the Company for a Pre-Closing Tax Period.
     exclusion_cues:
       - The target's own interim covenants before closing are under tax.nav.interim.
+      - A ban on a Section 338 or Section 336(e) election is tax.election.338h10.
+      - The rule for acts on the closing date after the closing is tax.straddle.closing_date_convention.
     introduced_in: '2026.1'
 
   - id: tax.cooperation.tax_sharing_termination

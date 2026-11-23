@@ -55,10 +55,11 @@ Marks: the kind when it is not `provision`; `value` for a piloted value schema;
 | Group | Id | Label | Marks |
 |---|---|---|---|
 | Price and Form of Consideration | `ma.consideration.merger_consideration` | Merger Consideration; Conversion of Shares | value stub |
-| Price and Form of Consideration | `ma.consideration.exchange_ratio` | Exchange Ratio | definition; value stub |
+| Price and Form of Consideration | `ma.consideration.exchange_ratio` | Exchange Ratio | value stub |
 | Price and Form of Consideration | `ma.consideration.election_proration` | Cash or Stock Election; Proration | value stub |
 | Price and Form of Consideration | `ma.consideration.purchase_price` | Purchase Price | value stub |
-| Price and Form of Consideration | `ma.consideration.buyer_securities` | Buyer Securities as Consideration; Reservation, Lock-Up and Registration |  |
+| Price and Form of Consideration | `ma.consideration.buyer_securities` | Buyer Stock as Consideration; Reservation, Lock-Up and Registration |  |
+| Price and Form of Consideration | `ma.consideration.seller_note` | Seller Note; Deferred Purchase Price | value stub |
 | Price and Form of Consideration | `ma.consideration.rollover` | Rollover Equity | also under `ma.nav.financing.arrangements` |
 | Price and Form of Consideration | `ma.consideration.earnout` | Earnout | value stub |
 | Price and Form of Consideration | `ma.consideration.cvr` | Contingent Value Rights | value stub |
@@ -172,7 +173,8 @@ Marks: the kind when it is not `provision`; `value` for a piloted value schema;
 | Board Recommendation and Fiduciary Out | `ma.recommendation.board_recommendation` | Board Recommendation; No Adverse Change | party: obligor |
 | Board Recommendation and Fiduciary Out | `ma.recommendation.change_superior_proposal` | Fiduciary Out for a Superior Proposal | value stub |
 | Board Recommendation and Fiduciary Out | `ma.recommendation.change_intervening_event` | Fiduciary Out for an Intervening Event | value stub |
-| Board Recommendation and Fiduciary Out | `ma.recommendation.match_right` | Match Right | component; value stub; part of `ma.recommendation.change_superior_proposal` |
+| Board Recommendation and Fiduciary Out | `ma.recommendation.match_right` | Match Right | component; value stub; part of `ma.recommendation.board_recommendation` |
+| Board Recommendation and Fiduciary Out | `ma.recommendation.permitted_disclosure` | Permitted Disclosure; Stop, Look and Listen | component; value stub; part of `ma.recommendation.board_recommendation` |
 | Stockholder Approval Process | `ma.approval.stockholder_meeting` | Stockholder Meeting | party: obligor |
 | Stockholder Approval Process | `ma.approval.force_the_vote` | Force-the-Vote | component; value stub; part of `ma.approval.stockholder_meeting` |
 | Stockholder Approval Process | `ma.approval.proxy_statement` | Proxy Statement; Registration Statement |  |
@@ -193,6 +195,7 @@ Marks: the kind when it is not `provision`; `value` for a piloted value schema;
 | Antitrust | `ma.regulatory.remedies` | Antitrust Remedies; Divestitures | value stub |
 | Antitrust | `ma.regulatory.litigation` | Duty to Litigate Regulatory Challenges | value stub |
 | Antitrust | `ma.regulatory.strategy_control` | Control of Regulatory Strategy | value stub |
+| Antitrust | `ma.regulatory.no_interfering_acquisitions` | No Acquisitions That Delay Clearance | party: obligor |
 | Antitrust | `ma.regulatory.filing_fee_allocation` | Allocation of Regulatory Filing Fees | also under `ma.nav.general.costs` |
 | Other Regulatory Approvals | `ma.regulatory.cfius` | CFIUS and Foreign Investment Review | value stub |
 | Other Regulatory Approvals | `ma.regulatory.industry_approvals` | Industry Regulatory Approvals |  |
@@ -204,8 +207,8 @@ Marks: the kind when it is not `provision`; `value` for a piloted value schema;
 | Group | Id | Label | Marks |
 |---|---|---|---|
 | Financing Arrangements | `ma.financing.structure` | Financing Structure | value |
-| Financing Arrangements | `ma.financing.debt_commitment` | Debt Financing; Commitment Letters |  |
-| Financing Arrangements | `ma.financing.equity_commitment` | Equity Financing; Equity Commitment Letters |  |
+| Financing Arrangements | `ma.financing.debt_commitment` | Debt Financing; Commitment Letters | component; part of `ma.rep.financing` |
+| Financing Arrangements | `ma.financing.equity_commitment` | Equity Financing; Equity Commitment Letters | component; part of `ma.rep.financing` |
 | Financing Arrangements | `ma.financing.limited_guarantee` | Limited Guarantee; Parent Guarantee |  |
 | Financing Covenants | `ma.financing.buyer_covenant` | Buyer Financing Covenant | value stub |
 | Financing Covenants | `ma.financing.cooperation` | Financing Cooperation |  |
@@ -245,6 +248,7 @@ Marks: the kind when it is not `provision`; `value` for a piloted value schema;
 | Securities, Listing and Deal Litigation | `ma.transaction_litigation` | Transaction Litigation |  |
 | Post-Closing and Separation | `ma.restrictive.non_compete` | Non-Competition | value stub; party: obligor |
 | Post-Closing and Separation | `ma.restrictive.non_solicit` | Non-Solicitation of Employees and Customers | value stub; party: obligor |
+| Post-Closing and Separation | `ma.restrictive.confidentiality` | Post-Closing Confidentiality of the Sellers | value stub; party: obligor |
 | Post-Closing and Separation | `ma.release` | Release of Claims | party: obligor |
 | Post-Closing and Separation | `ma.further_assurances` | Further Assurances |  |
 | Post-Closing and Separation | `ma.records_access` | Post-Closing Access to Records; Litigation Support |  |
@@ -252,6 +256,7 @@ Marks: the kind when it is not `provision`; `value` for a piloted value schema;
 | Post-Closing and Separation | `ma.use_of_name` | Use of Seller Names and Marks | value stub |
 | Post-Closing and Separation | `ma.transition_services` | Transition Services |  |
 | Post-Closing and Separation | `ma.intercompany_termination` | Termination of Affiliate Agreements; Intercompany Accounts |  |
+| Post-Closing and Separation | `ma.credit_support_release` | Release of Seller Guarantees and Credit Support | party: obligor |
 | Post-Closing and Separation | `ma.covenant.other` | Other Covenant |  |
 | Tax Matters | `ma.nav.covenants.tax` | (no concepts) | |
 
@@ -296,7 +301,7 @@ Marks: the kind when it is not `provision`; `value` for a piloted value schema;
 | Termination Fees and Expenses | `ma.termination.fee.target` | Target Termination Fee | value |
 | Termination Fees and Expenses | `ma.termination.fee.reverse` | Reverse Termination Fee | value |
 | Termination Fees and Expenses | `ma.termination.expense_reimbursement` | Expense Reimbursement on Termination | value |
-| Termination Fees and Expenses | `ma.termination.fee.exclusive_remedy` | Termination Fee as Exclusive Remedy |  |
+| Termination Fees and Expenses | `ma.termination.fee.exclusive_remedy` | Termination Fee as Exclusive Remedy; Liability Cap |  |
 | Termination Fees and Expenses | `ma.termination.collection_costs` | Collection Costs and Interest on Unpaid Fees |  |
 
 ### Indemnification and Risk Allocation
@@ -407,13 +412,13 @@ Marks: the kind when it is not `provision`; `value` for a piloted value schema;
 | Tax Elections | `tax.election.338h10` | Section 338 / 336 / Similar Elections | value; also under `ma.nav.covenants.tax` |
 | Tax Elections | `tax.election.754` | Section 754 / Partnership Elections | also under `ma.nav.covenants.tax` |
 | Tax Elections | `tax.election.entity_classification` | Entity Classification Elections |  |
-| Tax Opinions and Representation Letters | `tax.opinion.closing_condition` | Tax Opinion Closing Condition | also under `ma.nav.conditions.mutual` |
+| Tax Opinions and Representation Letters | `tax.opinion.closing_condition` | Tax Opinion Closing Condition | also under `ma.nav.conditions.party` |
 | Tax Opinions and Representation Letters | `tax.opinion.cooperation` | Cooperation for Tax Opinion and Representation Letters |  |
 | Pre-Closing Restructuring | `tax.restructuring.pre_closing` | Pre-Closing Restructuring / Conversion | also under `ma.nav.structure.transaction` |
 | Purchase Price Allocation | `tax.allocation.purchase_price` | Purchase Price Allocation | also under `ma.nav.consideration.price` |
 | Purchase Price Allocation | `tax.allocation.methodology` | Purchase Price Allocation Methodology / Schedule |  |
 | Purchase Price Allocation | `tax.allocation.consistency` | Allocation Reporting Consistency |  |
-| Tax Treatment of Purchase Price Adjustments | `tax.adjustment.price_adjustments` | Tax Treatment of Purchase Price Adjustments | also under `ma.nav.indemnification.limits` |
+| Tax Treatment of Purchase Price Adjustments | `tax.adjustment.price_adjustments` | Tax Treatment of Purchase Price Adjustments | also under `ma.nav.indemnification.procedure` |
 | Tax Treatment of Purchase Price Adjustments | `tax.adjustment.earnouts` | Tax Treatment of Earnouts / Contingent Consideration |  |
 
 ### Tax Interim Operating Covenants
@@ -586,10 +591,10 @@ Each node below has one owner pack and is also listed under a navigation node of
 | tax | `tax.treatment.reorganization` | Intended Tax-Free Reorganization | `ma.nav.structure.transaction` |
 | tax | `tax.election.338h10` | Section 338 / 336 / Similar Elections | `ma.nav.covenants.tax` |
 | tax | `tax.election.754` | Section 754 / Partnership Elections | `ma.nav.covenants.tax` |
-| tax | `tax.opinion.closing_condition` | Tax Opinion Closing Condition | `ma.nav.conditions.mutual` |
+| tax | `tax.opinion.closing_condition` | Tax Opinion Closing Condition | `ma.nav.conditions.party` |
 | tax | `tax.restructuring.pre_closing` | Pre-Closing Restructuring / Conversion | `ma.nav.structure.transaction` |
 | tax | `tax.allocation.purchase_price` | Purchase Price Allocation | `ma.nav.consideration.price` |
-| tax | `tax.adjustment.price_adjustments` | Tax Treatment of Purchase Price Adjustments | `ma.nav.indemnification.limits` |
+| tax | `tax.adjustment.price_adjustments` | Tax Treatment of Purchase Price Adjustments | `ma.nav.indemnification.procedure` |
 | tax | `tax.nav.definitions` | Tax Definitions | `ma.nav.definitions.key_terms` |
 | tax | `tax.nav.indemnity` | Tax Allocation and Indemnity | `ma.nav.indemnification.scope` |
 | tax | `tax.indemnity.obligation` | Tax Indemnity Obligation | `ma.nav.indemnification.scope` |

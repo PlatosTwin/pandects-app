@@ -239,8 +239,6 @@ concepts:
         order to enter into a definitive agreement providing for a Superior Proposal, if the Company has
         complied in all material respects with the No-Shop covenant and pays the Company Termination Fee
         concurrently with or prior to such termination.
-      - >-
-        Parent may terminate this Agreement if the Company Board has effected a Change of Recommendation.
     exclusion_cues:
       - The board process that comes first is ma.recommendation.change_superior_proposal.
     crosswalk:
@@ -407,6 +405,7 @@ concepts:
       - break-up fee
       - within twelve months after such termination
       - by wire transfer of same-day funds
+      - in no event shall the Company be required to pay the Termination Fee on more than one occasion
     example_phrases:
       - The 'Company Termination Fee' means an amount equal to $[•].
       - >-
@@ -523,19 +522,18 @@ concepts:
     introduced_in: '2026.1'
 
   - id: ma.termination.fee.exclusive_remedy
-    label: Termination Fee as Exclusive Remedy
+    label: Termination Fee as Exclusive Remedy; Liability Cap
     kind: provision
     nav_parent: ma.nav.termination.fees
     tier: label
     description: >-
-      A statement that payment of the fee is the only remedy of the party that receives it, and any cap
-      on a party's total liability.
+      A statement that payment of the fee is the only remedy of the party that receives it, and any dollar
+      cap on a party's total liability for damages before closing.
     canonical_terms:
       - sole and exclusive remedy
       - liquidated damages and not a penalty
-      - >-
-        in no event shall the Company be required to pay the Termination Fee on more than one occasion
       - maximum aggregate liability
+      - Parent Liability Cap
     example_phrases:
       - >-
         Parent's right to receive the Company Termination Fee shall be the sole and exclusive remedy of

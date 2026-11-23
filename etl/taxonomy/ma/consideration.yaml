@@ -89,7 +89,7 @@ concepts:
 
   - id: ma.consideration.exchange_ratio
     label: Exchange Ratio
-    kind: definition
+    kind: provision
     nav_parent: ma.nav.consideration.price
     tier: label
     description: >-
@@ -202,13 +202,13 @@ concepts:
     introduced_in: '2026.1'
 
   - id: ma.consideration.buyer_securities
-    label: Buyer Securities as Consideration; Reservation, Lock-Up and Registration
+    label: Buyer Stock as Consideration; Reservation, Lock-Up and Registration
     kind: provision
     nav_parent: ma.nav.consideration.price
     tier: label
     description: >-
-      Terms on buyer stock or notes issued as consideration: the duty to reserve the shares, private placement
-      status, legends, lock-up, registration rights and seller notes.
+      Terms on buyer stock issued as consideration: the duty to reserve the shares, private placement
+      status, legends, lock-up and registration rights.
     canonical_terms:
       - reservation of shares
       - restricted securities
@@ -216,7 +216,6 @@ concepts:
       - lock-up
       - registration rights
       - Rule 144
-      - Seller Note
       - Stock Consideration
     example_phrases:
       - >-
@@ -225,6 +224,40 @@ concepts:
     exclusion_cues:
       - The seller's representation that it buys for investment is ma.rep.investment_intent.
       - Listing of buyer shares on an exchange is ma.listing.stock_exchange.
+      - A promissory note issued to the sellers is ma.consideration.seller_note.
+    introduced_in: '2026.1'
+
+  - id: ma.consideration.seller_note
+    label: Seller Note; Deferred Purchase Price
+    kind: provision
+    nav_parent: ma.nav.consideration.price
+    tier: label
+    description: >-
+      A part of the price that the buyer pays later under a promissory note to the sellers, or as a fixed
+      deferred payment. It covers the amount, the term, interest, security and subordination.
+    canonical_terms:
+      - Seller Note
+      - promissory note
+      - Deferred Purchase Price
+      - Deferred Payment
+      - subordinated to the Senior Debt
+    example_phrases:
+      - >-
+        At the Closing, Buyer shall deliver to Seller a subordinated promissory note in the principal
+        amount of $[•], bearing interest at [•]% per annum and maturing on the third anniversary of the
+        Closing Date (the "Seller Note").
+    exclusion_cues:
+      - A payment that depends on future results or events is ma.consideration.earnout.
+      - Buyer stock issued as consideration is ma.consideration.buyer_securities.
+    value_schema:
+      status: stub
+      fields:
+        - name: amount
+          type: Money
+        - name: term
+          type: Duration
+        - name: subordinated
+          type: boolean
     introduced_in: '2026.1'
 
   - id: ma.consideration.rollover

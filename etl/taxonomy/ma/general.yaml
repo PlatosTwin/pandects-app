@@ -84,9 +84,6 @@ concepts:
         Agreement, constitutes the entire agreement among the parties with respect to the subject matter
         hereof and supersedes all prior and contemporaneous agreements, representations, warranties, and
         understandings, both written and oral.
-      - >-
-        Each party acknowledges that, in entering into this Agreement, it has not relied on any representation
-        or warranty other than those expressly set forth herein.
     exclusion_cues:
       - A statement that a party relied on nothing outside the agreement is ma.rep.non_reliance.
     crosswalk:
@@ -294,7 +291,6 @@ concepts:
         Except as otherwise expressly set forth herein, all fees and expenses incurred in connection with
         this Agreement shall be paid by the party incurring such fees and expenses, whether or not the
         Merger is consummated.
-      - Parent shall pay all filing fees payable under the HSR Act and any other Antitrust Law.
     exclusion_cues:
       - Reimbursement of expenses on termination is ma.termination.expense_reimbursement.
       - Transfer taxes are tax.transfer.allocation.

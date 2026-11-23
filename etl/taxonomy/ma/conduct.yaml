@@ -550,9 +550,8 @@ concepts:
     nav_parent: ma.nav.conduct.access
     tier: label
     description: >-
-      The duty to keep information confidential. It covers the statement that an existing confidentiality
-      agreement stays in force, and a seller's duty to keep information about the sold business confidential
-      after closing.
+      The duty to keep information confidential before closing, including the statement that an existing
+      confidentiality agreement stays in force.
     canonical_terms:
       - confidentiality
       - Confidentiality Agreement shall remain in full force and effect
@@ -569,6 +568,8 @@ concepts:
         Agreement.
     exclusion_cues:
       - Limits on press releases are ma.access.public_announcements.
+      - >-
+        A seller's duty to keep information about the sold business confidential after closing is ma.restrictive.confidentiality.
     crosswalk:
       section_v1:
         - id: 73332e4818b3522e
