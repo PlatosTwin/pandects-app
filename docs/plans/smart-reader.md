@@ -79,9 +79,9 @@ What matters for this design:
 
 These notes set the approach for the enricher.
 
-**What transfers:**
+**Approach:**
 
-- **Model.** Terms and cross-references are inline marks or nodes (`def`, `term`, `xref{target}`) over a block tree. Citation text is *derived* from the target's number, and a status overlay records `resolved | broken | ambiguous | out-of-scope`. We should keep the same separation between "what the text says" and "what we decided it points to".
+- **Model.** Terms and cross-references are inline marks or nodes (`def`, `term`, `xref{target}`) over a block tree. Citation text is *derived* from the target's number, and a status overlay records `resolved | broken | ambiguous | out-of-scope`. Keep a clear separation between "what the text says" and "what we decided it points to".
 - **Definition detection.** It uses an ordered set of declaration patterns with a `consumed` span list: leading (`“X” means`), named-as, "the term X", parenthetical (`(the “Company”)`, `(each, a “Seller”)`) and appositive. A **pointer** declaration ("has the meaning set forth in Section 5.4") counts only if nothing else declares the term; otherwise it becomes a link to the real declaration.
 - **Term-use matching.** One case-sensitive alternation, longest spelling first ("Escrow Amount" before "Escrow"), with plural and possessive forms, a case-insensitive pass only over ALL-CAPS runs, and no marks in headings or inside the declaration. For speed, alternatives are bucketed by first character.
 - **Cross-reference resolution.**
@@ -92,10 +92,9 @@ These notes set the approach for the enricher.
 - **External filters.** `AUTHORITY_BEFORE` ("Code Section", "Treasury Regulations Section", `§`), "of the DGCL / of ERISA" after the number, "thereto" versus "hereto", and "this Section 2.4" forced internal.
 - **Measurement.** Random sampling of marks for human verdicts.
 
-**What does not transfer:**
+**Out of scope:**
 
-- The Word-specific parts: bookmarks, REF fields, tracked-change sides and bidi marks.
-- The JSON block tree as a storage format. We have verified XML and a whole pipeline built on it, and switching the canonical format would be a rewrite.
+- A separate block-tree storage format. We have verified XML and a whole pipeline built on it, and switching the canonical format would be a rewrite.
 - Rules fitted to a few deals. Our corpus is 10k EDGAR filings with OCR-ish text, older drafting styles and UK-style decimal numbering, so every rule has to be measured here.
 
 ## 4. Prototype results
