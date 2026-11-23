@@ -267,7 +267,7 @@ Every field has a three-way absence: `null` (not extracted), `not_stated` (the a
 | **Closed enum** | The set is fixed by law, by arithmetic or by a structural fact, and nothing realistic falls outside it | currency (ISO 4217), Duration `unit`, outside-date `effect`, basket `type`, `election` (338(h)(10), 336(e), 338(g) are the only elections the Code offers), remedy exclusivity, the absence state |
 | **Coded with verbatim text** | Users will aggregate on it, but drafting has a long tail and the pilot already needed new values | trigger `kind`, MAE carve-out `categories[]`, survival `item`, indemnity `applies_to` / `excludes`, extension `condition`, tier `label`, reverse-fee `kind`, Money `basis`, outside-date `breach_bar`, `efforts_standard` |
 | **Number or structure** | The variation is quantitative or relational, so an enum would bucket away the information | tail `threshold_pct` and `months`, Durations, payor as a list of PartyRoles plus `liability` (`joint_and_several` or `several`) instead of a `joint` enum value, `deemed_as` as a link |
-| **Open text** | People read the field more than they count it, or the variation is in the conditions | `applies_when`, trigger `conditions`, `rwi_interaction`, the MAE `standard` phrase, election `conditions` |
+| **Open text** | People read the field more than they count it, or the variation is in the conditions | `applies_when`, trigger `conditions`, `rwi`, the MAE `standard` phrase, election `conditions` |
 
 Rules for the coded shape:
 - The field is stored as `{code, text}`. `text` is the shortest verbatim phrase that justifies the code, always kept, so a later recode never needs another model pass.
@@ -343,7 +343,7 @@ Three sibling label concepts keep other reimbursements out of this one: `ma.fina
 **7. `ma.indemn.cap`: indemnification cap**
 - `caps[]`: each has `applies_to[]` and `excludes[]`, both drawn from `general_reps`, `fundamental_reps`, `tax`, `covenants`, `specific_indemnity`, `fraud`, `willful_breach`; `amount` (Money; often `pct_of_purchase_price`); `indemnitor`. Buyer-side and seller-side caps are separate entries.
 - `escrow_sole_recourse`: true or false.
-- `rwi_interaction`: text.
+- `rwi`: text, how the R&W insurance policy and its retention relate to the cap, or `none`.
 
 **8. `ma.indemn.basket`: basket / deductible**
 - `type`: `deductible`, `tipping`, or `none`;
