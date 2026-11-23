@@ -32,7 +32,7 @@ python-dotenv==1.2.4
 PyYAML==6.0.3
 s3transfer==0.19.3
 six==1.17.0
-SQLAlchemy==2.0.55
+SQLAlchemy==2.1.9
 tomli==2.5.0
 typing_extensions==4.16.0
 urllib3==2.8.0

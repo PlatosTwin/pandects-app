@@ -553,9 +553,9 @@ def _search_agreements_by_clause(
         preview_rank = func.row_number().over(
             partition_by=latest.agreement_uuid,
             order_by=[
-                asc(sections.article_order),
-                asc(sections.section_order),
-                asc(latest.section_uuid),
+                sections.article_order.asc(),
+                sections.section_order.asc(),
+                latest.section_uuid.asc(),
             ],
         ).label("preview_rank")
         preview_subquery = (
