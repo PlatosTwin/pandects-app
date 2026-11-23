@@ -570,7 +570,7 @@ export default function Search() {
               type="button"
               onClick={filterOptions.retry}
               disabled={filterOptions.isRetrying}
-              className="font-medium underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-wait disabled:opacity-60"
+              className="font-medium underline underline-offset-2 hover:no-underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-wait disabled:opacity-60"
             >
               {filterOptions.isRetrying ? "Retrying…" : "Try again"}
             </button>
@@ -647,7 +647,7 @@ export default function Search() {
           users jump past its ~60 controls. */}
       <a
         href="#search-results"
-        className="sr-only z-[60] rounded-md bg-background px-3 py-2 text-sm font-medium text-foreground shadow-overlay focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-lg:hidden lg:focus:not-sr-only lg:focus:fixed lg:focus:left-4 lg:focus:top-4"
+        className="sr-only z-60 rounded-md bg-background px-3 py-2 text-sm font-medium text-foreground shadow-overlay focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring max-lg:hidden lg:focus:not-sr-only lg:focus:fixed lg:focus:left-4 lg:focus:top-4"
       >
         Skip to results
       </a>

@@ -83,7 +83,7 @@ function TileAccordionHeader({
       <HeadingTag className="relative flex">
         <AccordionPrimitive.Trigger
           aria-label={ariaLabel}
-          className="absolute inset-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&[data-state=open]+div_.taxonomy-accordion-chevron]:rotate-180"
+          className="absolute inset-0 rounded-lg focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&[data-state=open]+div_.taxonomy-accordion-chevron]:rotate-180"
         />
         <div
           className={cn(
@@ -361,7 +361,7 @@ export default function Taxonomy() {
       aria-label={`Find ${label} in search`}
       title="Find in search"
       className={cn(
-        "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
         className,
       )}
     >
@@ -390,7 +390,7 @@ export default function Taxonomy() {
           type="button"
           onClick={() => selectNode(id)}
           aria-pressed={isSelected}
-          className="flex min-h-9 min-w-0 flex-1 flex-wrap items-baseline gap-x-2 rounded-md py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-h-9 min-w-0 flex-1 flex-wrap items-baseline gap-x-2 rounded-md py-1.5 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span
             className={cn(
@@ -491,12 +491,12 @@ export default function Taxonomy() {
                           <button
                             type="button"
                             onClick={() => handleResultClick(result)}
-                            className="flex w-full items-start gap-2 rounded-lg px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="flex w-full items-start gap-2 rounded-lg px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-accent/60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                             aria-label={`View clause: ${[result.l1, result.l2, result.l3].filter(Boolean).join(" > ")}`}
                           >
                             <Badge
                               variant="outline"
-                              className={`min-w-[2.5rem] shrink-0 justify-center text-[11px] ${getResultLevelStyles(
+                              className={`min-w-10 shrink-0 justify-center text-[11px] ${getResultLevelStyles(
                                 getResultLevel(result),
                               )}`}
                             >
@@ -567,7 +567,7 @@ export default function Taxonomy() {
               {error ? (
                 <ErrorState variant="card" error={rawError} onRetry={retry} />
               ) : isLoading || (taxonomyEntries.length > 0 && !shouldRenderTree) ? (
-                <div className="min-h-[28rem] space-y-4" role="status" aria-live="polite">
+                <div className="min-h-112 space-y-4" role="status" aria-live="polite">
                   <Skeleton className="h-32 w-full" />
                   <Skeleton className="h-32 w-full" />
                   <Skeleton className="h-32 w-full" />
@@ -685,7 +685,7 @@ export default function Taxonomy() {
                                           type="button"
                                           onClick={() => selectNode(leaf.id)}
                                           aria-pressed={isSelected}
-                                          className="min-w-0 flex-1 rounded-md px-2 py-1.5 text-left hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                          className="min-w-0 flex-1 rounded-md px-2 py-1.5 text-left hover:bg-accent/60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                                         >
                                           <span className="block text-sm font-medium text-foreground">
                                             {leaf.label}

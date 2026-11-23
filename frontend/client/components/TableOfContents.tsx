@@ -185,7 +185,7 @@ export function TableOfContents({
           type="button"
           className={cn(
             "flex w-full items-start gap-2 rounded-md px-2.5 py-1.5 text-left text-sm text-foreground transition-colors",
-            "hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            "hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             (isActive || isTarget) && "bg-primary/10 text-primary font-medium",
             depth > 0 && "ml-3 w-[calc(100%-0.75rem)]",
           )}
@@ -207,7 +207,7 @@ export function TableOfContents({
               : item.title
           }
         >
-          <div className="mt-[0.3em] flex h-3 w-4 flex-shrink-0 items-center justify-center">
+          <div className="mt-[0.3em] flex h-3 w-4 shrink-0 items-center justify-center">
             {hasChildren ? (
               isExpanded ? (
                 <ChevronDown className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
@@ -218,7 +218,7 @@ export function TableOfContents({
               <FileText className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
             )}
           </div>
-          <span className="min-w-0 flex-1 break-words leading-snug [overflow-wrap:anywhere]">
+          <span className="min-w-0 flex-1 wrap-break-word leading-snug wrap-anywhere">
             {item.title}
           </span>
           {isMatched ? (
@@ -255,7 +255,7 @@ export function TableOfContents({
             <li key={sub.id}>
               <button
                 type="button"
-                className="w-full truncate rounded-md px-2 py-1 text-left text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="w-full truncate rounded-md px-2 py-1 text-left text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                 onClick={() => onSubsectionClick?.(sub.id)}
                 title={markInferred ? inferredNumberNote(sub.label) : title}
                 aria-label={markInferred ? `${sub.label}, number not printed in the filing` : undefined}

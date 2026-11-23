@@ -223,7 +223,7 @@ export default function About() {
                     {corpusMetrics.map(({ key, icon: Icon, label, detail }) => (
                       <div
                         key={key}
-                        className="flex min-h-[5.5rem] items-center gap-3 rounded-lg border border-border bg-background p-3"
+                        className="flex min-h-22 items-center gap-3 rounded-lg border border-border bg-background p-3"
                       >
                         <div className="flex h-9 w-9 flex-none items-center justify-center rounded-md bg-primary/10 text-primary">
                           <Icon className="h-4 w-4" aria-hidden="true" />

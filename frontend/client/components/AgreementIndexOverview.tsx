@@ -353,7 +353,7 @@ export function AgreementIndexOverview() {
               side: "top",
               align: "start",
               className:
-                "max-h-[min(28rem,calc(100vh-6rem))] w-[min(22rem,calc(100vw-2rem))] max-w-[22rem] overflow-y-auto p-3 text-xs",
+                "max-h-[min(28rem,calc(100vh-6rem))] w-[min(22rem,calc(100vw-2rem))] max-w-88 overflow-y-auto p-3 text-xs",
             }}
             delayDuration={0}
           />

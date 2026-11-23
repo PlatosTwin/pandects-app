@@ -69,7 +69,7 @@ function CopyMenu({ result, href, text }: { result: SearchResult; href: string; 
           <Copy className="h-4 w-4" aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-[12rem]">
+      <DropdownMenuContent align="end" className="min-w-48">
         {text ? (
           <DropdownMenuItem onSelect={() => void run(text, "Section text")}>Copy section text</DropdownMenuItem>
         ) : null}
@@ -141,11 +141,11 @@ function SectionRow({ item, variant, props }: SectionRowProps) {
       selectLabel={`Select ${title} (${result.target || "unknown target"})`}
       meta={meta}
       title={
-        <h3 className={cn("text-base font-semibold leading-snug", density === "compact" && "text-sm")}>
+        <h3 className={cn("text-base font-semibold leading-snug", density === "compact" && "text-sm/5")}>
           <Link
             to={href}
             onClick={onOpen}
-            className="text-foreground hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="text-foreground hover:text-primary hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
           >
             {title}
           </Link>
@@ -228,7 +228,7 @@ function SectionGroup({ group, props }: { group: SectionResultGroup; props: Sear
           type="button"
           onClick={() => setShowMore((prev) => !prev)}
           aria-expanded={showMore}
-          className="inline-flex items-center gap-1 font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="inline-flex items-center gap-1 font-medium text-primary hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
         >
           <ChevronDown className={cn("h-4 w-4 transition-transform", !showMore && "-rotate-90")} aria-hidden="true" />
           {showMore
@@ -241,7 +241,7 @@ function SectionGroup({ group, props }: { group: SectionResultGroup; props: Sear
           type="button"
           onClick={() => setShowEmpty((prev) => !prev)}
           aria-expanded={showEmpty}
-          className="text-muted-foreground hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="text-muted-foreground hover:text-foreground hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
         >
           {showEmpty
             ? `Hide ${emptyCount === 1 ? "empty section" : "empty sections"}`

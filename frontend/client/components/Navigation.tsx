@@ -44,7 +44,7 @@ function NavigationComponent() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-50 w-full print:hidden border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90">
+    <header className="sticky top-0 z-50 w-full print:hidden border-b border-border bg-background/95 backdrop-blur-sm supports-backdrop-filter:bg-background/90">
       <nav
         ref={navRef}
         aria-label="Primary"
@@ -54,7 +54,7 @@ function NavigationComponent() {
         <div className="flex items-center gap-2">
           <Link
             to="/"
-            className="flex items-center gap-3 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="flex items-center gap-3 rounded-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             onClick={() =>
               trackEvent("logo_click", {
                 from_path: location.pathname,

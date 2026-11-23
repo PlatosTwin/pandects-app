@@ -63,7 +63,7 @@ function SortHeader({
         type="button"
         onClick={() => onSort(field)}
         className={cn(
-          "-ml-1 inline-flex items-center gap-1 rounded px-1 py-0.5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "-ml-1 inline-flex items-center gap-1 rounded px-1 py-0.5 hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
           active && "text-foreground",
         )}
       >
@@ -145,7 +145,7 @@ function DealDetails({
                       <li key={section.section_uuid} className="rounded-md border border-border bg-background p-3 transition-colors duration-150 hover:border-primary/30">
                         <Link
                           to={props.getAgreementHref(result, section.section_uuid)}
-                          className="text-sm font-medium text-foreground hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          className="text-sm font-medium text-foreground hover:text-primary hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                         >
                           {title}
                         </Link>
@@ -252,7 +252,7 @@ export function TransactionResultsList(props: TransactionResultsListProps) {
             <th scope="col" className="w-8 px-0">
               <span className="sr-only">Details</span>
             </th>
-            <SortHeader field="year" label="Year" {...{ sortBy, sortDirection, onSort }} className="w-[4.25rem]" />
+            <SortHeader field="year" label="Year" {...{ sortBy, sortDirection, onSort }} className="w-17" />
             <SortHeader field="target" label="Target" {...{ sortBy, sortDirection, onSort }} />
             <SortHeader
               field="acquirer"
@@ -279,7 +279,7 @@ export function TransactionResultsList(props: TransactionResultsListProps) {
                 Matches
               </th>
             ) : null}
-            <th scope="col" className="hidden w-20 px-2 py-2 text-right font-medium md:table-cell xl:w-[8.5rem]">
+            <th scope="col" className="hidden w-20 px-2 py-2 text-right font-medium md:table-cell xl:w-34">
               <span className="sr-only">Actions</span>
             </th>
           </tr>
@@ -319,7 +319,7 @@ export function TransactionResultsList(props: TransactionResultsListProps) {
                       aria-expanded={isOpen}
                       aria-controls={detailsId}
                       aria-label={`${isOpen ? "Hide" : "Show"} details for ${target}`}
-                      className="-mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="-mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       <ChevronRight className={cn("h-4 w-4 transition-transform", isOpen && "rotate-90")} aria-hidden="true" />
                     </button>

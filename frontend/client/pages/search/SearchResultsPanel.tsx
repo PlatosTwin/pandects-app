@@ -75,7 +75,7 @@ function SelectionBar({
       aria-label="Selected results"
       className="pointer-events-none sticky bottom-4 z-30 mt-4 flex justify-center px-2 pb-[env(safe-area-inset-bottom)]"
     >
-      <div className="pointer-events-auto flex max-w-full flex-wrap items-center gap-2 rounded-xl border border-border bg-popover/95 px-3 py-2 shadow-overlay supports-[backdrop-filter]:bg-popover/80 supports-[backdrop-filter]:backdrop-blur">
+      <div className="pointer-events-auto flex max-w-full flex-wrap items-center gap-2 rounded-xl border border-border bg-popover/95 px-3 py-2 shadow-overlay supports-backdrop-filter:bg-popover/80 supports-backdrop-filter:backdrop-blur-sm">
         <span className="px-1 text-sm font-medium text-foreground" aria-live="polite">
           {selectedSize} selected
         </span>
@@ -145,7 +145,7 @@ export function SearchResultsPanel(props: SearchResultsPanelProps) {
       tabIndex={-1}
       aria-labelledby={hasSearched ? "search-results-heading" : "search-page-title"}
       // The skip link scrolls here; keep the top clear of the sticky bars.
-      className="flex min-w-0 flex-1 flex-col outline-none lg:scroll-mt-[calc(4rem+var(--search-bar-h,0px))]"
+      className="flex min-w-0 flex-1 flex-col outline-hidden lg:scroll-mt-[calc(4rem+var(--search-bar-h,0px))]"
     >
       {/* Before a search the empty state brings its own h2. */}
       {hasSearched ? (
@@ -153,7 +153,7 @@ export function SearchResultsPanel(props: SearchResultsPanelProps) {
           Results
         </h2>
       ) : null}
-      <div className="z-10 border-b border-border bg-background/95 px-4 py-2 supports-[backdrop-filter]:bg-background/80 supports-[backdrop-filter]:backdrop-blur sm:px-6 lg:sticky lg:top-[calc(4rem+var(--search-bar-h,0px))] lg:px-8">
+      <div className="z-10 border-b border-border bg-background/95 px-4 py-2 supports-backdrop-filter:bg-background/80 supports-backdrop-filter:backdrop-blur-sm sm:px-6 lg:sticky lg:top-[calc(4rem+var(--search-bar-h,0px))] lg:px-8">
         <div className="flex min-h-10 flex-wrap items-center gap-x-3 gap-y-2">
           {props.mobileFilters}
           {props.selectPage && showRows ? (
@@ -168,7 +168,7 @@ export function SearchResultsPanel(props: SearchResultsPanelProps) {
             id="search-results-status"
             role="status"
             aria-live="polite"
-            className="flex min-w-0 flex-1 items-center gap-2 text-xs font-medium leading-tight text-foreground sm:flex-none sm:text-sm"
+            className="flex min-w-0 flex-1 items-center gap-2 text-xs font-medium leading-tight text-foreground sm:flex-none sm:text-sm/5"
           >
             {isSearching ? (
               <span

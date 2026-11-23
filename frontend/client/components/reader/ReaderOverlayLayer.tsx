@@ -331,7 +331,7 @@ function TermCard({
             {aligned ? (
               <button
                 type="button"
-                className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                 onClick={() => onGoToAnchor(key, decl.anchor!.s)}
               >
                 Go to definition
@@ -399,7 +399,7 @@ function XrefCard({
       ) : null}
       <button
         type="button"
-        className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
         onClick={onFollow}
       >
         Go to {outlineNodeName(node)}

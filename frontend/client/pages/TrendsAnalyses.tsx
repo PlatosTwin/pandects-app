@@ -177,7 +177,7 @@ function ChartSkeleton({ className = "h-[260px] sm:h-[320px] lg:h-[360px]" }: { 
 // Narrow on phones (labels wrap) so a full data cell still fits beside it.
 const STICKY_SEGMENT_CELL =
   "sticky left-0 z-10 w-24 bg-background px-2 text-left text-foreground shadow-[1px_0_0_hsl(var(--foreground)/0.12)] sm:w-64 sm:px-3";
-const SEGMENT_LABEL = "block break-words sm:overflow-hidden sm:text-ellipsis sm:whitespace-nowrap";
+const SEGMENT_LABEL = "block wrap-break-word sm:overflow-hidden sm:text-ellipsis sm:whitespace-nowrap";
 
 function TrendsHeatmapTable({
   caption,
@@ -196,7 +196,7 @@ function TrendsHeatmapTable({
 }) {
   return (
     <div className={cn("overflow-x-auto rounded-lg border border-border bg-background/80", className)}>
-      <table className="w-full min-w-[40rem] table-fixed border-collapse text-sm sm:min-w-[56rem]">
+      <table className="w-full min-w-160 table-fixed border-collapse text-sm sm:min-w-4xl">
         <caption className="sr-only">{caption}</caption>
         <thead>
           <tr className="border-b border-border">
@@ -236,7 +236,7 @@ function TrendsHeatmapTable({
                   <td key={`${row}-${column}`} className="w-44 px-2 py-2 align-top">
                     <div
                       className={cn(
-                        "flex min-h-[6.75rem] w-full flex-col items-center justify-center rounded-md border border-border/50 px-3 py-3 text-center shadow-raised transition-colors",
+                        "flex min-h-27 w-full flex-col items-center justify-center rounded-md border border-border/50 px-3 py-3 text-center shadow-raised transition-colors",
                         foregroundClass,
                       )}
                       style={
@@ -820,7 +820,13 @@ export default function TrendsAnalyses() {
         {!loading && error ? <ErrorState error={apiError ?? error} onRetry={() => void refetch()} /> : null}
 
         {!loading && !error && data ? (
-          <Tabs defaultValue="ownership" className="space-y-4">
+          <Tabs
+            defaultValue="ownership"
+            // Inactive panels are [hidden]. Tailwind 4's space-y still gives
+            // the active panel a bottom margin when it is not the last child;
+            // Tailwind 3 did not.
+            className="space-y-4 *:data-[state=active]:mb-0"
+          >
             <TabsList>
               <TabsTrigger value="ownership">Ownership Structure</TabsTrigger>
               <TabsTrigger value="industry">Industry Dynamics</TabsTrigger>

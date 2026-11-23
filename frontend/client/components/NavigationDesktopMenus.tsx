@@ -33,7 +33,7 @@ function AuthMenuFallback() {
 // Horizontal bar: the active item gets a 2px primary indicator flush with the
 // header's bottom edge ((h-16 bar - h-9 item) / 2 = 0.875rem below the item).
 const topLevelBase =
-  "relative inline-flex h-9 items-center gap-1 rounded-md px-2.5 text-sm font-medium transition-colors after:pointer-events-none after:absolute after:inset-x-2.5 lg:px-3 lg:after:inset-x-3 after:-bottom-[0.875rem] after:h-0.5 after:rounded-full after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+  "relative inline-flex h-9 items-center gap-1 rounded-md px-2.5 text-sm font-medium transition-colors after:pointer-events-none after:absolute after:inset-x-2.5 lg:px-3 lg:after:inset-x-3 after:-bottom-3.5 after:h-0.5 after:rounded-full after:content-[''] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 const topLevelActive = "text-foreground after:bg-primary";
 const topLevelIdle =
   "text-muted-foreground after:bg-transparent hover:bg-accent/60 hover:text-foreground";

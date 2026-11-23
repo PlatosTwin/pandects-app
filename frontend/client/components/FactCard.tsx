@@ -66,7 +66,7 @@ export function FactCard({
   const frame = cn(
     "block rounded-xl border border-border bg-card shadow-raised p-5",
     href &&
-      "group surface-interactive hover:border-primary/40 hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+      "group surface-interactive hover:border-primary/40 hover:bg-accent/30 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
     className,
   );
 

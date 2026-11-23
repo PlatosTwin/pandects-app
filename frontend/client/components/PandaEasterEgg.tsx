@@ -644,7 +644,7 @@ export default function PandaEasterEgg({
       <div ref={shardLayerRef} className="absolute inset-0" />
       <div
         ref={ballRef}
-        className="absolute left-0 top-0 z-[1] hidden"
+        className="absolute left-0 top-0 z-1 hidden"
         style={{ willChange: "transform, opacity", opacity: 0 }}
       >
         <svg

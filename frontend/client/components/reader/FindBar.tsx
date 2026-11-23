@@ -61,7 +61,7 @@ export const FindBar = forwardRef<HTMLInputElement, FindBarProps>(function FindB
         aria-describedby="reader-find-status"
         autoComplete="off"
         spellCheck={false}
-        className="h-full min-w-0 flex-1 bg-transparent px-2 text-sm text-foreground outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:hidden"
+        className="h-full min-w-0 flex-1 bg-transparent px-2 text-sm text-foreground outline-hidden placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:hidden"
       />
       <span
         id="reader-find-status"

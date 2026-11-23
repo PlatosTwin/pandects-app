@@ -52,7 +52,7 @@ export function ResultsToolbar({
         onValueChange={(value) => onSortResults(value as ResultsSortField)}
         disabled={disabled}
       >
-        <SelectTrigger className="h-9 w-[6.5rem] text-sm sm:h-8 sm:w-[8.5rem]" aria-label={sortSelectLabel}>
+        <SelectTrigger className="h-9 w-26 text-sm sm:h-8 sm:w-34" aria-label={sortSelectLabel}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
