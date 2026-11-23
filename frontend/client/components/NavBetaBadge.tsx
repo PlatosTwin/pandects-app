@@ -1,4 +1,5 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useRef, useState } from "react";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { cn } from "@/lib/utils";
 
 // The dialog loads on the first click, so Radix AlertDialog stays out of the
@@ -10,11 +11,14 @@ export function NavBetaBadge({ className }: { className?: string }) {
   // Stays true after the first click, so the dialog stays mounted and can
   // play its close animation.
   const [hasOpened, setHasOpened] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   return (
     <>
       <button
+        ref={buttonRef}
         type="button"
+        aria-haspopup="dialog"
         onClick={() => {
           setHasOpened(true);
           setIsOpen(true);
@@ -28,9 +32,15 @@ export function NavBetaBadge({ className }: { className?: string }) {
         BETA
       </button>
       {hasOpened && (
-        <Suspense fallback={null}>
-          <NavBetaNotice open={isOpen} onOpenChange={setIsOpen} />
-        </Suspense>
+        <ErrorBoundary scope="beta-notice" fallback={() => null}>
+          <Suspense fallback={null}>
+            <NavBetaNotice
+              open={isOpen}
+              onOpenChange={setIsOpen}
+              returnFocusTo={buttonRef}
+            />
+          </Suspense>
+        </ErrorBoundary>
       )}
     </>
   );

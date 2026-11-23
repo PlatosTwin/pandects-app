@@ -1,9 +1,4 @@
-import {
-  lazy,
-  Suspense,
-  useSyncExternalStore,
-  type ReactNode,
-} from "react";
+import { lazy, Suspense, useSyncExternalStore, type ReactNode } from "react";
 import type { QueryClient } from "@tanstack/react-query";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -62,9 +57,13 @@ function DeferredToaster() {
     () => false,
   );
   if (!mounted) return null;
+  // A failed chunk fetch (a flaky network, or a tab left open across a
+  // deploy) loses the toaster only, not the whole app.
   return (
-    <Suspense fallback={null}>
-      <Toaster />
-    </Suspense>
+    <ErrorBoundary scope="toaster" fallback={() => null}>
+      <Suspense fallback={null}>
+        <Toaster />
+      </Suspense>
+    </ErrorBoundary>
   );
 }

@@ -1,3 +1,4 @@
+import type { RefObject } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,13 +18,21 @@ const BETA_DISCLAIMER =
 export default function NavBetaNotice({
   open,
   onOpenChange,
+  returnFocusTo,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The badge button. The dialog has no Radix trigger, so focus goes back here on close. */
+  returnFocusTo: RefObject<HTMLButtonElement | null>;
 }) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
+      <AlertDialogContent
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          returnFocusTo.current?.focus();
+        }}
+      >
         <AlertDialogHeader>
           <AlertDialogTitle>Beta Notice</AlertDialogTitle>
           <AlertDialogDescription className="text-left">

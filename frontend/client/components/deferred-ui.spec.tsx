@@ -31,6 +31,12 @@ describe("NavBetaBadge", () => {
     await vi.waitFor(() => {
       expect(screen.queryByRole("alertdialog")).toBeNull();
     });
+    // The dialog has no Radix trigger; focus must still return to the badge.
+    await vi.waitFor(() => {
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", { name: "Read beta notice" }),
+      );
+    });
   });
 });
 
