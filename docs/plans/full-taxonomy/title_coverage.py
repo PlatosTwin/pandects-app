@@ -236,7 +236,7 @@ RULES: list[tuple[str | None, str, str]] = [
     (None, r"exchange ratio", "ma.consideration.exchange_ratio"),
     (None, r"election|proration", "ma.consideration.election_proration"),
     (None, r"collar|walk.?away", "ma.consideration.exchange_ratio"),
-    (None, r"earn-?out|contingent (consideration|payment|purchase price)|milestone|additional consideration|deferred (consideration|payment|purchase price)|contingent merger", "ma.consideration.earnout"),
+    (None, r"earn.?outs?|contingent (consideration|payment|purchase price)|milestone|additional consideration|deferred (consideration|payment|purchase price)|contingent merger", "ma.consideration.earnout"),
     (None, r"contingent value|cvr", "ma.consideration.cvr"),
     (None, r"deposit|earnest money", "ma.consideration.deposit"),
     (None, r"dilution|adjustments? (to|of) (the )?(exchange ratio|merger consideration|conversion)|certain adjustments|equitable adjustments?|^adjustments?$|changes in (company )?(stock|capitali[sz]ation)|stock splits|recapitali[sz]ation|reclassification", "ma.consideration.anti_dilution"),
