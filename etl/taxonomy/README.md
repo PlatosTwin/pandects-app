@@ -45,7 +45,7 @@ A concept's id never states where the concept sits in the tree. The tree can cha
 | `exclusion_cues` | concepts | What the concept is not, with the id of the right concept. |
 | `value_schema` | concepts | `status: piloted` for the fields that the value pilot tested. `status: stub` for a first sketch of fields that nobody has tested. |
 | `crosswalk` | all | Links to older ids. See below. |
-| `proposed` | tax nodes | `true` for a node that the legacy tax tree does not have. The maintainer can veto it. |
+| `new_in_redesign` | tax nodes | `true` for a node that the legacy tax tree does not have. The 7 such nodes were accepted on 2026-11-22. |
 | `introduced_in` | all | The release that added the node. |
 | `deprecated_in`, `replaced_by` | all | For a node that a later release retires. A retired node stays in the file. |
 
@@ -73,7 +73,7 @@ A concept's id never states where the concept sits in the tree. The tree can cha
 1. Never reuse or rename a released id. To retire a node, set `deprecated_in` and `replaced_by`.
 2. A new node takes the next release number in `introduced_in`.
 3. A concept on the seam between the packs has one owner. The other pack lists it with `also_listed_under`.
-4. Keep the tax pack in step with the legacy tax tree. Mark an addition `proposed: true` and give the reason in the design doc.
+4. Keep the tax pack in step with the legacy tax tree. Mark an addition `new_in_redesign: true`, give the reason in the design doc, and get the maintainer's approval.
 5. Run the validator and the test before a commit.
 
 ## Validate

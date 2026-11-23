@@ -91,7 +91,7 @@ class ShippedPacksTest(unittest.TestCase):
         self.assertEqual(set(self.taxonomy.nodes) & set(self.taxonomy.legacy["tax_v1"]), set())
 
     def test_tax_tree_mirrors_the_legacy_tree(self) -> None:
-        """Each legacy tax node maps to one node with the same label. Proposed additions map to none."""
+        """Each legacy tax node maps to one node with the same label. Nodes new in the redesign map to none."""
         legacy = self.taxonomy.legacy["tax_v1"]
         matched: set[str] = set()
         for node in self.taxonomy.nodes.values():
@@ -99,7 +99,7 @@ class ShippedPacksTest(unittest.TestCase):
                 continue
             entries = (node.data.get("crosswalk") or {}).get("tax_v1") or []
             exact = [entry["id"] for entry in entries if entry["relation"] == "exact"]
-            if node.data.get("proposed"):
+            if node.data.get("new_in_redesign"):
                 self.assertEqual(exact, [], node.id)
                 continue
             self.assertEqual(len(exact), 1, node.id)

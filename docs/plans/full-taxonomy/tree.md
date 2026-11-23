@@ -473,8 +473,8 @@ Marks: the kind when it is not `provision`; `value` for a piloted value schema;
 | Post-Closing Cooperation and Records | `tax.cooperation.record_retention` | Record Retention |  |
 | Post-Closing Cooperation and Records | `tax.cooperation.post_closing` | Mutual Cooperation After Closing |  |
 | Post-Closing Cooperation and Records | `tax.cooperation.filing_information` | Access to Information for Tax Filings and Audits |  |
-| Post-Closing Cooperation and Records | `tax.cooperation.post_closing_actions` | Restrictions on Post-Closing Tax Actions | **proposed** |
-| Post-Closing Cooperation and Records | `tax.cooperation.tax_sharing_termination` | Termination of Tax Sharing Agreements | **proposed** |
+| Post-Closing Cooperation and Records | `tax.cooperation.post_closing_actions` | Restrictions on Post-Closing Tax Actions | **new** |
+| Post-Closing Cooperation and Records | `tax.cooperation.tax_sharing_termination` | Termination of Tax Sharing Agreements | **new** |
 
 ### Tax Allocation and Indemnity
 
@@ -508,7 +508,7 @@ Marks: the kind when it is not `provision`; `value` for a piloted value schema;
 | International Tax | `tax.international.pfic` | PFIC-Related Matters |  |
 | International Tax | `tax.international.residency_pe` | Tax Residency / Permanent Establishment |  |
 | International Tax | `tax.international.treaty_withholding` | Treaty Claims / Cross-Border Withholding |  |
-| International Tax | `tax.international.transfer_pricing` | Transfer Pricing | **proposed** |
+| International Tax | `tax.international.transfer_pricing` | Transfer Pricing | **new** |
 | Pass-Through Regimes | `tax.passthrough.reit` | REIT |  |
 | Pass-Through Regimes | `tax.passthrough.ric` | RIC |  |
 | Pass-Through Regimes | `tax.passthrough.s_corporation` | S Corporation |  |
@@ -568,15 +568,15 @@ Marks: the kind when it is not `provision`; `value` for a piloted value schema;
 |---|---|---|---|
 | Other / Unclassified Tax Provisions | `tax.other.unclassified` | Other / Unclassified Tax Provision |  |
 
-### Tax Definitions (**proposed**)
+### Tax Definitions (**new**)
 
 `tax.nav.definitions`
 
 | Group | Id | Label | Marks |
 |---|---|---|---|
-| (branch) | `tax.def.tax` | "Tax" / "Taxes" Definition | definition; **proposed** |
-| (branch) | `tax.def.tax_return` | "Tax Return" Definition | definition; **proposed** |
-| (branch) | `tax.def.tax_period` | Tax Period Definitions | definition; **proposed** |
+| (branch) | `tax.def.tax` | "Tax" / "Taxes" Definition | definition; **new** |
+| (branch) | `tax.def.tax_return` | "Tax Return" Definition | definition; **new** |
+| (branch) | `tax.def.tax_period` | Tax Period Definitions | definition; **new** |
 
 ## Seam between the packs
 

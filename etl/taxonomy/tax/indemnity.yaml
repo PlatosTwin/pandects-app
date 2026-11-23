@@ -1,6 +1,6 @@
 # Pandects taxonomy, tax pack (`tax`). Navigation branch: Tax Allocation and Indemnity.
 # Structure and labels mirror tax_clause_taxonomy_l1/l2/l3, which was built with a tax professor.
-# Nodes marked `proposed: true` are additions that await the maintainer's decision.
+# Nodes marked `new_in_redesign: true` are additions to the legacy tax tree. The maintainer accepted them on 2026-11-22.
 # Field reference: etl/taxonomy/README.md. Validate with: python -m etl.domain.taxonomy_pack
 pack: tax
 release: '2026.1'

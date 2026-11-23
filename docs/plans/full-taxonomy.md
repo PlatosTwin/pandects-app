@@ -143,7 +143,7 @@ Four topics were left to catch-alls because they are rare: the SPAC "no trading"
 | Live section tree | 99 | Many leaves join several provisions, and representations are doubled by party. |
 | Unreleased redesign | 140 | Finer, still doubled by party. |
 | This design, M&A pack | 281 | 241 provisions, 24 parts and 16 definitions. |
-| This design, tax pack | 112 | 106 existing nodes and 6 proposed concepts. |
+| This design, tax pack | 112 | 106 existing nodes and 6 new concepts (accepted 2026-11-22). |
 | DealOS knowledge graph v6 | 993 | Built to explain mechanics to lawyers. It includes explanatory nodes that a filter does not need. |
 
 The Praxis classification work found that accuracy falls as the number of classes in one decision grows. This design is finer than the older trees, so the labeling run in section 9 never shows a model the full list. It shows a short list for the section at hand.
@@ -184,10 +184,10 @@ The Praxis classification work found that accuracy falls as the number of classe
 
 | Level | Existing tree | This design |
 |---|---|---|
-| Level 1 | 9 | 10 branches (9 existing, 1 proposed) |
+| Level 1 | 9 | 10 branches (9 existing, 1 new) |
 | Level 2 | 45 | 35 groups and 10 concepts. The 10 are existing level 2 nodes that have no children. |
-| Level 3 | 96 | 96 existing concepts and 3 proposed |
-| Under the proposed branch | 0 | 3 proposed definition concepts |
+| Level 3 | 96 | 96 existing concepts and 3 new |
+| Under the new branch | 0 | 3 new definition concepts |
 | All concepts | 106 leaves | 112 |
 
 | Branch | Groups | Concepts |
@@ -195,13 +195,13 @@ The Praxis classification work found that accuracy falls as the number of classe
 | Intended Tax Treatment, Elections, and Purchase Price Allocation | 6 | 18 |
 | Tax Interim Operating Covenants | 0 | 9 |
 | Transfer and Withholding Taxes | 3 | 7 |
-| Tax Cooperation, Returns, Contests, and Refunds | 5 | 18 (2 proposed) |
+| Tax Cooperation, Returns, Contests, and Refunds | 5 | 18 (2 new) |
 | Tax Allocation and Indemnity | 3 | 15 |
-| Special Regimes | 3 | 12 (1 proposed) |
+| Special Regimes | 3 | 12 (1 new) |
 | Tax Representations | 9 | 22 |
 | Tax Attributes | 5 | 7 |
 | Other / Unclassified | 1 | 1 |
-| Tax Definitions (proposed) | 0 | 3 (all proposed) |
+| Tax Definitions (new) | 0 | 3 (all new) |
 
 ## 6. Coverage measurement
 
@@ -325,13 +325,13 @@ These do not change what any node means.
 | 19 tax nodes are also listed under M&A navigation nodes. | A reader who browses the M&A tree finds the tax provisions where expected. The tax pack still owns them. |
 | Each concept gets a description, canonical terms, example phrases and, where useful, exclusion cues. | The labeling run needs them. The tax professor has not reviewed this text. |
 
-### 8.3 Proposed additions
+### 8.3 Additions (accepted 2026-11-22)
 
-Each node below is marked `proposed: true` in the YAML. To veto one, delete it from its file.
+Each node below is marked `new_in_redesign: true` in the YAML. The maintainer accepted all 7 on 2026-11-22.
 
 The evidence comes from the 243 agreements that have tax clause labels today, and from section titles across the corpus.
 
-| # | Proposed node | Where | Reason and evidence |
+| # | Node | Where | Reason and evidence |
 |---|---|---|---|
 | 1 | `tax.nav.definitions`, "Tax Definitions" (a new level 1 branch) | Top level | The tree has no place for tax definitions. They appear in 65 of the 243 labeled agreements. 59 of those clauses have no label and 49 sit in "Other / Unclassified". |
 | 2 | `tax.def.tax`, "Tax" / "Taxes" definition | Under 1 | The scope of "Taxes" sets the scope of the tax indemnity and the tax representations. Researchers compare it. |
@@ -343,7 +343,7 @@ The evidence comes from the 243 agreements that have tax clause labels today, an
 
 ### 8.4 A change of scope outside the tree
 
-466 clauses in 178 of the labeled agreements concern Section 409A or Section 280G. The tax module picks them up today. This design assigns them to the M&A pack (see 3.6) and lists the 280G concept under `tax.nav.other`. This changes which pack labels them and changes no tax node. It is open question 2.
+466 clauses in 178 of the labeled agreements concern Section 409A or Section 280G. The tax module picks them up today. This design assigns them to the M&A pack (see 3.6) and lists the 280G concept under `tax.nav.other`. This changes which pack labels them and changes no tax node. The maintainer confirmed this on 2026-11-22.
 
 ## 9. How labeling would run
 
@@ -400,20 +400,20 @@ What can move the estimate: the share of sections that need a second read, how w
 
 ## 10. Open questions for the maintainer
 
-1. **Tax additions.** Approve or veto each of the 7 proposed tax nodes in 8.3. Should the tax professor review them first? My recommendation: keep 1, 2, 4, 5 and 6, and let the professor decide 3 and 7.
-2. **Sections 280G and 409A.** This design gives them to the M&A pack. The tax module labels 466 such clauses today. Confirm the owner, or move them to the tax pack.
+1. **Tax additions.** Decided 2026-11-22: all 7 nodes in 8.3 are accepted.
+2. **Sections 280G and 409A.** Decided 2026-11-22: the M&A pack owns them, and the tax tree lists the 280G concept for navigation.
 3. **Umbrella labels.** The tax pack lets a label point to a branch or group. The M&A pack uses catch-all concepts. Is the difference acceptable, or should both packs use one way?
 4. **Industry topics.** The M&A pack has 4 industry representation concepts. Industry titles are most of the real gaps in 6.3. Is a later industry pack (banking, healthcare, energy, insurance) wanted, or is `ma.rep.other` enough?
 5. **SPAC concepts.** 9 SPAC concepts sit in the M&A pack. Keep them there, or plan a separate pack?
 6. **Foreign-law provisions.** Locked box, squeeze-out and similar UK or Australian provisions have no concept, in line with the US focus. Confirm.
-7. **Waves.** Should the first labeling run cover provisions only (350 concepts) and leave the 24 parts and 19 definitions to a second wave, as 9.2 assumes?
+7. **Waves.** Decided 2026-11-22: the first labeling run covers provisions only (350 concepts). The 24 parts and 19 definitions come in a second wave.
 8. **Defined terms.** Are the 16 M&A definition concepts the right set? Which should get value schemas first?
 9. **Value schema stubs.** 74 M&A concepts carry an untested sketch of fields. Keep the stubs in the pack as candidates, or remove them until each is piloted?
 10. **DealOS links.** Publish `crosswalk/dealos.yaml` in the public dump, or keep it internal?
 11. **Party values.** The role is on the concept and the party is on the instance. Which party values should an instance allow: target, buyer, seller, merger subsidiary, sponsor, mutual?
 12. **The unreleased 140-leaf redesign.** This design replaces it. Can the redesign file be retired after approval, with its crosswalk kept?
 13. **Id freeze.** After approval the ids are frozen. Any id the maintainer wants changed must change before the first labeling run.
-14. **Budget and models.** Which setup in 9.3 should the 50-agreement trial test, and what is the spending ceiling for it?
+14. **Budget and models.** Decided 2026-11-22: the billed 50-agreement trial waits until the maintainer has reviewed the tree. The setup and ceiling are decided then.
 
 ## 11. Independent review
 
@@ -457,7 +457,7 @@ These suggestions change scope or ownership, so they are not applied.
 ## 12. What this work did not do
 
 - **No labeling and no model check of the tree.** The coverage figure rests on titles. How well a model can tell neighboring concepts apart on body text is unknown until the trial.
-- **No expert review by a person.** The tax professor has not seen the proposed additions or the new descriptions. No M&A lawyer has reviewed the M&A pack. A model did the review in section 11.
+- **No expert review by a person.** The tax professor has not seen the 7 additions (accepted by the maintainer) or the new descriptions. No M&A lawyer has reviewed the M&A pack. A model did the review in section 11.
 - **No second reader** for the sample in 6.3.
 - **No measured prevalence for concepts that titles do not reach.** The floor in 4.1 was checked with phrase counts where a phrase is distinctive. Short or hyphenated terms could not be counted reliably with the full-text index.
 - **No database tables.** The plan's `taxonomy_concept` tables are not created. The YAML is the source of truth, and a loader into the database is a later step.

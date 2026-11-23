@@ -324,7 +324,7 @@ def validate(taxonomy: Taxonomy) -> list[str]:
 
 
 def summary(taxonomy: Taxonomy) -> dict[str, Counter[str]]:
-    """Node counts by pack and kind, plus counts of value concepts and proposed nodes."""
+    """Node counts by pack and kind, plus counts of value concepts and nodes new in the redesign."""
     counts: dict[str, Counter[str]] = {pack: Counter() for pack in PACKS}
     for node in taxonomy.nodes.values():
         bucket = counts.setdefault(node.pack, Counter())
@@ -333,8 +333,8 @@ def summary(taxonomy: Taxonomy) -> dict[str, Counter[str]]:
             bucket["concepts"] += 1
             if node.data.get("tier") == "value":
                 bucket["value_concepts"] += 1
-        if node.data.get("proposed"):
-            bucket["proposed"] += 1
+        if node.data.get("new_in_redesign"):
+            bucket["new_in_redesign"] += 1
     return counts
 
 

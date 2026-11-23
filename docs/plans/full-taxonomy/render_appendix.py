@@ -44,8 +44,8 @@ def _marks(node: taxonomy_pack.Node) -> str:
         marks.append(f"party: {attributes['party']}")
     if data.get("parent"):
         marks.append(f"part of `{data['parent']}`")
-    if data.get("proposed"):
-        marks.append("**proposed**")
+    if data.get("new_in_redesign"):
+        marks.append("**new**")
     listed = data.get("also_listed_under")
     if listed:
         marks.append("also under " + ", ".join(f"`{target}`" for target in listed))
@@ -65,7 +65,7 @@ def render_tree(taxonomy: taxonomy_pack.Taxonomy) -> str:
         lines += ["", f"## {PACK_TITLES[pack]}"]
         branches = [node for node in taxonomy.nodes.values() if node.pack == pack and node.kind == "branch"]
         for branch in sorted(branches, key=lambda node: node.data.get("order", 0)):
-            proposed = " (**proposed**)" if branch.data.get("proposed") else ""
+            proposed = " (**new**)" if branch.data.get("new_in_redesign") else ""
             lines += ["", f"### {branch.label}{proposed}", "", f"`{branch.id}`", ""]
             lines += ["| Group | Id | Label | Marks |", "|---|---|---|---|"]
             direct = [node for node in children[branch.id] if node.is_concept]

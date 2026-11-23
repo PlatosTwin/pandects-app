@@ -1,6 +1,6 @@
 # Pandects taxonomy, tax pack (`tax`). Navigation branch: Tax Definitions.
 # Structure and labels mirror tax_clause_taxonomy_l1/l2/l3, which was built with a tax professor.
-# Nodes marked `proposed: true` are additions that await the maintainer's decision.
+# Nodes marked `new_in_redesign: true` are additions to the legacy tax tree. The maintainer accepted them on 2026-11-22.
 # Field reference: etl/taxonomy/README.md. Validate with: python -m etl.domain.taxonomy_pack
 pack: tax
 release: '2026.1'
@@ -10,7 +10,7 @@ branch:
   kind: branch
   order: 10
   assignable: true
-  proposed: true
+  new_in_redesign: true
   description: >-
     Defined terms that set the scope of the tax provisions. Proposed addition: the legacy tree has no
     node for them.
@@ -24,7 +24,7 @@ concepts:
     label: '"Tax" / "Taxes" Definition'
     kind: definition
     nav_parent: tax.nav.definitions
-    proposed: true
+    new_in_redesign: true
     tier: label
     description: >-
       The definition of Tax or Taxes: the kinds of taxes covered, and whether it reaches interest, penalties
@@ -43,7 +43,7 @@ concepts:
     label: '"Tax Return" Definition'
     kind: definition
     nav_parent: tax.nav.definitions
-    proposed: true
+    new_in_redesign: true
     tier: label
     description: The definition of Tax Return.
     canonical_terms:
@@ -59,7 +59,7 @@ concepts:
     label: Tax Period Definitions
     kind: definition
     nav_parent: tax.nav.definitions
-    proposed: true
+    new_in_redesign: true
     tier: label
     description: The definitions of Pre-Closing Tax Period, Post-Closing Tax Period and Straddle Period.
     canonical_terms:
