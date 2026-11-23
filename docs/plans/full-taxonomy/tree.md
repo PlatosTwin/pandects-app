@@ -2,7 +2,8 @@
 
 # Full taxonomy: every node
 
-Marks: the kind when it is not `provision`; `value` for a piloted value schema;
+Marks: the kind when it is not `provision`; `wave 2` for an M&A concept that the second labeling
+wave covers (every other M&A concept is in wave 1); `value` for a piloted value schema;
 `value stub` for an untested sketch of fields; the party role that an instance records.
 
 ## M&A pack (`ma`)
@@ -15,10 +16,7 @@ Marks: the kind when it is not `provision`; `value` for a piloted value schema;
 |---|---|---|---|
 | The Transaction | `ma.structure.merger` | The Merger; Constituent Entities |  |
 | The Transaction | `ma.structure.purchase_and_sale` | Purchase and Sale of Shares or Interests |  |
-| The Transaction | `ma.structure.effective_time` | Effective Time; Certificate of Merger |  |
-| The Transaction | `ma.structure.effects_of_merger` | Effects of the Merger |  |
-| The Transaction | `ma.structure.governing_documents` | Charter and Bylaws of the Surviving Entity |  |
-| The Transaction | `ma.structure.directors_officers` | Directors and Officers of the Surviving Entity |  |
+| The Transaction | `ma.structure.effective_time` | Effective Time; Effects of the Merger; Surviving Entity |  |
 | The Transaction | `ma.structure.alternative_structure` | Alternative Structure; Change of Method |  |
 | Asset Deal Scope | `ma.asset.purchased_assets` | Purchased Assets |  |
 | Asset Deal Scope | `ma.asset.excluded_assets` | Excluded Assets |  |
@@ -29,24 +27,18 @@ Marks: the kind when it is not `provision`; `value` for a piloted value schema;
 | Asset Deal Scope | `ma.asset.risk_of_loss` | Risk of Loss; Casualty and Condemnation |  |
 | Asset Deal Scope | `ma.asset.title_and_survey` | Title, Survey and Defect Procedures |  |
 | Tender Offer | `ma.tender.offer` | The Offer | value stub |
-| Tender Offer | `ma.tender.offer_conditions` | Offer Conditions; Minimum Condition | value stub; also under `ma.nav.conditions.party` |
-| Tender Offer | `ma.tender.company_actions` | Company Actions; Schedule 14D-9 |  |
+| Tender Offer | `ma.tender.offer_conditions` | Offer Conditions; Minimum Condition | wave 2; value stub; also under `ma.nav.conditions.party` |
+| Tender Offer | `ma.tender.company_actions` | Company Actions; Schedule 14D-9; Board Designees; Rule 14d-10 |  |
 | Tender Offer | `ma.tender.top_up_option` | Top-Up Option |  |
 | Tender Offer | `ma.tender.back_end_merger` | Back-End Merger Without a Stockholder Vote |  |
-| Tender Offer | `ma.tender.rule_14d10` | Rule 14d-10(d) Compensation Approvals |  |
-| Tender Offer | `ma.tender.board_designees` | Board Designees After the Offer |  |
 | Closing | `ma.closing.time_and_place` | Closing; Time and Place | value stub |
 | Closing | `ma.closing.deliverables` | Closing Deliverables | party: obligor |
 | Closing | `ma.closing.payments` | Closing Payments; Flow of Funds |  |
-| SPAC Transactions | `ma.spac.trust_account` | Trust Account |  |
-| SPAC Transactions | `ma.spac.trust_waiver` | Waiver of Claims Against the Trust |  |
+| SPAC Transactions | `ma.spac.trust_account` | Trust Account; Waiver of Claims Against the Trust |  |
 | SPAC Transactions | `ma.spac.pipe` | PIPE Investment; Subscription Agreements |  |
-| SPAC Transactions | `ma.spac.minimum_cash` | Minimum Cash Condition | value stub; also under `ma.nav.conditions.party` |
+| SPAC Transactions | `ma.spac.minimum_cash` | Minimum Cash Condition | wave 2; value stub; also under `ma.nav.conditions.party` |
 | SPAC Transactions | `ma.spac.redemption` | SPAC Stockholder Redemptions |  |
 | SPAC Transactions | `ma.spac.sponsor_support` | Sponsor Support Agreement |  |
-| SPAC Transactions | `ma.spac.domestication` | SPAC Domestication |  |
-| SPAC Transactions | `ma.spac.business_activities` | SPAC Business Activities |  |
-| SPAC Transactions | `ma.spac.extension` | Extension of the SPAC Deadline |  |
 
 ### Consideration and Payment Mechanics
 
@@ -59,8 +51,8 @@ Marks: the kind when it is not `provision`; `value` for a piloted value schema;
 | Price and Form of Consideration | `ma.consideration.election_proration` | Cash or Stock Election; Proration | value stub |
 | Price and Form of Consideration | `ma.consideration.purchase_price` | Purchase Price | value stub |
 | Price and Form of Consideration | `ma.consideration.buyer_securities` | Buyer Stock as Consideration; Reservation, Lock-Up and Registration |  |
-| Price and Form of Consideration | `ma.consideration.seller_note` | Seller Note; Deferred Purchase Price | value stub |
-| Price and Form of Consideration | `ma.consideration.rollover` | Rollover Equity | also under `ma.nav.financing.arrangements` |
+| Price and Form of Consideration | `ma.consideration.seller_note` | Seller Note; Deferred Purchase Price | wave 2; value stub |
+| Price and Form of Consideration | `ma.consideration.rollover` | Rollover Equity | wave 2; also under `ma.nav.financing.arrangements` |
 | Price and Form of Consideration | `ma.consideration.earnout` | Earnout | value stub |
 | Price and Form of Consideration | `ma.consideration.cvr` | Contingent Value Rights | value stub |
 | Price and Form of Consideration | `ma.consideration.deposit` | Deposit | value stub |
@@ -68,14 +60,13 @@ Marks: the kind when it is not `provision`; `value` for a piloted value schema;
 | Equity Awards and Other Securities | `ma.equity.awards` | Treatment of Equity Awards | value stub |
 | Equity Awards and Other Securities | `ma.equity.espp` | Employee Stock Purchase Plan |  |
 | Equity Awards and Other Securities | `ma.equity.warrants_convertibles` | Warrants, Convertible Notes and Preferred Stock |  |
-| Exchange and Payment Procedures | `ma.exchange.procedures` | Exchange Procedures; Paying Agent |  |
+| Exchange and Payment Procedures | `ma.exchange.procedures` | Exchange Procedures; Paying Agent; Fractional Shares |  |
 | Exchange and Payment Procedures | `ma.exchange.dissenting_shares` | Dissenting Shares; Appraisal Rights |  |
-| Exchange and Payment Procedures | `ma.exchange.fractional_shares` | Fractional Shares |  |
 | Exchange and Payment Procedures | `ma.exchange.payment_schedule` | Allocation Schedule; Payment Spreadsheet |  |
 | Purchase Price Adjustment | `ma.price_adjustment.mechanism` | Purchase Price Adjustment | value stub |
-| Purchase Price Adjustment | `ma.price_adjustment.closing_statement` | Closing Statement; Review and Objection |  |
-| Purchase Price Adjustment | `ma.price_adjustment.dispute_resolution` | Independent Accountant Dispute Resolution | value stub |
-| Purchase Price Adjustment | `ma.price_adjustment.escrow` | Adjustment Escrow | value stub |
+| Purchase Price Adjustment | `ma.price_adjustment.closing_statement` | Closing Statement; Review and Objection | wave 2 |
+| Purchase Price Adjustment | `ma.price_adjustment.dispute_resolution` | Independent Accountant Dispute Resolution | wave 2; value stub |
+| Purchase Price Adjustment | `ma.price_adjustment.escrow` | Adjustment Escrow | wave 2; value stub |
 
 ### Representations and Warranties
 
@@ -139,18 +130,18 @@ Marks: the kind when it is not `provision`; `value` for a piloted value schema;
 | Group | Id | Label | Marks |
 |---|---|---|---|
 | Interim Operations | `ma.conduct.ordinary_course` | Ordinary Course Covenant | value stub; party: obligor |
-| Interim Operations | `ma.conduct.negative_covenants` | Negative Covenants (Restricted Actions) | party: obligor |
-| Interim Operations | `ma.conduct.restriction.dividends` | Restriction on Dividends and Repurchases | component; value stub; party: obligor; part of `ma.conduct.negative_covenants` |
-| Interim Operations | `ma.conduct.restriction.equity_issuance` | Restriction on Issuing Equity | component; party: obligor; part of `ma.conduct.negative_covenants` |
-| Interim Operations | `ma.conduct.restriction.indebtedness` | Restriction on Indebtedness and Liens | component; value stub; party: obligor; part of `ma.conduct.negative_covenants` |
-| Interim Operations | `ma.conduct.restriction.capex` | Restriction on Capital Expenditures | component; value stub; party: obligor; part of `ma.conduct.negative_covenants` |
-| Interim Operations | `ma.conduct.restriction.acquisitions_dispositions` | Restriction on Acquisitions and Dispositions | component; value stub; party: obligor; part of `ma.conduct.negative_covenants` |
-| Interim Operations | `ma.conduct.restriction.compensation` | Restriction on Compensation and Benefits | component; party: obligor; part of `ma.conduct.negative_covenants` |
-| Interim Operations | `ma.conduct.restriction.organizational_documents` | Restriction on Charter and Structural Changes | component; party: obligor; part of `ma.conduct.negative_covenants` |
-| Interim Operations | `ma.conduct.restriction.contracts` | Restriction on Material Contracts | component; party: obligor; part of `ma.conduct.negative_covenants` |
-| Interim Operations | `ma.conduct.restriction.litigation_settlement` | Restriction on Settling Claims | component; value stub; party: obligor; part of `ma.conduct.negative_covenants` |
-| Interim Operations | `ma.conduct.restriction.accounting` | Restriction on Accounting Changes | component; party: obligor; part of `ma.conduct.negative_covenants` |
-| Interim Operations | `ma.conduct.emergency_exception` | Emergency and Pandemic Exception | modifier; party: obligor; part of `ma.conduct.ordinary_course` |
+| Interim Operations | `ma.conduct.negative_covenants` | Negative Covenants (Restricted Actions) | wave 2; party: obligor |
+| Interim Operations | `ma.conduct.restriction.dividends` | Restriction on Dividends and Repurchases | component; wave 2; value stub; party: obligor; part of `ma.conduct.negative_covenants` |
+| Interim Operations | `ma.conduct.restriction.equity_issuance` | Restriction on Issuing Equity | component; wave 2; party: obligor; part of `ma.conduct.negative_covenants` |
+| Interim Operations | `ma.conduct.restriction.indebtedness` | Restriction on Indebtedness and Liens | component; wave 2; value stub; party: obligor; part of `ma.conduct.negative_covenants` |
+| Interim Operations | `ma.conduct.restriction.capex` | Restriction on Capital Expenditures | component; wave 2; value stub; party: obligor; part of `ma.conduct.negative_covenants` |
+| Interim Operations | `ma.conduct.restriction.acquisitions_dispositions` | Restriction on Acquisitions and Dispositions | component; wave 2; value stub; party: obligor; part of `ma.conduct.negative_covenants` |
+| Interim Operations | `ma.conduct.restriction.compensation` | Restriction on Compensation and Benefits | component; wave 2; party: obligor; part of `ma.conduct.negative_covenants` |
+| Interim Operations | `ma.conduct.restriction.organizational_documents` | Restriction on Charter and Structural Changes | component; wave 2; party: obligor; part of `ma.conduct.negative_covenants` |
+| Interim Operations | `ma.conduct.restriction.contracts` | Restriction on Material Contracts | component; wave 2; party: obligor; part of `ma.conduct.negative_covenants` |
+| Interim Operations | `ma.conduct.restriction.litigation_settlement` | Restriction on Settling Claims | component; wave 2; value stub; party: obligor; part of `ma.conduct.negative_covenants` |
+| Interim Operations | `ma.conduct.restriction.accounting` | Restriction on Accounting Changes | component; wave 2; party: obligor; part of `ma.conduct.negative_covenants` |
+| Interim Operations | `ma.conduct.emergency_exception` | Emergency and Pandemic Exception | modifier; wave 2; party: obligor; part of `ma.conduct.ordinary_course` |
 | Interim Operations | `ma.conduct.no_control` | No Control of the Other Party's Business |  |
 | Interim Operations | `ma.conduct.integration_planning` | Integration Planning; Systems Conversion |  |
 | Information, Confidentiality and Publicity | `ma.access.information` | Access to Information | party: obligor |
@@ -166,17 +157,17 @@ Marks: the kind when it is not `provision`; `value` for a piloted value schema;
 | Group | Id | Label | Marks |
 |---|---|---|---|
 | No-Shop and Go-Shop | `ma.noshop.non_solicitation` | No-Shop; Non-Solicitation | party: obligor |
-| No-Shop and Go-Shop | `ma.noshop.go_shop` | Go-Shop Period | value stub |
-| No-Shop and Go-Shop | `ma.noshop.unsolicited_proposal_exception` | Exception for Unsolicited Proposals | component; value stub; part of `ma.noshop.non_solicitation` |
-| No-Shop and Go-Shop | `ma.noshop.notice_of_proposals` | Notice of Competing Proposals | component; value stub; part of `ma.noshop.non_solicitation` |
+| No-Shop and Go-Shop | `ma.noshop.go_shop` | Go-Shop Period | wave 2; value stub |
+| No-Shop and Go-Shop | `ma.noshop.unsolicited_proposal_exception` | Exception for Unsolicited Proposals | component; wave 2; value stub; part of `ma.noshop.non_solicitation` |
+| No-Shop and Go-Shop | `ma.noshop.notice_of_proposals` | Notice of Competing Proposals | component; wave 2; value stub; part of `ma.noshop.non_solicitation` |
 | No-Shop and Go-Shop | `ma.noshop.standstill_waiver` | Standstill Waivers |  |
-| Board Recommendation and Fiduciary Out | `ma.recommendation.board_recommendation` | Board Recommendation; No Adverse Change | party: obligor |
-| Board Recommendation and Fiduciary Out | `ma.recommendation.change_superior_proposal` | Fiduciary Out for a Superior Proposal | value stub |
-| Board Recommendation and Fiduciary Out | `ma.recommendation.change_intervening_event` | Fiduciary Out for an Intervening Event | value stub |
-| Board Recommendation and Fiduciary Out | `ma.recommendation.match_right` | Match Right | component; value stub; part of `ma.recommendation.board_recommendation` |
-| Board Recommendation and Fiduciary Out | `ma.recommendation.permitted_disclosure` | Permitted Disclosure; Stop, Look and Listen | component; value stub; part of `ma.recommendation.board_recommendation` |
+| Board Recommendation and Fiduciary Out | `ma.recommendation.board_recommendation` | Board Recommendation; No Adverse Change | wave 2; party: obligor |
+| Board Recommendation and Fiduciary Out | `ma.recommendation.change_superior_proposal` | Fiduciary Out for a Superior Proposal | wave 2; value stub |
+| Board Recommendation and Fiduciary Out | `ma.recommendation.change_intervening_event` | Fiduciary Out for an Intervening Event | wave 2; value stub |
+| Board Recommendation and Fiduciary Out | `ma.recommendation.match_right` | Match Right | component; wave 2; value stub; part of `ma.recommendation.board_recommendation` |
+| Board Recommendation and Fiduciary Out | `ma.recommendation.permitted_disclosure` | Permitted Disclosure; Stop, Look and Listen | component; wave 2; value stub; part of `ma.recommendation.board_recommendation` |
 | Stockholder Approval Process | `ma.approval.stockholder_meeting` | Stockholder Meeting | party: obligor |
-| Stockholder Approval Process | `ma.approval.force_the_vote` | Force-the-Vote | component; value stub; part of `ma.approval.stockholder_meeting` |
+| Stockholder Approval Process | `ma.approval.force_the_vote` | Force-the-Vote | component; wave 2; value stub; part of `ma.approval.stockholder_meeting` |
 | Stockholder Approval Process | `ma.approval.proxy_statement` | Proxy Statement; Registration Statement |  |
 | Stockholder Approval Process | `ma.approval.written_consent` | Stockholder Written Consent; Information Statement | value stub |
 | Stockholder Approval Process | `ma.approval.voting_agreements` | Voting and Support Agreements | value stub |
@@ -192,11 +183,11 @@ Marks: the kind when it is not `provision`; `value` for a piloted value schema;
 | Efforts to Close | `ma.efforts.general` | Efforts to Consummate | value stub |
 | Efforts to Close | `ma.efforts.third_party_consents` | Third-Party Consents |  |
 | Antitrust | `ma.regulatory.antitrust_filings` | Antitrust Filings and Cooperation | value stub |
-| Antitrust | `ma.regulatory.remedies` | Antitrust Remedies; Divestitures | value stub |
-| Antitrust | `ma.regulatory.litigation` | Duty to Litigate Regulatory Challenges | value stub |
-| Antitrust | `ma.regulatory.strategy_control` | Control of Regulatory Strategy | value stub |
-| Antitrust | `ma.regulatory.no_interfering_acquisitions` | No Acquisitions That Delay Clearance | party: obligor |
-| Antitrust | `ma.regulatory.filing_fee_allocation` | Allocation of Regulatory Filing Fees | also under `ma.nav.general.costs` |
+| Antitrust | `ma.regulatory.remedies` | Antitrust Remedies; Divestitures | wave 2; value stub |
+| Antitrust | `ma.regulatory.litigation` | Duty to Litigate Regulatory Challenges | wave 2; value stub |
+| Antitrust | `ma.regulatory.strategy_control` | Control of Regulatory Strategy | wave 2; value stub |
+| Antitrust | `ma.regulatory.no_interfering_acquisitions` | No Acquisitions That Delay Clearance | wave 2; party: obligor |
+| Antitrust | `ma.regulatory.filing_fee_allocation` | Allocation of Regulatory Filing Fees | wave 2; also under `ma.nav.general.costs` |
 | Other Regulatory Approvals | `ma.regulatory.cfius` | CFIUS and Foreign Investment Review | value stub |
 | Other Regulatory Approvals | `ma.regulatory.industry_approvals` | Industry Regulatory Approvals |  |
 
@@ -206,13 +197,13 @@ Marks: the kind when it is not `provision`; `value` for a piloted value schema;
 
 | Group | Id | Label | Marks |
 |---|---|---|---|
-| Financing Arrangements | `ma.financing.structure` | Financing Structure | value |
-| Financing Arrangements | `ma.financing.debt_commitment` | Debt Financing; Commitment Letters | component; part of `ma.rep.financing` |
-| Financing Arrangements | `ma.financing.equity_commitment` | Equity Financing; Equity Commitment Letters | component; part of `ma.rep.financing` |
+| Financing Arrangements | `ma.financing.structure` | Financing Structure | wave 2; value |
+| Financing Arrangements | `ma.financing.debt_commitment` | Debt Financing; Commitment Letters | component; wave 2; part of `ma.rep.financing` |
+| Financing Arrangements | `ma.financing.equity_commitment` | Equity Financing; Equity Commitment Letters | component; wave 2; part of `ma.rep.financing` |
 | Financing Arrangements | `ma.financing.limited_guarantee` | Limited Guarantee; Parent Guarantee |  |
 | Financing Covenants | `ma.financing.buyer_covenant` | Buyer Financing Covenant | value stub |
 | Financing Covenants | `ma.financing.cooperation` | Financing Cooperation |  |
-| Financing Covenants | `ma.financing.cooperation_costs` | Financing Cooperation Costs and Indemnity | component; part of `ma.financing.cooperation` |
+| Financing Covenants | `ma.financing.cooperation_costs` | Financing Cooperation Costs and Indemnity | component; wave 2; part of `ma.financing.cooperation` |
 | Financing Covenants | `ma.financing.payoff_letters` | Payoff Letters; Treatment of Existing Debt |  |
 | Financing Source Protections | `ma.financing.source_protections` | Financing Source Protections |  |
 
@@ -222,10 +213,7 @@ Marks: the kind when it is not `provision`; `value` for a piloted value schema;
 
 | Group | Id | Label | Marks |
 |---|---|---|---|
-| Continuing Employees | `ma.employee.comp_benefits_continuation` | Continuation of Compensation and Benefits | value stub |
-| Continuing Employees | `ma.employee.service_credit` | Service Credit; Welfare Plan Transition |  |
-| Continuing Employees | `ma.employee.plan_termination` | 401(k) Plan Termination |  |
-| Continuing Employees | `ma.employee.no_third_party_rights` | No Employee Third-Party Rights | component; part of `ma.employee.comp_benefits_continuation` |
+| Continuing Employees | `ma.employee.comp_benefits_continuation` | Continuing Employees; Compensation, Benefits and Plan Transition | value stub |
 | Transaction-Related Employee Matters | `ma.employee.retention_severance` | Severance, Retention and Bonuses |  |
 | Transaction-Related Employee Matters | `ma.employee.warn` | WARN Act |  |
 | Transaction-Related Employee Matters | `ma.employee.section_280g` | Section 280G Stockholder Vote | also under `tax.nav.other` |
@@ -248,7 +236,7 @@ Marks: the kind when it is not `provision`; `value` for a piloted value schema;
 | Securities, Listing and Deal Litigation | `ma.transaction_litigation` | Transaction Litigation |  |
 | Post-Closing and Separation | `ma.restrictive.non_compete` | Non-Competition | value stub; party: obligor |
 | Post-Closing and Separation | `ma.restrictive.non_solicit` | Non-Solicitation of Employees and Customers | value stub; party: obligor |
-| Post-Closing and Separation | `ma.restrictive.confidentiality` | Post-Closing Confidentiality of the Sellers | value stub; party: obligor |
+| Post-Closing and Separation | `ma.restrictive.confidentiality` | Post-Closing Confidentiality of the Sellers | wave 2; value stub; party: obligor |
 | Post-Closing and Separation | `ma.release` | Release of Claims | party: obligor |
 | Post-Closing and Separation | `ma.further_assurances` | Further Assurances |  |
 | Post-Closing and Separation | `ma.records_access` | Post-Closing Access to Records; Litigation Support |  |
@@ -270,15 +258,13 @@ Marks: the kind when it is not `provision`; `value` for a piloted value schema;
 | Mutual Conditions | `ma.condition.regulatory_approval` | Regulatory Approval Condition | value stub |
 | Mutual Conditions | `ma.condition.no_legal_restraint` | No Legal Restraint Condition |  |
 | Mutual Conditions | `ma.condition.registration_listing` | Registration Statement and Listing Condition |  |
-| Conditions for One Party | `ma.condition.reps_bringdown` | Accuracy of Representations (Bring-Down) | value stub; party: tested_party |
-| Conditions for One Party | `ma.condition.covenant_performance` | Performance of Covenants | party: tested_party |
+| Conditions for One Party | `ma.condition.reps_bringdown` | Bring-Down of Representations; Performance of Covenants | value stub; party: tested_party |
 | Conditions for One Party | `ma.condition.no_mae` | No Material Adverse Effect Condition | party: tested_party |
-| Conditions for One Party | `ma.condition.financing` | Financing Condition | also under `ma.nav.financing.arrangements` |
-| Conditions for One Party | `ma.condition.dissenting_shares` | Dissenting Shares Condition | value stub |
+| Conditions for One Party | `ma.condition.financing` | Financing Condition | wave 2; also under `ma.nav.financing.arrangements` |
+| Conditions for One Party | `ma.condition.dissenting_shares` | Dissenting Shares Condition | wave 2; value stub |
 | Conditions for One Party | `ma.condition.third_party_consents` | Third-Party Consents Condition |  |
 | Conditions for One Party | `ma.condition.no_litigation` | No Pending Litigation Condition |  |
 | Conditions for One Party | `ma.condition.other` | Other Closing Condition | party: tested_party |
-| Condition Mechanics | `ma.condition.frustration` | Frustration of Closing Conditions |  |
 
 ### Termination
 
@@ -287,22 +273,21 @@ Marks: the kind when it is not `provision`; `value` for a piloted value schema;
 | Group | Id | Label | Marks |
 |---|---|---|---|
 | Termination Rights | `ma.termination.right.mutual_consent` | Termination by Mutual Consent |  |
-| Termination Rights | `ma.termination.outside_date` | Outside Date | value |
-| Termination Rights | `ma.termination.right.legal_restraint` | Termination for a Final Legal Restraint |  |
-| Termination Rights | `ma.termination.right.vote_failure` | Termination for Failure of the Stockholder Vote | value stub |
-| Termination Rights | `ma.termination.right.breach` | Termination for Breach | value stub; party: holder |
-| Termination Rights | `ma.termination.right.recommendation_change` | Termination for a Change of Recommendation | party: holder |
-| Termination Rights | `ma.termination.right.superior_proposal` | Termination to Accept a Superior Proposal | party: holder |
-| Termination Rights | `ma.termination.right.failure_to_close` | Termination for the Buyer's Failure to Close | party: holder |
-| Termination Rights | `ma.termination.right.other` | Other Termination Right | party: holder |
-| Termination Rights | `ma.termination.notice` | Notice and Procedure for Termination |  |
-| Effect of Termination | `ma.termination.effect` | Effect of Termination |  |
-| Effect of Termination | `ma.termination.willful_breach_liability` | Liability After Termination for Willful Breach or Fraud | value stub |
-| Termination Fees and Expenses | `ma.termination.fee.target` | Target Termination Fee | value |
-| Termination Fees and Expenses | `ma.termination.fee.reverse` | Reverse Termination Fee | value |
+| Termination Rights | `ma.termination.outside_date` | Outside Date | wave 2; value |
+| Termination Rights | `ma.termination.right.legal_restraint` | Termination for a Final Legal Restraint | wave 2 |
+| Termination Rights | `ma.termination.right.vote_failure` | Termination for Failure of the Stockholder Vote | wave 2; value stub |
+| Termination Rights | `ma.termination.right.breach` | Termination for Breach | wave 2; value stub; party: holder |
+| Termination Rights | `ma.termination.right.recommendation_change` | Termination for a Change of Recommendation | wave 2; party: holder |
+| Termination Rights | `ma.termination.right.superior_proposal` | Termination to Accept a Superior Proposal | wave 2; party: holder |
+| Termination Rights | `ma.termination.right.failure_to_close` | Termination for the Buyer's Failure to Close | wave 2; party: holder |
+| Termination Rights | `ma.termination.right.other` | Other Termination Right | wave 2; party: holder |
+| Effect of Termination | `ma.termination.effect` | Effect of Termination; Notice of Termination |  |
+| Effect of Termination | `ma.termination.willful_breach_liability` | Liability After Termination for Willful Breach or Fraud | wave 2; value stub |
+| Termination Fees and Expenses | `ma.termination.fee.target` | Target Termination Fee | wave 2; value |
+| Termination Fees and Expenses | `ma.termination.fee.reverse` | Reverse Termination Fee | wave 2; value |
 | Termination Fees and Expenses | `ma.termination.expense_reimbursement` | Expense Reimbursement on Termination | value |
-| Termination Fees and Expenses | `ma.termination.fee.exclusive_remedy` | Termination Fee as Exclusive Remedy; Liability Cap |  |
-| Termination Fees and Expenses | `ma.termination.collection_costs` | Collection Costs and Interest on Unpaid Fees |  |
+| Termination Fees and Expenses | `ma.termination.fee.exclusive_remedy` | Termination Fee as Exclusive Remedy; Liability Cap | wave 2 |
+| Termination Fees and Expenses | `ma.termination.collection_costs` | Collection Costs and Interest on Unpaid Fees | wave 2 |
 
 ### Indemnification and Risk Allocation
 
@@ -312,16 +297,15 @@ Marks: the kind when it is not `provision`; `value` for a piloted value schema;
 |---|---|---|---|
 | Survival and Scope | `ma.indemn.survival` | Survival of Representations and Covenants | value; also under `ma.nav.general.agreement` |
 | Survival and Scope | `ma.indemn.obligation` | Indemnification Obligation | party: indemnitor |
-| Survival and Scope | `ma.indemn.specific` | Specific Indemnities | component; party: indemnitor; part of `ma.indemn.obligation` |
-| Limits on Recovery | `ma.indemn.cap` | Indemnification Cap | value |
-| Limits on Recovery | `ma.indemn.basket` | Basket; Deductible; De Minimis | value |
-| Limits on Recovery | `ma.indemn.materiality_scrape` | Materiality Scrape | modifier; value stub; part of `ma.indemn.obligation` |
+| Survival and Scope | `ma.indemn.specific` | Specific Indemnities | component; wave 2; party: indemnitor; part of `ma.indemn.obligation` |
+| Limits on Recovery | `ma.indemn.cap` | Indemnification Cap | wave 2; value |
+| Limits on Recovery | `ma.indemn.basket` | Basket; Deductible; De Minimis | wave 2; value |
+| Limits on Recovery | `ma.indemn.materiality_scrape` | Materiality Scrape | modifier; wave 2; value stub; part of `ma.indemn.obligation` |
 | Limits on Recovery | `ma.indemn.sandbagging` | Sandbagging | value stub |
 | Limits on Recovery | `ma.indemn.exclusive_remedy` | Exclusive Remedy | value stub |
 | Limits on Recovery | `ma.indemn.mitigation` | Mitigation of Losses |  |
 | Limits on Recovery | `ma.indemn.recovery_offsets` | Insurance and Other Recovery Offsets |  |
-| Claims and Sources of Recovery | `ma.indemn.claims_procedure` | Indemnification Claims Procedure |  |
-| Claims and Sources of Recovery | `ma.indemn.third_party_claims` | Third-Party Claims; Defense and Settlement |  |
+| Claims and Sources of Recovery | `ma.indemn.claims_procedure` | Indemnification Claims Procedure; Third-Party Claims |  |
 | Claims and Sources of Recovery | `ma.indemn.escrow` | Indemnity Escrow; Holdback | value stub; also under `ma.nav.consideration.adjustment` |
 | Claims and Sources of Recovery | `ma.indemn.setoff` | Right of Setoff |  |
 | Claims and Sources of Recovery | `ma.indemn.order_of_recovery` | Order and Source of Recovery |  |
@@ -342,7 +326,6 @@ Marks: the kind when it is not `provision`; `value` for a piloted value schema;
 | Remedies and Enforcement | `ma.damages_waiver` | Waiver of Consequential and Punitive Damages | value stub |
 | Remedies and Enforcement | `ma.non_recourse` | Non-Recourse |  |
 | Remedies and Enforcement | `ma.attorneys_fees` | Attorneys' Fees |  |
-| Remedies and Enforcement | `ma.remedies_cumulative` | Remedies Cumulative |  |
 
 ### Definitions and Interpretation
 
@@ -351,24 +334,24 @@ Marks: the kind when it is not `provision`; `value` for a piloted value schema;
 | Group | Id | Label | Marks |
 |---|---|---|---|
 | Defined Terms | `ma.definitions.general` | Defined Terms (General) |  |
-| Key Defined Terms | `ma.mae.definition` | Material Adverse Effect Definition | definition; value; party: subject; also under `ma.nav.conditions.party` |
-| Key Defined Terms | `ma.mae.carveout` | MAE Carve-Out | component; value; part of `ma.mae.definition` |
-| Key Defined Terms | `ma.mae.disproportionate_effect` | MAE Disproportionate Effect Exception | modifier; part of `ma.mae.definition` |
-| Key Defined Terms | `ma.def.knowledge` | "Knowledge" Definition | definition; value stub |
-| Key Defined Terms | `ma.def.acquisition_proposal` | "Acquisition Proposal" Definition | definition; value stub; also under `ma.nav.deal_protection.no_shop` |
-| Key Defined Terms | `ma.def.superior_proposal` | "Superior Proposal" Definition | definition; value stub; also under `ma.nav.deal_protection.recommendation` |
-| Key Defined Terms | `ma.def.intervening_event` | "Intervening Event" Definition | definition; also under `ma.nav.deal_protection.recommendation` |
-| Key Defined Terms | `ma.def.willful_breach` | "Willful Breach" Definition | definition; value stub; also under `ma.nav.termination.effect` |
-| Key Defined Terms | `ma.def.fraud` | "Fraud" Definition | definition; value stub; also under `ma.nav.indemnification.limits` |
-| Key Defined Terms | `ma.def.burdensome_condition` | "Burdensome Condition" Definition | definition; also under `ma.nav.regulatory.antitrust` |
-| Key Defined Terms | `ma.def.marketing_period` | "Marketing Period" Definition | definition; value stub; also under `ma.nav.financing.covenants` |
-| Key Defined Terms | `ma.def.ordinary_course` | "Ordinary Course of Business" Definition | definition; also under `ma.nav.conduct.interim` |
-| Key Defined Terms | `ma.def.permitted_liens` | "Permitted Liens" Definition | definition |
-| Key Defined Terms | `ma.def.indebtedness` | "Indebtedness" Definition | definition; also under `ma.nav.consideration.adjustment` |
-| Key Defined Terms | `ma.def.working_capital` | "Working Capital" Definitions | definition; also under `ma.nav.consideration.adjustment` |
-| Key Defined Terms | `ma.def.transaction_expenses` | "Transaction Expenses" Definition | definition; also under `ma.nav.consideration.adjustment` |
-| Key Defined Terms | `ma.def.losses` | "Losses" Definition | definition; also under `ma.nav.indemnification.scope` |
-| Key Defined Terms | `ma.def.fundamental_reps` | "Fundamental Representations" Definition | definition; also under `ma.nav.indemnification.scope` |
+| Key Defined Terms | `ma.mae.definition` | Material Adverse Effect Definition | definition; wave 2; value; party: subject; also under `ma.nav.conditions.party` |
+| Key Defined Terms | `ma.mae.carveout` | MAE Carve-Out | component; wave 2; value; part of `ma.mae.definition` |
+| Key Defined Terms | `ma.mae.disproportionate_effect` | MAE Disproportionate Effect Exception | modifier; wave 2; part of `ma.mae.definition` |
+| Key Defined Terms | `ma.def.knowledge` | "Knowledge" Definition | definition; wave 2; value stub |
+| Key Defined Terms | `ma.def.acquisition_proposal` | "Acquisition Proposal" Definition | definition; wave 2; value stub; also under `ma.nav.deal_protection.no_shop` |
+| Key Defined Terms | `ma.def.superior_proposal` | "Superior Proposal" Definition | definition; wave 2; value stub; also under `ma.nav.deal_protection.recommendation` |
+| Key Defined Terms | `ma.def.intervening_event` | "Intervening Event" Definition | definition; wave 2; also under `ma.nav.deal_protection.recommendation` |
+| Key Defined Terms | `ma.def.willful_breach` | "Willful Breach" Definition | definition; wave 2; value stub; also under `ma.nav.termination.effect` |
+| Key Defined Terms | `ma.def.fraud` | "Fraud" Definition | definition; wave 2; value stub; also under `ma.nav.indemnification.limits` |
+| Key Defined Terms | `ma.def.burdensome_condition` | "Burdensome Condition" Definition | definition; wave 2; also under `ma.nav.regulatory.antitrust` |
+| Key Defined Terms | `ma.def.marketing_period` | "Marketing Period" Definition | definition; wave 2; value stub; also under `ma.nav.financing.covenants` |
+| Key Defined Terms | `ma.def.ordinary_course` | "Ordinary Course of Business" Definition | definition; wave 2; also under `ma.nav.conduct.interim` |
+| Key Defined Terms | `ma.def.permitted_liens` | "Permitted Liens" Definition | definition; wave 2 |
+| Key Defined Terms | `ma.def.indebtedness` | "Indebtedness" Definition | definition; wave 2; also under `ma.nav.consideration.adjustment` |
+| Key Defined Terms | `ma.def.working_capital` | "Working Capital" Definitions | definition; wave 2; also under `ma.nav.consideration.adjustment` |
+| Key Defined Terms | `ma.def.transaction_expenses` | "Transaction Expenses" Definition | definition; wave 2; also under `ma.nav.consideration.adjustment` |
+| Key Defined Terms | `ma.def.losses` | "Losses" Definition | definition; wave 2; also under `ma.nav.indemnification.scope` |
+| Key Defined Terms | `ma.def.fundamental_reps` | "Fundamental Representations" Definition | definition; wave 2; also under `ma.nav.indemnification.scope` |
 | Interpretation | `ma.interpretation.rules` | Rules of Construction |  |
 | Interpretation | `ma.interpretation.disclosure_schedules` | Disclosure Schedules |  |
 | Interpretation | `ma.recitals` | Preamble and Recitals |  |
@@ -381,12 +364,10 @@ Marks: the kind when it is not `provision`; `value` for a piloted value schema;
 |---|---|---|---|
 | The Agreement | `ma.notices` | Notices |  |
 | The Agreement | `ma.entire_agreement` | Entire Agreement |  |
-| The Agreement | `ma.amendment` | Amendment |  |
-| The Agreement | `ma.waiver` | Waiver; Extension |  |
+| The Agreement | `ma.amendment` | Amendment; Waiver; Extension |  |
 | The Agreement | `ma.assignment` | Assignment; Successors and Assigns |  |
 | The Agreement | `ma.third_party_beneficiaries` | No Third-Party Beneficiaries |  |
-| The Agreement | `ma.severability` | Severability |  |
-| The Agreement | `ma.counterparts` | Counterparts; Electronic Signatures |  |
+| The Agreement | `ma.severability` | Severability; Counterparts; Remedies Cumulative |  |
 | Costs and Parties | `ma.expenses` | Fees and Expenses |  |
 | Costs and Parties | `ma.merger_sub_obligations` | Obligations of Merger Sub; Parent Undertaking |  |
 | Costs and Parties | `ma.legal_representation` | Legal Representation; Privilege |  |

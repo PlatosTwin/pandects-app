@@ -36,6 +36,8 @@ def _marks(node: taxonomy_pack.Node) -> str:
     marks: list[str] = []
     if node.kind != "provision":
         marks.append(node.kind)
+    if data.get("wave") == 2:
+        marks.append("wave 2")
     schema = data.get("value_schema")
     if isinstance(schema, dict):
         marks.append("value" if schema.get("status") == "piloted" else "value stub")
@@ -59,7 +61,8 @@ def render_tree(taxonomy: taxonomy_pack.Taxonomy) -> str:
             children[node.nav_parent].append(node)
 
     lines = [GENERATED, "", "# Full taxonomy: every node", ""]
-    lines.append("Marks: the kind when it is not `provision`; `value` for a piloted value schema;")
+    lines.append("Marks: the kind when it is not `provision`; `wave 2` for an M&A concept that the second labeling")
+    lines.append("wave covers (every other M&A concept is in wave 1); `value` for a piloted value schema;")
     lines.append("`value stub` for an untested sketch of fields; the party role that an instance records.")
     for pack in taxonomy_pack.PACKS:
         lines += ["", f"## {PACK_TITLES[pack]}"]

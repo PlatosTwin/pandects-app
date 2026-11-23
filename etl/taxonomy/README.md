@@ -38,6 +38,7 @@ A concept's id never states where the concept sits in the tree. The tree can cha
 | `also_listed_under` | all | Navigation nodes, in any pack, where the node also appears. This is how a concept on the seam between the packs shows up in both trees with one owner. |
 | `assignable` | navigation nodes | `true` when a label may point to the navigation node itself. The tax pack uses this, as the tax labeler does today. The M&A pack uses catch-all concepts instead (`ma.rep.other`, `ma.misc.other`). |
 | `tier` | concepts | `value` when the concept has a piloted value schema. Otherwise `label`. |
+| `wave` | M&A concepts | `1` or `2`: the labeling wave. See "Waves and filter levels". The tax pack has no waves. |
 | `attributes.party` | concepts | The role of the party that a label instance must record: `maker` (of a representation), `obligor`, `tested_party`, `holder` (of a right), `indemnitor` or `subject`. The party is stored on the instance. There is no separate subtree per party. |
 | `description` | all | One or two sentences. Written for this project. |
 | `canonical_terms` | concepts | Words and defined terms that signal the concept. |
@@ -48,6 +49,21 @@ A concept's id never states where the concept sits in the tree. The tree can cha
 | `new_in_redesign` | tax nodes | `true` for a node that the legacy tax tree does not have. The 7 such nodes were accepted on 2026-11-22. |
 | `introduced_in` | all | The release that added the node. |
 | `deprecated_in`, `replaced_by` | all | For a node that a later release retires. A retired node stays in the file. |
+
+## Waves and filter levels
+
+Labeling of the M&A pack runs in two waves (decided 2026-11-22). Each M&A concept states its wave.
+
+| Wave | Contents | Rule |
+|---|---|---|
+| `wave: 1` | Section-level topics and the catch-alls | A provision that is the heading of a section of its own in at least 1% of agreements, measured with `docs/plans/full-taxonomy/prevalence.py`. Also the catch-all concepts. |
+| `wave: 2` | Clause-level provisions, parts and definitions | A provision that sits inside a larger section, such as a termination trigger or the indemnity cap. Every `component`, `modifier` and `definition`. The catch-all for termination rights, because its siblings are in wave 2. |
+
+A new M&A concept gets its wave by the same rule. The validator rejects an M&A concept with no wave, and a part or a definition in wave 1.
+
+The tax pack has no waves. One tax pass labels it after wave 1 has found the tax sections.
+
+The groups are the default level for browsing and filtering. A label on a concept counts for its group and its branch, so a filter on a group returns every section that carries one of the group's concepts. A filter on one concept is the finer choice.
 
 ## Crosswalks
 
@@ -101,4 +117,5 @@ The validator checks that:
 - each leaf of the three older trees maps to at least one node;
 - each node of the legacy tax tree has exactly one `exact` match;
 - a concept is `tier: value` only when its value schema is piloted;
+- each M&A concept has `wave: 1` or `wave: 2`, and a part or a definition is in wave 2;
 - each id that an exclusion cue names exists.
