@@ -154,6 +154,7 @@ ma.arbitration	(shall be|will be) (finally )?(settled|resolved|determined|submit
 ma.restrictive.non_compete	non-?competition|covenant not to compete
 ma.spac.extension	extension (proposal|meeting|amendment)|extend the (deadline|date|time|period)[^.]{0,120}business combination
 ma.spac.domestication	domestication
+ma.spac.public_filings	keep current and (accurately and )?timely file|timely file all (of its )?(public filings|reports required to be filed)[^.]{0,80}(sec|securities and exchange commission)[^.]*(through|until|prior to) the closing|(during the interim period|from the date hereof through the closing)[^.]{0,60}timely file
 ma.condition.frustration	frustration of (closing )?conditions|may (not )?rely[^.]{0,80}failure of any condition
 # Concepts added after the labeling trial of 2026-11-23.
 ma.rep.communications	federal communications commission|fcc licen[sc]es|communications act of 1934|communications laws

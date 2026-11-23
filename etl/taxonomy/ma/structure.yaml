@@ -826,3 +826,50 @@ concepts:
         The statement that the Domestication is intended to qualify as a reorganization is
         tax.treatment.reorganization.
     introduced_in: '2026.1'
+
+  - id: ma.spac.public_filings
+    label: SPAC Public Filings; Keeping SEC Reports Current
+    kind: provision
+    nav_parent: ma.nav.structure.spac
+    tier: label
+    wave: 1
+    attributes:
+      party: obligor
+    description: >-
+      The SPAC's covenant to keep current and timely file its SEC reports, to comply with the securities laws,
+      and to keep its units, shares and warrants listed and registered until closing. The same promise by a
+      listed buyer that is not a SPAC also takes this concept.
+    canonical_terms:
+      - Public Filings
+      - keep current and timely file all reports required to be filed or furnished with the SEC
+      - comply in all material respects with its reporting obligations
+      - Additional SEC Reports
+      - maintain the listing of the SPAC Units
+      - remain listed as a public company
+    example_phrases:
+      - >-
+        From the date hereof through the Closing, Acquiror will keep current and timely file all reports
+        required to be filed or furnished with the SEC and otherwise comply in all material respects with
+        its reporting obligations under applicable Securities Laws.
+      - >-
+        During the Interim Period, the Purchaser will keep current and timely file all of its public filings
+        with the SEC and shall use its commercially reasonable efforts to maintain the listing of the
+        Purchaser Public Units, the Purchaser Ordinary Shares and the Purchaser Public Warrants on Nasdaq.
+    exclusion_cues:
+      - >-
+        The duty to prepare and file the proxy statement or registration statement for the deal, and to answer
+        SEC comments on it, is ma.approval.proxy_statement.
+      - >-
+        Limits on press releases and public statements about the deal are ma.access.public_announcements.
+        The Form 8-K or press release that announces the signing goes there too.
+      - >-
+        Listing of the shares issued in the deal, and delisting of the target's shares, is
+        ma.listing.stock_exchange. A SPAC covenant that keeps its existing securities listed until closing
+        stays here.
+      - >-
+        The representation that the SPAC has filed its SEC reports in the past is ma.rep.sec_reports. This
+        concept is the promise to keep filing until closing.
+      - >-
+        The SPAC's promise not to trade in its own securities, or the target's promise not to trade in them,
+        is ma.covenant.other.
+    introduced_in: '2026.1'

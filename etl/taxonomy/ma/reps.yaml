@@ -393,6 +393,7 @@ concepts:
       - The financial statements inside those reports are ma.rep.financial_statements.
       - Controls over financial reporting are ma.rep.internal_controls.
       - Accuracy of the proxy statement for this deal is ma.rep.information_supplied.
+      - A SPAC's promise to keep filing its SEC reports until closing is ma.spac.public_filings.
     crosswalk:
       section_v2:
         - id: 89adfe54f18848d5

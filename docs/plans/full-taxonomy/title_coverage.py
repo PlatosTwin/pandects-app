@@ -229,7 +229,10 @@ RULES: list[tuple[str | None, str, str]] = [
     (None, r"shared (contracts?|agreements?|assets|equipment|real (estate|property)|facilit|ip$)|commingled contracts?|mixed.use contracts?|split contracts?|enterprise.wide contracts?", "ma.separation.shared_contracts"),
     (None, r"post.closing insurance|access to (seller.?s? )?insurance|sellers?.? (group )?insurance|insurance (after|following) (the )?closing|occurrence.based", "ma.separation.insurance_access"),
     (None, r"sale order|bankruptcy court|bidding procedures|stalking horse|overbid|back.?up bidder|cure (costs|amounts)|bankruptcy (matters|filings|approval|proceedings|actions|cases?)$|^chapter 11", "ma.bankruptcy.court_approval"),
-    (None, r"(spac|acquiror|purchaser|parent|buyer) public filings", "ma.covenant.other"),
+    # The SPAC covenant to keep SEC reports current (open question 18, ruled 2026-11-23). A bare "Public Filings"
+    # heading outside a representations article is this covenant in most agreements. "SEC Filings" headings
+    # are deal filings and stay with the proxy statement rule.
+    (None, r"(spac|acquiror|purchaser|parent|buyer|pubco) public filings|^public filings( of (the )?(spac|acquiror|purchaser|parent|buyer|pubco))?$", "ma.spac.public_filings"),
     # ---- global rules: structure and closing
     (None, r"^the merger(s)?$|^merger$|^the (first|second|initial|subsequent|company|bank|parent|holdco|reincorporation|upstream) merger|mergers? and|^the (share )?exchange$|^the (transaction|combination|arrangement|amalgamation|scheme)s?$|bank merger|second merger|subsidiary merger|plan of merger|constituent|^the (business )?combination", "ma.structure.merger"),
     (None, r"purchase and sale|sale and purchase|sale of (the )?(shares|stock|interests|units|securities|membership|purchased|acquired|company)|purchase of (the )?(shares|stock|interests|units|securities|membership|company)|transfer of (the )?(shares|interests|units|stock)|agreement to (purchase|sell)|^(the )?(sale|purchase|acquisition|contribution)$|contribution and exchange|^sale and transfer", "ma.structure.purchase_and_sale"),

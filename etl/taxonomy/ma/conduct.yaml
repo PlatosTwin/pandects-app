@@ -638,6 +638,10 @@ concepts:
         Thereafter, no party shall issue any press release or make any public announcement concerning
         the transactions without the prior written consent of the other party, except as such party may
         reasonably determine is required by applicable Law or the rules of any stock exchange.
+    exclusion_cues:
+      - >-
+        A SPAC's promise to keep its SEC reports current until closing, often headed "Public Filings", is
+        ma.spac.public_filings.
     crosswalk:
       section_v1:
         - id: 73332e4818b3522e

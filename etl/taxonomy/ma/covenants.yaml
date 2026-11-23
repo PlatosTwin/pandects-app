@@ -228,6 +228,9 @@ concepts:
         and deregistered under the Exchange Act.
     exclusion_cues:
       - The closing condition on listing is ma.condition.registration_listing.
+      - >-
+        A SPAC's promise to keep its existing securities listed until closing, with its SEC reports current,
+        is ma.spac.public_filings.
     crosswalk:
       section_v1:
         - id: b4beeb0f987294fe
@@ -748,14 +751,15 @@ concepts:
     description: >-
       A covenant on a topic that no other concept covers. Check the covenant concepts of every branch first.
       Covenants that have no concept of their own belong here, for example a promise not to trade in a
-      SPAC's securities, a SPAC's promise to keep its SEC reports current, and the court steps of a plan or
-      scheme of arrangement under Canadian or UK-style law.
+      SPAC's securities and the court steps of a plan or scheme of arrangement under Canadian or UK-style law.
     canonical_terms:
       - no trading
       - shall not engage in any transactions involving the securities of Acquiror
-      - keep current and timely file all reports required to be filed with the SEC
       - Interim Order
     exclusion_cues:
+      - >-
+        A SPAC's promise to keep its SEC reports current and its securities listed until closing is
+        ma.spac.public_filings.
       - >-
         The buyer's duty to reimburse and indemnify the target for financing cooperation is
         ma.financing.cooperation_costs (in wave 1, label its parent ma.financing.cooperation).

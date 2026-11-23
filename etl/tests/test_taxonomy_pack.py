@@ -266,6 +266,17 @@ class ShippedPacksTest(unittest.TestCase):
         for concept_id in TRIAL_OBLIGOR_ROLES:
             self.assertEqual(self.taxonomy.nodes[concept_id].data.get("attributes"), {"party": "obligor"}, concept_id)
 
+    def test_spac_public_filings_has_its_own_concept(self) -> None:
+        """Open question 18 (ruled 2026-11-23): a topic gets a concept at 3% of headings. Only this one qualified."""
+        nodes = self.taxonomy.nodes
+        node = nodes["ma.spac.public_filings"]
+        self.assertEqual((node.kind, node.data["wave"], node.nav_parent), ("provision", 1, "ma.nav.structure.spac"))
+        self.assertEqual(node.data["attributes"], {"party": "obligor"})
+        catch_all = nodes["ma.covenant.other"].data
+        self.assertNotIn("SEC reports", catch_all["description"])
+        self.assertTrue(any("ma.spac.public_filings" in cue for cue in catch_all["exclusion_cues"]))
+        self.assertIn("no trading", catch_all["canonical_terms"])
+
     def test_tax_additions_are_flagged(self) -> None:
         """Each node that the legacy tax tree does not have is flagged, and no other node is."""
         flagged = {node.id for node in self.taxonomy.nodes.values() if node.data.get("new_in_redesign")}

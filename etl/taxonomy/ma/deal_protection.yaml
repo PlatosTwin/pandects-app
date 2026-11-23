@@ -510,6 +510,9 @@ concepts:
     exclusion_cues:
       - The representation that supplied information is accurate is ma.rep.information_supplied.
       - The Schedule 14D-9 in a tender offer is ma.tender.company_actions.
+      - >-
+        A SPAC's general promise to keep all of its SEC reports current until closing is
+        ma.spac.public_filings.
     crosswalk:
       section_v1:
         - id: e7baf74d263421c0

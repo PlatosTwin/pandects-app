@@ -409,7 +409,7 @@ The relation describes the new node compared with the older node.
 | `tax.8.5.1` | Other Tax Attributes | `tax.attribute.other` (exact) |
 | `tax.9.1.1` | Other / Unclassified Tax Provision | `tax.other.unclassified` (exact) |
 
-## M&A concepts with no older leaf (97)
+## M&A concepts with no older leaf (98)
 
 These concepts are new. No leaf of either older section tree has the same or a wider scope.
 
@@ -510,3 +510,4 @@ These concepts are new. No leaf of either older section tree has the same or a w
 - `ma.spac.sponsor_support`: Sponsor Support Agreement
 - `ma.spac.extension`: Extension of the SPAC Deadline
 - `ma.spac.domestication`: SPAC Domestication
+- `ma.spac.public_filings`: SPAC Public Filings; Keeping SEC Reports Current

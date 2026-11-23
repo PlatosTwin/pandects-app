@@ -44,6 +44,7 @@ In the M&A pack, † after a group name means that the group can be the label of
 | SPAC Transactions † | `ma.spac.sponsor_support` | Sponsor Support Agreement |  |
 | SPAC Transactions † | `ma.spac.extension` | Extension of the SPAC Deadline |  |
 | SPAC Transactions † | `ma.spac.domestication` | SPAC Domestication | also under `tax.nav.deal.restructuring` |
+| SPAC Transactions † | `ma.spac.public_filings` | SPAC Public Filings; Keeping SEC Reports Current | party: obligor |
 
 ### Consideration and Payment Mechanics
 
