@@ -14,13 +14,13 @@
     "dotenv": "^18.0.10",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "resend": "^6.38.1"
+    "resend": "^6.39.0"
   },
   "devDependencies": {
     "@react-email/preview-server": "5.2.10",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "react-email": "6.11.14",
+    "react-email": "6.11.16",
     "tsx": "^4.23.15"
   },
   "overrides": {
