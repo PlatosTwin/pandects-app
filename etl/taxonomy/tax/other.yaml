@@ -1,0 +1,49 @@
+# Pandects taxonomy, tax pack (`tax`). Navigation branch: Other / Unclassified.
+# Structure and labels mirror tax_clause_taxonomy_l1/l2/l3, which was built with a tax professor.
+# Nodes marked `proposed: true` are additions that await the maintainer's decision.
+# Field reference: etl/taxonomy/README.md. Validate with: python -m etl.domain.taxonomy_pack
+pack: tax
+release: '2026.1'
+branch:
+  id: tax.nav.other
+  label: Other / Unclassified
+  kind: branch
+  order: 9
+  assignable: true
+  description: Tax provisions that fit no other branch.
+  crosswalk:
+    tax_v1:
+      - id: tax.9
+        relation: exact
+  introduced_in: '2026.1'
+groups:
+
+  - id: tax.nav.other.unclassified
+    label: Other / Unclassified Tax Provisions
+    kind: group
+    nav_parent: tax.nav.other
+    assignable: true
+    description: Tax provisions that fit no other group.
+    crosswalk:
+      tax_v1:
+        - id: tax.9.1
+          relation: exact
+    introduced_in: '2026.1'
+concepts:
+
+  - id: tax.other.unclassified
+    label: Other / Unclassified Tax Provision
+    kind: provision
+    nav_parent: tax.nav.other.unclassified
+    tier: label
+    description: A tax provision that fits no other tax concept. Use it rarely.
+    exclusion_cues:
+      - >-
+        Tax rules for compensation (Sections 280G and 409A, plan qualification) belong to the M&A pack:
+        ma.employee.section_280g and ma.rep.employee_benefits.
+      - Definitions of Tax and Tax Return are under tax.nav.definitions.
+    crosswalk:
+      tax_v1:
+        - id: tax.9.1.1
+          relation: exact
+    introduced_in: '2026.1'

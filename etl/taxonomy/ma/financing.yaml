@@ -1,0 +1,327 @@
+# Pandects taxonomy, M&A pack (`ma`). Navigation branch: Financing.
+# Source of truth for these nodes. Field reference: etl/taxonomy/README.md.
+# Validate with: python -m etl.domain.taxonomy_pack
+pack: ma
+release: '2026.1'
+branch:
+  id: ma.nav.financing
+  label: Financing
+  kind: branch
+  order: 7
+  description: How the buyer funds the deal and what each side must do about it.
+  introduced_in: '2026.1'
+groups:
+
+  - id: ma.nav.financing.arrangements
+    label: Financing Arrangements
+    kind: group
+    nav_parent: ma.nav.financing
+    description: The financing structure, the commitment letters and guarantees.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.financing.covenants
+    label: Financing Covenants
+    kind: group
+    nav_parent: ma.nav.financing
+    description: The buyer's duty to obtain the financing and the target's duty to help.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.financing.sources
+    label: Financing Source Protections
+    kind: group
+    nav_parent: ma.nav.financing
+    description: Protections for the lenders.
+    introduced_in: '2026.1'
+concepts:
+
+  - id: ma.financing.structure
+    label: Financing Structure
+    kind: provision
+    nav_parent: ma.nav.financing.arrangements
+    tier: value
+    description: >-
+      A summary concept for how the deal is funded and how firm the funding is: whether closing depends
+      on financing, the committed sources, the efforts standard and the marketing period. Its spans come
+      from the financing representation, covenant and conditions.
+    canonical_terms:
+      - financing condition
+      - Debt Financing
+      - Equity Financing
+      - cash on hand
+      - Marketing Period
+      - not a condition to Closing
+    example_phrases:
+      - >-
+        Parent and Merger Sub acknowledge and agree that obtaining the Financing is not a condition to
+        the Closing.
+    exclusion_cues:
+      - >-
+        Use the narrower financing concepts for a single clause. This concept carries the combined values.
+    value_schema:
+      status: piloted
+      version: '2.16'
+      source: docs/plans/span-taxonomy.md, section 7.2
+      fields:
+        - financing_condition
+        - committed_financing
+        - efforts_standard
+        - marketing_period
+        - financing_cooperation
+        - rtf_link
+    introduced_in: '2026.1'
+
+  - id: ma.financing.debt_commitment
+    label: Debt Financing; Commitment Letters
+    kind: provision
+    nav_parent: ma.nav.financing.arrangements
+    tier: label
+    description: Terms on the debt commitment letters and the debt financing they provide for.
+    canonical_terms:
+      - Debt Commitment Letter
+      - Debt Financing
+      - Lenders
+      - Fee Letter
+    example_phrases:
+      - >-
+        Parent has delivered to the Company a true, correct, and complete copy of the executed Debt Commitment
+        Letter pursuant to which the Lenders have committed to provide the Debt Financing.
+      - >-
+        As of the date hereof, the Debt Commitment Letter is in full force and effect and constitutes
+        a legal, valid, and binding obligation of Parent and, to Parent's knowledge, the other parties
+        thereto.
+    exclusion_cues:
+      - The representation that the letters are in force is ma.rep.financing.
+      - Protections for the lenders are ma.financing.source_protections.
+    crosswalk:
+      section_v1:
+        - id: 6a2f9e016a48367a
+          relation: narrower
+      section_v2:
+        - id: 9030f3aaa15165f0
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.financing.equity_commitment
+    label: Equity Financing; Equity Commitment Letters
+    kind: provision
+    nav_parent: ma.nav.financing.arrangements
+    tier: label
+    description: >-
+      Terms on the equity commitment letters from a sponsor or other investor, and the target's right
+      to enforce them.
+    canonical_terms:
+      - Equity Commitment Letter
+      - Equity Financing
+      - Sponsor
+      - Equity Investor
+      - third-party beneficiary of the Equity Commitment Letter
+    example_phrases:
+      - >-
+        Concurrently with the execution of this Agreement, Parent has delivered to the Company the executed
+        Equity Commitment Letter pursuant to which the Sponsor has committed to contribute the Equity
+        Financing.
+      - >-
+        The Company is an express third-party beneficiary of the Equity Commitment Letter for purposes
+        of seeking specific performance to cause the Equity Financing to be funded in the circumstances
+        set forth therein.
+    exclusion_cues:
+      - Holders who exchange target equity for buyer equity are ma.consideration.rollover.
+    crosswalk:
+      section_v1:
+        - id: 6a2f9e016a48367a
+          relation: narrower
+      section_v2:
+        - id: 75c250d924bc8087
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.financing.limited_guarantee
+    label: Limited Guarantee; Parent Guarantee
+    kind: provision
+    nav_parent: ma.nav.financing.arrangements
+    tier: label
+    description: >-
+      A guarantee by a sponsor or parent company of the buyer's payment duties, such as the reverse termination
+      fee.
+    canonical_terms:
+      - Limited Guarantee
+      - Guarantor
+      - Guaranty
+      - guarantees the due and punctual payment
+      - Parent Guarantee
+    example_phrases:
+      - >-
+        Concurrently with the execution of this Agreement, the Guarantor has delivered to the Company
+        a limited guarantee of certain obligations of Parent and Merger Sub (the "Limited Guarantee").
+    exclusion_cues:
+      - The buyer's duty to cause its merger subsidiary to perform is ma.merger_sub_obligations.
+    introduced_in: '2026.1'
+
+  - id: ma.financing.buyer_covenant
+    label: Buyer Financing Covenant
+    kind: provision
+    nav_parent: ma.nav.financing.covenants
+    tier: label
+    description: >-
+      The buyer's duty to obtain the financing on the committed terms, not to amend the commitment letters
+      in harmful ways, to arrange alternative financing if needed, and to keep the target informed.
+    canonical_terms:
+      - reasonable best efforts to obtain the Financing
+      - Alternative Financing
+      - shall not amend, modify or waive
+      - Definitive Financing Agreements
+    example_phrases:
+      - >-
+        Parent shall use its reasonable best efforts to take, or cause to be taken, all actions necessary
+        to arrange and obtain the Debt Financing on the terms and subject only to the conditions described
+        in the Debt Commitment Letter, including negotiating and entering into definitive agreements with
+        respect thereto.
+      - >-
+        If any portion of the Debt Financing becomes unavailable, Parent shall use its reasonable best
+        efforts to obtain Alternative Financing in an amount sufficient to consummate the transactions.
+    exclusion_cues:
+      - The target's help is ma.financing.cooperation.
+    value_schema:
+      status: stub
+      fields:
+        - name: efforts_standard
+          type: enum
+    crosswalk:
+      section_v2:
+        - id: 23d735d6f510a472
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.financing.cooperation
+    label: Financing Cooperation
+    kind: provision
+    nav_parent: ma.nav.financing.covenants
+    tier: label
+    description: >-
+      The target's duty to help the buyer arrange its financing: management meetings, financial information,
+      offering documents and know-your-customer materials.
+    canonical_terms:
+      - financing cooperation
+      - Required Information
+      - participate in a reasonable number of meetings
+      - offering memoranda
+      - comfort letters
+    example_phrases:
+      - >-
+        Prior to the Closing, the Company shall use reasonable best efforts to provide, and to cause its
+        Representatives to provide, such customary cooperation as is reasonably requested by Parent in
+        connection with the arrangement of the Debt Financing, including (i) participating in a reasonable
+        number of lender meetings and rating agency presentations and (ii) furnishing the Required Financial
+        Information.
+      - >-
+        Such cooperation shall not unreasonably interfere with the ongoing operations of the Company,
+        and the Company shall not be required to incur any liability prior to the Closing or to take any
+        action that would conflict with its Organizational Documents.
+    exclusion_cues:
+      - Repayment of the target's existing debt is ma.financing.payoff_letters.
+      - Who pays for the cooperation is ma.financing.cooperation_costs.
+    crosswalk:
+      section_v1:
+        - id: c523ce22f3ead335
+          relation: exact
+      section_v2:
+        - id: 13216c4a8e9545d4
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.financing.cooperation_costs
+    label: Financing Cooperation Costs and Indemnity
+    kind: component
+    nav_parent: ma.nav.financing.covenants
+    parent: ma.financing.cooperation
+    tier: label
+    description: >-
+      The buyer's duty to reimburse the target's costs of financing cooperation and to indemnify it against
+      related losses.
+    canonical_terms:
+      - reimburse the Company for all reasonable out-of-pocket costs
+      - indemnify and hold harmless
+      - in connection with the Financing
+    example_phrases:
+      - >-
+        Parent shall promptly reimburse the Company for all reasonable and documented out-of-pocket costs
+        incurred in connection with its cooperation under this Section and shall indemnify the Company
+        against any losses arising therefrom.
+    exclusion_cues:
+      - Expense reimbursement paid on termination is ma.termination.expense_reimbursement.
+    crosswalk:
+      section_v1:
+        - id: c523ce22f3ead335
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.financing.payoff_letters
+    label: Payoff Letters; Treatment of Existing Debt
+    kind: provision
+    nav_parent: ma.nav.financing.covenants
+    tier: label
+    description: >-
+      Delivery of payoff letters and lien releases for the target's debt, and steps for existing notes
+      such as redemptions, tender offers, consent solicitations and assumption by the buyer under a supplemental
+      indenture.
+    canonical_terms:
+      - Payoff Letter
+      - release of Liens
+      - repayment of Indebtedness
+      - redemption of the Notes
+      - consent solicitation
+      - supplemental indenture
+      - assumption of trust preferred securities
+    example_phrases:
+      - >-
+        The Company shall use reasonable best efforts to obtain and deliver to Parent, at least three
+        Business Days prior to the Closing, executed payoff letters with respect to all Closing Indebtedness,
+        in form and substance reasonably satisfactory to Parent.
+      - >-
+        Such payoff letters shall provide that, upon payment of the amounts specified therein at the Closing,
+        all Liens securing such Indebtedness shall be released.
+    exclusion_cues:
+      - The payment of the debt at closing is ma.closing.payments.
+    crosswalk:
+      section_v2:
+        - id: f3b4657e5baa4e27
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.financing.source_protections
+    label: Financing Source Protections
+    kind: provision
+    nav_parent: ma.nav.financing.sources
+    tier: label
+    description: >-
+      Clauses that protect the lenders: no recourse against them, New York law and forum for claims against
+      them, a jury waiver, their status as third-party beneficiaries, and a bar on amending these clauses
+      without their consent.
+    canonical_terms:
+      - Financing Sources
+      - Debt Financing Sources
+      - Financing Source Parties
+      - no recourse against any Financing Source
+      - expressly intended third-party beneficiaries
+    example_phrases:
+      - >-
+        Notwithstanding anything to the contrary, the Company agrees that no Financing Source shall have
+        any liability to the Company or its Affiliates relating to or arising out of this Agreement or
+        the Financing, and the Company shall not bring any claim against any Financing Source in connection
+        therewith.
+      - >-
+        The Company irrevocably submits to the exclusive jurisdiction of the federal and New York state
+        courts located in the Borough of Manhattan in respect of any dispute against the Financing Sources,
+        and waives any right to a trial by jury with respect thereto.
+    exclusion_cues:
+      - A general no-recourse clause for affiliates of the parties is ma.non_recourse.
+    crosswalk:
+      section_v1:
+        - id: 5df6ee674091f8ed
+          relation: broader
+        - id: 7d58f12156f0d034
+          relation: broader
+      section_v2:
+        - id: 097303d631a05a03
+          relation: exact
+    introduced_in: '2026.1'

@@ -1,0 +1,387 @@
+# Pandects taxonomy, tax pack (`tax`). Navigation branch: Tax Allocation and Indemnity.
+# Structure and labels mirror tax_clause_taxonomy_l1/l2/l3, which was built with a tax professor.
+# Nodes marked `proposed: true` are additions that await the maintainer's decision.
+# Field reference: etl/taxonomy/README.md. Validate with: python -m etl.domain.taxonomy_pack
+pack: tax
+release: '2026.1'
+branch:
+  id: tax.nav.indemnity
+  label: Tax Allocation and Indemnity
+  kind: branch
+  order: 5
+  assignable: true
+  description: >-
+    Which taxes a party must indemnify, how taxes of a straddle period are split, and the mechanics and
+    limits of the tax indemnity.
+  also_listed_under:
+    - ma.nav.indemnification.scope
+  crosswalk:
+    tax_v1:
+      - id: tax.5
+        relation: exact
+  introduced_in: '2026.1'
+groups:
+
+  - id: tax.nav.indemnity.indemnified_taxes
+    label: Indemnified Taxes
+    kind: group
+    nav_parent: tax.nav.indemnity
+    assignable: true
+    description: The categories of taxes covered by the tax indemnity.
+    crosswalk:
+      tax_v1:
+        - id: tax.5.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.nav.indemnity.straddle
+    label: Straddle Period Allocation Rules
+    kind: group
+    nav_parent: tax.nav.indemnity
+    assignable: true
+    description: Rules that split the taxes of a period that begins before and ends after closing.
+    crosswalk:
+      tax_v1:
+        - id: tax.5.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.nav.indemnity.mechanics
+    label: Indemnity Mechanics
+    kind: group
+    nav_parent: tax.nav.indemnity
+    assignable: true
+    description: The tax indemnity obligation and its timing, offsets, limits and survival.
+    crosswalk:
+      tax_v1:
+        - id: tax.5.3
+          relation: exact
+    introduced_in: '2026.1'
+concepts:
+
+  - id: tax.indemnity.pre_closing_taxes
+    label: Pre-Closing Taxes
+    kind: provision
+    nav_parent: tax.nav.indemnity.indemnified_taxes
+    tier: label
+    description: >-
+      Indemnified taxes of the target for periods that end on or before closing, and the pre-closing part
+      of a straddle period.
+    canonical_terms:
+      - Pre-Closing Taxes
+      - Taxes of the Company for any Pre-Closing Tax Period
+      - Indemnified Taxes
+    example_phrases:
+      - >-
+        Seller shall indemnify Buyer against all Taxes of the Company for all Pre-Closing Tax Periods.
+    crosswalk:
+      tax_v1:
+        - id: tax.5.1.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.indemnity.subsidiary_taxes
+    label: Taxes of Subsidiaries / Pre-Deal Entities
+    kind: provision
+    nav_parent: tax.nav.indemnity.indemnified_taxes
+    tier: label
+    description: Indemnified taxes of subsidiaries, former subsidiaries or predecessor entities.
+    canonical_terms:
+      - Taxes of any Subsidiary
+      - predecessor
+      - former member
+    example_phrases:
+      - >-
+        Indemnified Taxes include all Taxes of any Subsidiary or predecessor of the Company for any Pre-Closing
+        Tax Period.
+    crosswalk:
+      tax_v1:
+        - id: tax.5.1.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.indemnity.group_liability
+    label: Successor / Transferee / Consolidated / Combined Group Liability
+    kind: provision
+    nav_parent: tax.nav.indemnity.indemnified_taxes
+    tier: label
+    description: >-
+      Indemnified taxes of another person for which the target is liable as a member of a consolidated
+      or combined group, as a transferee or successor, or by contract.
+    canonical_terms:
+      - Treasury Regulations Section 1.1502-6
+      - transferee or successor
+      - by contract or otherwise
+      - affiliated, consolidated, combined or unitary group
+    example_phrases:
+      - >-
+        Indemnified Taxes include Taxes of any member of an affiliated group of which the Company was
+        a member before the Closing, including under Treasury Regulations Section 1.1502-6.
+    exclusion_cues:
+      - The matching representation is tax.rep.tax_sharing_group.
+    crosswalk:
+      tax_v1:
+        - id: tax.5.1.3
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.indemnity.restructuring_taxes
+    label: Taxes on Pre-Closing Restructurings
+    kind: provision
+    nav_parent: tax.nav.indemnity.indemnified_taxes
+    tier: label
+    description: Indemnified taxes that arise from a pre-closing restructuring.
+    canonical_terms:
+      - Taxes arising from the Pre-Closing Reorganization
+      - Restructuring Taxes
+    example_phrases:
+      - >-
+        Seller shall indemnify Buyer against all Taxes arising out of the Pre-Closing Reorganization.
+    exclusion_cues:
+      - The restructuring covenant itself is tax.restructuring.pre_closing.
+    crosswalk:
+      tax_v1:
+        - id: tax.5.1.4
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.indemnity.rep_breach
+    label: Taxes from Breach of Tax Representations
+    kind: provision
+    nav_parent: tax.nav.indemnity.indemnified_taxes
+    tier: label
+    description: >-
+      Indemnified taxes and losses that arise from a breach of a tax representation or tax covenant.
+    canonical_terms:
+      - breach of any representation or warranty in Section [•] (Taxes)
+      - breach of any Tax covenant
+    example_phrases:
+      - >-
+        Seller shall indemnify Buyer against all Losses arising from any breach of the representations
+        and warranties set forth in Section [•] (Taxes).
+    crosswalk:
+      tax_v1:
+        - id: tax.5.1.5
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.straddle.closing_date_convention
+    label: Closing Date Allocation Convention
+    kind: provision
+    nav_parent: tax.nav.indemnity.straddle
+    tier: label
+    description: >-
+      The convention for the closing date itself, such as treating the tax year as ending at the end of
+      the closing date or a next-day rule for transactions outside the ordinary course.
+    canonical_terms:
+      - end of the Closing Date
+      - next day rule
+      - Treasury Regulations Section 1.1502-76(b)
+    example_phrases:
+      - >-
+        The parties shall treat the taxable year of the Company as ending at the end of the day on the
+        Closing Date.
+    crosswalk:
+      tax_v1:
+        - id: tax.5.2.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.straddle.closing_of_books
+    label: Interim Closing of Books
+    kind: provision
+    nav_parent: tax.nav.indemnity.straddle
+    tier: label
+    description: >-
+      Allocation of income and transaction-based taxes of a straddle period as if the books closed on
+      the closing date.
+    canonical_terms:
+      - interim closing of the books
+      - as if such taxable period ended on the Closing Date
+    example_phrases:
+      - >-
+        Taxes based on income or receipts for a Straddle Period shall be allocated on the basis of an
+        interim closing of the books as of the end of the Closing Date.
+    crosswalk:
+      tax_v1:
+        - id: tax.5.2.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.straddle.proration
+    label: Proration by Days / Other Allocation Formula
+    kind: provision
+    nav_parent: tax.nav.indemnity.straddle
+    tier: label
+    description: >-
+      Allocation of periodic taxes of a straddle period, such as property taxes, by the number of days,
+      or by another formula.
+    canonical_terms:
+      - per diem basis
+      - number of days in the Straddle Period
+      - property Taxes
+    example_phrases:
+      - Property Taxes for a Straddle Period shall be allocated on a per diem basis.
+    crosswalk:
+      tax_v1:
+        - id: tax.5.2.3
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.indemnity.obligation
+    label: Tax Indemnity Obligation
+    kind: provision
+    nav_parent: tax.nav.indemnity.mechanics
+    also_listed_under:
+      - ma.nav.indemnification.scope
+    tier: label
+    description: >-
+      The operative tax indemnity: the promise to indemnify the other party for the indemnified taxes.
+    canonical_terms:
+      - shall indemnify and hold harmless
+      - Tax indemnification
+      - from and against all Indemnified Taxes
+    example_phrases:
+      - >-
+        From and after the Closing, Seller shall indemnify and hold harmless the Buyer Indemnified Parties
+        from and against all Indemnified Taxes.
+    exclusion_cues:
+      - General indemnification for breaches of non-tax representations is ma.indemn.obligation.
+    crosswalk:
+      tax_v1:
+        - id: tax.5.3.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.indemnity.payment_timing
+    label: Timing of Tax Indemnity Payments
+    kind: provision
+    nav_parent: tax.nav.indemnity.mechanics
+    tier: label
+    description: When a tax indemnity payment is due.
+    canonical_terms:
+      - no later than [•] days before the due date
+      - within [•] days after written demand
+    example_phrases:
+      - >-
+        Seller shall pay any amount due under this Section no later than five days before the relevant
+        Tax is due.
+    crosswalk:
+      tax_v1:
+        - id: tax.5.3.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.indemnity.benefit_offset
+    label: Treatment of Tax Benefits and Insurance Proceeds
+    kind: provision
+    nav_parent: tax.nav.indemnity.mechanics
+    tier: label
+    description: >-
+      A reduction of a tax indemnity claim for tax benefits, insurance proceeds, or amounts already counted
+      in the price.
+    canonical_terms:
+      - net of any Tax benefit
+      - insurance proceeds
+      - to the extent taken into account in Closing Working Capital
+    example_phrases:
+      - >-
+        Seller shall not be liable for any Tax to the extent it was taken into account as a liability
+        in the calculation of Closing Working Capital.
+    exclusion_cues:
+      - The same offset in the general indemnity is ma.indemn.recovery_offsets.
+    crosswalk:
+      tax_v1:
+        - id: tax.5.3.3
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.indemnity.limitations
+    label: Limitations
+    kind: provision
+    nav_parent: tax.nav.indemnity.mechanics
+    tier: label
+    description: Whether the cap, basket and other limits of the general indemnity apply to tax claims.
+    canonical_terms:
+      - shall not be subject to the Cap or the Deductible
+      - limitations set forth in Article [•]
+    example_phrases:
+      - >-
+        The limitations set forth in Section [•] shall not apply to any claim for indemnification under
+        this Section.
+    exclusion_cues:
+      - The cap and basket themselves are ma.indemn.cap and ma.indemn.basket.
+    crosswalk:
+      tax_v1:
+        - id: tax.5.3.4
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.indemnity.exclusive_remedy
+    label: Exclusive Remedy / General Indemnity Carve-Out
+    kind: provision
+    nav_parent: tax.nav.indemnity.mechanics
+    tier: label
+    description: >-
+      A statement that the tax article alone governs tax claims, or that it prevails over the general
+      indemnity article.
+    canonical_terms:
+      - this Article shall exclusively govern
+      - in the event of any conflict, this Article shall control
+    example_phrases:
+      - >-
+        The provisions of this Article shall exclusively govern all indemnification claims with respect
+        to Taxes.
+    exclusion_cues:
+      - The general exclusive remedy clause is ma.indemn.exclusive_remedy.
+    crosswalk:
+      tax_v1:
+        - id: tax.5.3.5
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.indemnity.survival
+    label: Survival
+    kind: provision
+    nav_parent: tax.nav.indemnity.mechanics
+    tier: label
+    description: >-
+      How long the tax representations and the tax indemnity survive, usually until a set number of days
+      after the statute of limitations expires.
+    canonical_terms:
+      - 60 days after the expiration of the applicable statute of limitations
+      - survive until
+    example_phrases:
+      - >-
+        The obligations under this Article shall survive until 60 days after the expiration of the applicable
+        statute of limitations.
+    exclusion_cues:
+      - >-
+        The general survival clause is ma.indemn.survival, which records the tax period as one of its
+        items.
+    crosswalk:
+      tax_v1:
+        - id: tax.5.3.6
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.indemnity.mitigation
+    label: Mitigation
+    kind: provision
+    nav_parent: tax.nav.indemnity.mechanics
+    tier: label
+    description: A duty to mitigate tax losses, for example by claiming available refunds or reliefs.
+    canonical_terms:
+      - mitigate
+      - use commercially reasonable efforts to reduce
+      - available reliefs
+    example_phrases:
+      - >-
+        Buyer shall use commercially reasonable efforts to mitigate any Tax for which it may seek indemnification.
+    exclusion_cues:
+      - The general mitigation clause is ma.indemn.mitigation.
+    crosswalk:
+      tax_v1:
+        - id: tax.5.3.7
+          relation: exact
+    introduced_in: '2026.1'

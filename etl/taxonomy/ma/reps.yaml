@@ -1,0 +1,1711 @@
+# Pandects taxonomy, M&A pack (`ma`). Navigation branch: Representations and Warranties.
+# Source of truth for these nodes. Field reference: etl/taxonomy/README.md.
+# Validate with: python -m etl.domain.taxonomy_pack
+pack: ma
+release: '2026.1'
+branch:
+  id: ma.nav.reps
+  label: Representations and Warranties
+  kind: branch
+  order: 3
+  description: >-
+    Statements of fact that a party makes about itself or the business. Each concept covers every party.
+    The party that makes the representation is the `party` attribute of the instance, read from the article
+    heading.
+  introduced_in: '2026.1'
+groups:
+
+  - id: ma.nav.reps.fundamental
+    label: Fundamental
+    kind: group
+    nav_parent: ma.nav.reps
+    description: Existence, power, ownership and the absence of conflicts.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.reps.financial
+    label: Financial
+    kind: group
+    nav_parent: ma.nav.reps
+    description: >-
+      Financial statements, SEC reports, liabilities and changes since the balance sheet date. Tax representations
+      are listed here from the tax pack.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.reps.legal
+    label: Legal and Compliance
+    kind: group
+    nav_parent: ma.nav.reps
+    description: Litigation, compliance with laws, permits and anti-corruption.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.reps.commercial
+    label: Commercial
+    kind: group
+    nav_parent: ma.nav.reps
+    description: Contracts, customers, suppliers, affiliates, products and insurance.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.reps.assets
+    label: Assets, IP and Environmental
+    kind: group
+    nav_parent: ma.nav.reps
+    description: Real property, other assets, intellectual property, data and environmental matters.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.reps.employees
+    label: Employees
+    kind: group
+    nav_parent: ma.nav.reps
+    description: Benefit plans and labor matters.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.reps.transaction
+    label: Transaction-Specific
+    kind: group
+    nav_parent: ma.nav.reps
+    description: >-
+      Statements tied to this deal: disclosure documents, the fairness opinion, the required vote and
+      brokers.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.reps.buyer
+    label: Buyer-Specific
+    kind: group
+    nav_parent: ma.nav.reps
+    description: >-
+      Statements normally made only by the buyer: funds, solvency, investment intent and the merger subsidiary.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.reps.disclaimers
+    label: Disclaimers
+    kind: group
+    nav_parent: ma.nav.reps
+    description: Limits on what counts as a representation and on what a party relied on.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.reps.industry
+    label: Industry-Specific
+    kind: group
+    nav_parent: ma.nav.reps
+    description: Statements found mainly in one regulated industry.
+    introduced_in: '2026.1'
+concepts:
+
+  - id: ma.rep.organization
+    label: Organization; Good Standing; Qualification
+    kind: provision
+    nav_parent: ma.nav.reps.fundamental
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      The party is duly organized, validly existing and in good standing, has the power to carry on its
+      business, is qualified to do business where required, and has delivered its organizational documents.
+    canonical_terms:
+      - duly organized, validly existing and in good standing
+      - qualified to do business
+      - corporate power and authority to own its properties
+      - organizational documents
+    example_phrases:
+      - >-
+        The Company is a corporation duly organized, validly existing, and in good standing under the
+        laws of its jurisdiction of incorporation.
+    exclusion_cues:
+      - Power to sign and perform this agreement is ma.rep.authority.
+      - The list of subsidiaries is ma.rep.subsidiaries.
+    crosswalk:
+      section_v1:
+        - id: c73a2e77f18750ae
+          relation: narrower
+          party: target
+        - id: 402f00af1acdc5d8
+          relation: narrower
+          party: buyer
+      section_v2:
+        - id: d61c3de37ed27743
+          relation: narrower
+          party: target
+        - id: adde4944d8f8847a
+          relation: narrower
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.authority
+    label: Authority; Board Approval; Enforceability
+    kind: provision
+    nav_parent: ma.nav.reps.fundamental
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      The party has the power and authority to sign and perform the agreement, its board has approved
+      the deal, and the agreement is a valid and binding obligation, subject to the bankruptcy and equity
+      exception.
+    canonical_terms:
+      - corporate power and authority to execute and deliver
+      - duly authorized by all necessary corporate action
+      - valid and binding obligation
+      - enforceable in accordance with its terms
+      - Bankruptcy and Equity Exception
+      - Company Board Recommendation
+    example_phrases:
+      - >-
+        The Company has all requisite corporate power and authority to enter into this Agreement and to
+        consummate the transactions, and the execution and delivery have been duly authorized by all necessary
+        corporate action.
+      - >-
+        This Agreement has been duly executed and delivered and constitutes a valid and binding obligation
+        of the Company, enforceable against it in accordance with its terms, subject to the Enforceability
+        Exceptions.
+    exclusion_cues:
+      - The stockholder vote needed to approve the deal is ma.rep.required_vote.
+      - Existence and good standing are ma.rep.organization.
+    crosswalk:
+      section_v1:
+        - id: c73a2e77f18750ae
+          relation: narrower
+          party: target
+        - id: 402f00af1acdc5d8
+          relation: narrower
+          party: buyer
+      section_v2:
+        - id: d61c3de37ed27743
+          relation: narrower
+          party: target
+        - id: adde4944d8f8847a
+          relation: narrower
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.capitalization
+    label: Capitalization
+    kind: provision
+    nav_parent: ma.nav.reps.fundamental
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      The party's authorized and outstanding shares, options, warrants and other equity rights, and that
+      the outstanding shares are validly issued, fully paid and free of preemptive rights.
+    canonical_terms:
+      - authorized capital stock
+      - issued and outstanding
+      - duly authorized, validly issued, fully paid and nonassessable
+      - no outstanding options, warrants or other rights
+      - preemptive rights
+    example_phrases:
+      - >-
+        The authorized capital stock of the Company consists of the shares set forth on the Schedule,
+        and all outstanding shares are duly authorized, validly issued, fully paid, and non-assessable.
+      - >-
+        Except for the equity awards set forth on the Schedule, there are no outstanding options, warrants,
+        or other rights to acquire capital stock of the Company.
+    exclusion_cues:
+      - A seller's ownership of the shares it sells is ma.rep.title_to_shares.
+      - Ownership of subsidiaries is ma.rep.subsidiaries.
+    crosswalk:
+      section_v1:
+        - id: 6069a2d0ab1b2e82
+          relation: narrower
+          party: target
+        - id: 9b01dbbf243c5aeb
+          relation: narrower
+          party: buyer
+      section_v2:
+        - id: 41dad5682b1f26e0
+          relation: narrower
+          party: target
+        - id: 42436348d3eb2268
+          relation: narrower
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.subsidiaries
+    label: Subsidiaries; Equity Investments
+    kind: provision
+    nav_parent: ma.nav.reps.fundamental
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      The list of the party's subsidiaries, its ownership of their equity, and its other equity investments.
+    canonical_terms:
+      - Subsidiaries
+      - all of the outstanding equity interests of each Subsidiary
+      - owned directly or indirectly
+      - no equity interest in any other Person
+    example_phrases:
+      - >-
+        Section [•] of the Disclosure Schedule sets forth each Subsidiary of the Company and its jurisdiction
+        of organization. All of the outstanding equity interests of each Subsidiary are owned by the Company,
+        free and clear of all Liens.
+    crosswalk:
+      section_v1:
+        - id: 6069a2d0ab1b2e82
+          relation: narrower
+          party: target
+        - id: 9b01dbbf243c5aeb
+          relation: narrower
+          party: buyer
+      section_v2:
+        - id: 41dad5682b1f26e0
+          relation: narrower
+          party: target
+        - id: 42436348d3eb2268
+          relation: narrower
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.title_to_shares
+    label: Title to the Shares Being Sold
+    kind: provision
+    nav_parent: ma.nav.reps.fundamental
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      A seller's statement that it owns the shares or interests it sells, free of liens, and that the
+      buyer will receive good title at closing.
+    canonical_terms:
+      - record and beneficial owner
+      - good and valid title to the Shares
+      - free and clear of all Liens
+      - upon delivery, Buyer will acquire
+    example_phrases:
+      - >-
+        Seller is the record and beneficial owner of the Shares, free and clear of all Liens, and upon
+        the Closing, Buyer will acquire good and valid title to the Shares.
+    exclusion_cues:
+      - The target's own capital structure is ma.rep.capitalization.
+      - Title to operating assets is ma.rep.title_sufficiency_assets.
+    introduced_in: '2026.1'
+
+  - id: ma.rep.no_conflict
+    label: No Conflict; Required Consents and Filings
+    kind: provision
+    nav_parent: ma.nav.reps.fundamental
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      Signing and performing the agreement will not breach the party's organizational documents, its contracts
+      or the law, and no governmental consent or filing is needed other than those listed, such as the
+      HSR Act and securities filings.
+    canonical_terms:
+      - non-contravention
+      - conflict with or violate
+      - result in a breach of or default under
+      - no consent, approval or authorization of any Governmental Authority
+      - HSR Act
+      - required filings and consents
+    example_phrases:
+      - >-
+        The execution and delivery of this Agreement do not, and the consummation of the transactions
+        will not, conflict with or violate the Organizational Documents of the Company.
+      - >-
+        No consent, approval, or authorization of, or filing with, any Governmental Authority is required
+        by the Company except for the HSR filing and the filings set forth on the Schedule.
+    exclusion_cues:
+      - The covenant to make antitrust filings is ma.regulatory.antitrust_filings.
+      - The covenant to seek contract consents is ma.efforts.third_party_consents.
+    crosswalk:
+      section_v1:
+        - id: 7aa7be7c5d9555c2
+          relation: exact
+          party: target
+        - id: 1b47e9b79ea6c6b6
+          relation: exact
+          party: buyer
+      section_v2:
+        - id: 050e7a070fb83cae
+          relation: exact
+          party: target
+        - id: a1e8195771e73101
+          relation: exact
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.required_vote
+    label: Required Stockholder Vote
+    kind: provision
+    nav_parent: ma.nav.reps.fundamental
+    also_listed_under:
+      - ma.nav.reps.transaction
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      The stockholder vote that is needed to approve the deal, stated as the only vote required.
+    canonical_terms:
+      - Required Company Stockholder Vote
+      - Company Stockholder Approval
+      - affirmative vote of the holders of a majority
+      - only vote of the holders of any class
+    example_phrases:
+      - >-
+        The affirmative vote of the holders of a majority of the outstanding shares of Company Common
+        Stock is the only vote of the holders of any class of capital stock of the Company necessary to
+        adopt this Agreement.
+    exclusion_cues:
+      - The covenant to hold the meeting is ma.approval.stockholder_meeting.
+      - The closing condition is ma.condition.stockholder_approval.
+    value_schema:
+      status: stub
+      fields:
+        - name: threshold
+          type: text
+        - name: majority_of_minority
+          type: boolean
+    introduced_in: '2026.1'
+
+  - id: ma.rep.sec_reports
+    label: SEC Reports
+    kind: provision
+    nav_parent: ma.nav.reps.financial
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      The party has filed all required reports with the SEC, the reports complied with the securities
+      laws when filed, and none contained a material misstatement or omission.
+    canonical_terms:
+      - Company SEC Documents
+      - filed or furnished all forms, reports and documents
+      - untrue statement of a material fact
+      - Securities Act
+      - Exchange Act
+      - Sarbanes-Oxley Act
+    example_phrases:
+      - >-
+        The Company has timely filed all forms, reports, and documents required to be filed with the SEC,
+        and such SEC Reports complied in all material respects with the Securities Act and the Exchange
+        Act.
+      - >-
+        Each required certification under Sections 302 and 906 of the Sarbanes-Oxley Act has been made.
+    exclusion_cues:
+      - The financial statements inside those reports are ma.rep.financial_statements.
+      - Controls over financial reporting are ma.rep.internal_controls.
+      - Accuracy of the proxy statement for this deal is ma.rep.information_supplied.
+    crosswalk:
+      section_v2:
+        - id: 89adfe54f18848d5
+          relation: exact
+          party: target
+        - id: a8793b071d8025d4
+          relation: exact
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.financial_statements
+    label: Financial Statements
+    kind: provision
+    nav_parent: ma.nav.reps.financial
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      The party's financial statements were prepared under GAAP, applied consistently, and fairly present
+      its financial position and results.
+    canonical_terms:
+      - Financial Statements
+      - prepared in accordance with GAAP
+      - fairly present in all material respects
+      - consolidated financial position
+      - Balance Sheet Date
+    example_phrases:
+      - >-
+        The Financial Statements were prepared in accordance with GAAP applied on a consistent basis and
+        fairly present in all material respects the financial condition and results of operations of the
+        Company.
+      - >-
+        The books and records of the Company are accurate and complete in all material respects and have
+        been maintained in accordance with sound business practices.
+    exclusion_cues:
+      - Liabilities not shown on the balance sheet are ma.rep.undisclosed_liabilities.
+      - Changes since the balance sheet date are ma.rep.absence_of_changes.
+    crosswalk:
+      section_v1:
+        - id: 0da9daafa2623ea4
+          relation: narrower
+          party: target
+        - id: 5f45e2164f10b6e4
+          relation: narrower
+          party: buyer
+      section_v2:
+        - id: 567a73db2348076c
+          relation: exact
+          party: target
+        - id: a1b0870d55465097
+          relation: exact
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.internal_controls
+    label: Internal Controls; Disclosure Controls
+    kind: provision
+    nav_parent: ma.nav.reps.financial
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      The party maintains internal control over financial reporting and disclosure controls and procedures,
+      and has disclosed any significant deficiency, material weakness or fraud to its auditors.
+    canonical_terms:
+      - internal control over financial reporting
+      - disclosure controls and procedures
+      - material weakness
+      - significant deficiencies
+      - Rule 13a-15
+    example_phrases:
+      - >-
+        The Company has established and maintains a system of internal control over financial reporting
+        sufficient to provide reasonable assurance regarding the reliability of financial reporting.
+    crosswalk:
+      section_v1:
+        - id: 0da9daafa2623ea4
+          relation: narrower
+          party: target
+        - id: 5f45e2164f10b6e4
+          relation: narrower
+          party: buyer
+      section_v2:
+        - id: 89adfe54f18848d5
+          relation: narrower
+          party: target
+        - id: a8793b071d8025d4
+          relation: narrower
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.books_records
+    label: Books and Records; Bank Accounts
+    kind: provision
+    nav_parent: ma.nav.reps.financial
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      The party's books, minute books and records are complete and correct. It also covers lists of bank
+      accounts and powers of attorney.
+    canonical_terms:
+      - books and records
+      - minute books
+      - bank accounts
+      - powers of attorney
+      - authorized signatories
+    example_phrases:
+      - >-
+        The minute books of the Company have been made available to Buyer and are complete and correct
+        in all material respects.
+    crosswalk:
+      section_v1:
+        - id: 0da9daafa2623ea4
+          relation: narrower
+          party: target
+        - id: 5f45e2164f10b6e4
+          relation: narrower
+          party: buyer
+      section_v2:
+        - id: 567a73db2348076c
+          relation: narrower
+          party: target
+        - id: a1b0870d55465097
+          relation: narrower
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.undisclosed_liabilities
+    label: No Undisclosed Liabilities
+    kind: provision
+    nav_parent: ma.nav.reps.financial
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      The party has no liabilities other than those shown on its balance sheet, incurred in the ordinary
+      course since then, or incurred under the agreement.
+    canonical_terms:
+      - no undisclosed liabilities
+      - liabilities or obligations of any nature
+      - reflected or reserved against in the balance sheet
+      - incurred in the ordinary course of business since
+    example_phrases:
+      - >-
+        The Company has no liabilities of a type required to be reflected or reserved against on a balance
+        sheet prepared in accordance with GAAP, except for liabilities reflected on the Balance Sheet
+        or incurred in the ordinary course since the Balance Sheet Date.
+      - The Company has no off-balance-sheet arrangements.
+    crosswalk:
+      section_v1:
+        - id: afcc6ccd44a07703
+          relation: exact
+          party: target
+        - id: cb6db2189bc722cc
+          relation: exact
+          party: buyer
+      section_v2:
+        - id: ca9fbffec51785bf
+          relation: exact
+          party: target
+        - id: 9290eefbf44a2b6c
+          relation: exact
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.absence_of_changes
+    label: Absence of Certain Changes
+    kind: provision
+    nav_parent: ma.nav.reps.financial
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      Since the balance sheet date the business has run in the ordinary course, there has been no material
+      adverse effect, and the party has taken none of the listed actions.
+    canonical_terms:
+      - absence of certain changes or events
+      - since the Balance Sheet Date
+      - there has not been any Material Adverse Effect
+      - conducted its business in the ordinary course
+    example_phrases:
+      - >-
+        Since the Balance Sheet Date, the business of the Company has been conducted in the ordinary course
+        consistent with past practice.
+      - >-
+        Since the Balance Sheet Date, there has not been any Effect that has had or would reasonably be
+        expected to have a Material Adverse Effect.
+    exclusion_cues:
+      - >-
+        The closing condition that no material adverse effect has occurred is ma.condition.no_mae.
+      - The definition is ma.mae.definition.
+    crosswalk:
+      section_v1:
+        - id: 5183a719286b2453
+          relation: exact
+          party: target
+        - id: 7d38121617c8fc25
+          relation: exact
+          party: buyer
+      section_v2:
+        - id: 5e8d548dee4f50d1
+          relation: exact
+          party: target
+        - id: 2a79ceb2912420ec
+          relation: exact
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.receivables_inventory
+    label: Accounts Receivable; Inventory
+    kind: provision
+    nav_parent: ma.nav.reps.financial
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      The party's accounts receivable arose from real sales and are collectible, and its inventory is
+      usable and salable in the ordinary course.
+    canonical_terms:
+      - accounts receivable
+      - bona fide transactions
+      - inventory
+      - usable and saleable in the ordinary course
+      - reserves for obsolete inventory
+    example_phrases:
+      - >-
+        All accounts receivable of the Company reflected on the Balance Sheet arose from bona fide transactions
+        in the ordinary course of business.
+    introduced_in: '2026.1'
+
+  - id: ma.rep.litigation
+    label: Litigation; Orders
+    kind: provision
+    nav_parent: ma.nav.reps.legal
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      No lawsuit, claim, investigation or proceeding is pending or threatened against the party, and it
+      is not subject to any outstanding order or judgment, except as disclosed.
+    canonical_terms:
+      - litigation
+      - legal proceedings
+      - no Action pending or, to the Knowledge of the Company, threatened
+      - no outstanding Order
+      - investigation by any Governmental Authority
+    example_phrases:
+      - >-
+        There is no Action pending or, to the Knowledge of the Company, threatened against the Company
+        that would reasonably be expected to be material to the business.
+      - >-
+        The Company is not subject to any outstanding Governmental Order that would materially impair
+        its ability to conduct its business.
+    exclusion_cues:
+      - The covenant on stockholder suits about this deal is ma.transaction_litigation.
+    crosswalk:
+      section_v1:
+        - id: 0023564e1a34f3f3
+          relation: exact
+          party: target
+        - id: b96e95c8312c6880
+          relation: exact
+          party: buyer
+      section_v2:
+        - id: 2bb96bb565ee8a0a
+          relation: exact
+          party: target
+        - id: 6fba0830a4d78518
+          relation: exact
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.compliance_permits
+    label: Compliance with Laws; Permits
+    kind: provision
+    nav_parent: ma.nav.reps.legal
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      The party complies and has complied with applicable laws, and holds and complies with all permits
+      and licenses needed to run its business.
+    canonical_terms:
+      - compliance with laws
+      - in compliance in all material respects with all applicable Laws
+      - Permits
+      - licenses, franchises and authorizations
+      - no notice of violation
+    example_phrases:
+      - >-
+        The Company is, and for the past three years has been, in compliance in all material respects
+        with all Laws applicable to it or its business.
+      - >-
+        The Company holds all material Permits necessary for the lawful conduct of its business, and all
+        such Permits are in full force and effect.
+    exclusion_cues:
+      - Anti-bribery and sanctions laws are ma.rep.anti_corruption_sanctions.
+      - Rules of one regulated industry are under ma.nav.reps.industry.
+    crosswalk:
+      section_v1:
+        - id: 585d491efa6b84bc
+          relation: exact
+          party: target
+        - id: 4c7da302bfebee05
+          relation: exact
+          party: buyer
+      section_v2:
+        - id: 1a92f2fc1cd6d802
+          relation: exact
+          party: target
+        - id: 00ec75452264a1e4
+          relation: exact
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.anti_corruption_sanctions
+    label: Anti-Corruption; Sanctions; Trade Controls
+    kind: provision
+    nav_parent: ma.nav.reps.legal
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      The party has complied with anti-bribery laws such as the FCPA, sanctions, export controls and anti-money-laundering
+      laws.
+    canonical_terms:
+      - Foreign Corrupt Practices Act
+      - anti-corruption laws
+      - OFAC
+      - sanctions
+      - export controls
+      - certain business practices
+      - unlawful payments
+    example_phrases:
+      - >-
+        Neither the Company nor any of its directors, officers, or employees has, in violation of Anti-Corruption
+        Laws, offered or paid anything of value to any Government Official.
+      - >-
+        The Company is not a Sanctioned Person and has not engaged in dealings with any Sanctioned Person
+        or sanctioned country in violation of Sanctions.
+    crosswalk:
+      section_v2:
+        - id: 46ce79c0ebdc496a
+          relation: exact
+          party: target
+        - id: 32ee2293982c92f1
+          relation: exact
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.investment_company
+    label: Investment Company Act Status
+    kind: provision
+    nav_parent: ma.nav.reps.legal
+    tier: label
+    attributes:
+      party: maker
+    description: The party is not an investment company under the Investment Company Act of 1940.
+    canonical_terms:
+      - Investment Company Act of 1940
+      - not an investment company
+    example_phrases:
+      - >-
+        The Company is not an "investment company" within the meaning of the Investment Company Act of
+        1940.
+    introduced_in: '2026.1'
+
+  - id: ma.rep.material_contracts
+    label: Material Contracts
+    kind: provision
+    nav_parent: ma.nav.reps.commercial
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      The list of the party's material contracts by category, with statements that each is valid and binding
+      and that no party is in material breach.
+    canonical_terms:
+      - Material Contracts
+      - Company Material Contract
+      - valid and binding
+      - in full force and effect
+      - no breach or default
+    example_phrases:
+      - >-
+        Each Material Contract is a valid and binding obligation of the Company and is in full force and
+        effect.
+      - >-
+        Neither the Company nor, to its Knowledge, any counterparty is in material breach of or default
+        under any Material Contract.
+    exclusion_cues:
+      - Contracts with affiliates are ma.rep.affiliate_transactions.
+      - Contracts with government bodies are ma.rep.government_contracts.
+    crosswalk:
+      section_v1:
+        - id: dd4d8822a65b2b6e
+          relation: exact
+          party: target
+        - id: d72c6fb8b8a7bef1
+          relation: exact
+          party: buyer
+      section_v2:
+        - id: 93d3e8280e5ca4de
+          relation: exact
+          party: target
+        - id: 73ff6b3bc4dedaff
+          relation: exact
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.customers_suppliers
+    label: Customers and Suppliers
+    kind: provision
+    nav_parent: ma.nav.reps.commercial
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      The list of the party's largest customers and suppliers, with a statement that none has ended or
+      materially cut back the relationship.
+    canonical_terms:
+      - Material Customers
+      - Material Suppliers
+      - top ten customers
+      - terminated or materially reduced
+    example_phrases:
+      - >-
+        The Schedule sets forth the ten largest customers and suppliers of the Company by revenue/spend
+        for the most recent fiscal year.
+      - >-
+        No such customer or supplier has terminated, or notified the Company in writing of its intention
+        to terminate or materially reduce, its relationship with the Company.
+    crosswalk:
+      section_v2:
+        - id: adecf09957d0ddf9
+          relation: exact
+          party: target
+        - id: 41f605dabee6679a
+          relation: exact
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.affiliate_transactions
+    label: Affiliate and Related-Party Transactions
+    kind: provision
+    nav_parent: ma.nav.reps.commercial
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      Contracts and dealings between the party and its officers, directors, stockholders or affiliates.
+    canonical_terms:
+      - affiliate transactions
+      - related party transactions
+      - interested party transactions
+      - Item 404 of Regulation S-K
+      - transactions with affiliates
+    example_phrases:
+      - >-
+        Schedule sets forth each Contract or arrangement between the Company and any of its directors,
+        officers, Affiliates, or any immediate family member thereof.
+      - >-
+        No officer or director of the Company owns any material interest in any Person that is a customer,
+        supplier, or competitor of the Company.
+    exclusion_cues:
+      - The covenant to end affiliate agreements at closing is ma.intercompany_termination.
+    crosswalk:
+      section_v2:
+        - id: c7bd75342b4c4d8c
+          relation: exact
+          party: target
+        - id: 289c822e4cd7cb3a
+          relation: exact
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.government_contracts
+    label: Government Contracts
+    kind: provision
+    nav_parent: ma.nav.reps.commercial
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      Statements about the party's contracts with government bodies: compliance, no suspension or debarment,
+      and no audits or investigations.
+    canonical_terms:
+      - Government Contract
+      - Government Bid
+      - suspended or debarred
+      - Federal Acquisition Regulation
+    example_phrases:
+      - >-
+        Neither the Company nor any of its Subsidiaries has been suspended or debarred from bidding on
+        contracts with any Governmental Authority.
+    introduced_in: '2026.1'
+
+  - id: ma.rep.product_liability_warranty
+    label: Product Liability; Product Warranty
+    kind: provision
+    nav_parent: ma.nav.reps.commercial
+    tier: label
+    attributes:
+      party: maker
+    description: Statements about product warranties, product liability claims and recalls.
+    canonical_terms:
+      - product liability
+      - product warranty
+      - recall
+      - conform with all applicable contractual commitments and warranties
+    example_phrases:
+      - >-
+        There is no pending or, to the Knowledge of the Company, threatened product liability claim against
+        the Company, and there has been no recall of any product sold by the Company.
+    introduced_in: '2026.1'
+
+  - id: ma.rep.insurance
+    label: Insurance
+    kind: provision
+    nav_parent: ma.nav.reps.commercial
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      The party's insurance policies are in force, premiums are paid, and no notice of cancellation has
+      been received.
+    canonical_terms:
+      - insurance policies
+      - in full force and effect
+      - all premiums due have been paid
+      - no notice of cancellation
+    example_phrases:
+      - >-
+        All material insurance policies maintained by the Company are in full force and effect, and all
+        premiums due thereon have been timely paid.
+      - >-
+        There is no material claim pending under any such policy as to which coverage has been denied
+        or disputed by the underwriters, and the Company has not received any written notice of cancellation
+        or non-renewal of any material policy.
+    exclusion_cues:
+      - >-
+        The covenant to buy tail insurance for directors and officers is ma.dando.tail_insurance.
+      - A representation and warranty insurance policy is ma.indemn.rwi.
+    crosswalk:
+      section_v1:
+        - id: 261083e783b5a952
+          relation: exact
+          party: target
+        - id: 7aaae73ebdd10bf3
+          relation: exact
+          party: buyer
+      section_v2:
+        - id: 81c87bbe7a5b50f1
+          relation: exact
+          party: target
+        - id: 7383fe7c3d5514c8
+          relation: exact
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.real_property
+    label: Real Property; Leases
+    kind: provision
+    nav_parent: ma.nav.reps.assets
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      Statements about owned and leased real property: title, valid leases, no defaults and no condemnation.
+    canonical_terms:
+      - Owned Real Property
+      - Leased Real Property
+      - good and marketable title
+      - valid leasehold interest
+      - Real Property Leases
+    example_phrases:
+      - >-
+        The Company has good and valid title to all owned Real Property, free and clear of all Liens other
+        than Permitted Liens.
+      - >-
+        Each Real Property Lease is valid and binding and the Company is not in material default thereunder.
+    exclusion_cues:
+      - >-
+        Title to personal property and sufficiency of assets are ma.rep.title_sufficiency_assets.
+    crosswalk:
+      section_v1:
+        - id: 53829149d9782b80
+          relation: narrower
+          party: target
+        - id: 3a5662babadfaa7b
+          relation: narrower
+          party: buyer
+      section_v2:
+        - id: 8a1a3b6cfb2d5e33
+          relation: exact
+          party: target
+        - id: 8e49a419b8373e64
+          relation: exact
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.title_sufficiency_assets
+    label: Title to Assets; Sufficiency of Assets
+    kind: provision
+    nav_parent: ma.nav.reps.assets
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      The party has good title to, or a valid right to use, its assets, free of liens other than permitted
+      liens, and the assets are in working condition and are all the assets needed to run the business.
+    canonical_terms:
+      - good and valid title
+      - free and clear of all Liens other than Permitted Liens
+      - sufficiency of assets
+      - tangible personal property
+      - good operating condition
+    example_phrases:
+      - >-
+        The Company has good and valid title to, or a valid leasehold or license interest in, all tangible
+        personal property used in its business.
+      - >-
+        The assets of the Company constitute all of the assets necessary and sufficient to conduct the
+        business immediately following Closing in all material respects as conducted today.
+    exclusion_cues:
+      - A seller's title to the shares it sells is ma.rep.title_to_shares.
+      - Real estate is ma.rep.real_property.
+    crosswalk:
+      section_v1:
+        - id: 53829149d9782b80
+          relation: narrower
+          party: target
+        - id: 3a5662babadfaa7b
+          relation: narrower
+          party: buyer
+      section_v2:
+        - id: 1732807d2730b19b
+          relation: exact
+          party: target
+        - id: c93fa726590a05a7
+          relation: exact
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.intellectual_property
+    label: Intellectual Property
+    kind: provision
+    nav_parent: ma.nav.reps.assets
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      Statements about owned and licensed intellectual property: the list of registrations, ownership,
+      no infringement, protection of trade secrets and open source use.
+    canonical_terms:
+      - Intellectual Property
+      - Registered IP
+      - does not infringe, misappropriate or otherwise violate
+      - trade secrets
+      - Open Source Software
+    example_phrases:
+      - >-
+        The Company owns or has a valid and enforceable right to use all Intellectual Property material
+        to and used in the conduct of its business.
+      - >-
+        The conduct of the business of the Company does not infringe, misappropriate, or otherwise violate
+        the Intellectual Property of any third party.
+    exclusion_cues:
+      - Privacy and security of data and systems is ma.rep.privacy_cybersecurity.
+    crosswalk:
+      section_v1:
+        - id: ead6261d2d138a58
+          relation: exact
+          party: target
+        - id: 05dde158dc6c6642
+          relation: exact
+          party: buyer
+      section_v2:
+        - id: a4a0275dfcfde50c
+          relation: exact
+          party: target
+        - id: 3ebeafa4e97e8fcc
+          relation: exact
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.privacy_cybersecurity
+    label: Data Privacy; Cybersecurity; IT Systems
+    kind: provision
+    nav_parent: ma.nav.reps.assets
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      Statements about compliance with privacy laws and policies, security breaches, and the adequacy
+      of information technology systems.
+    canonical_terms:
+      - Privacy Laws
+      - Personal Information
+      - security breach
+      - IT Systems
+      - data security
+    example_phrases:
+      - >-
+        The Company is in compliance in all material respects with all applicable Privacy Laws, its privacy
+        policies, and its contractual obligations relating to Personal Data.
+      - >-
+        The Company has not experienced any material Security Incident or unauthorized acquisition of
+        Personal Data.
+    crosswalk:
+      section_v1:
+        - id: e05efd4f67c59554
+          relation: exact
+          party: target
+        - id: 84bca32082127902
+          relation: exact
+          party: buyer
+      section_v2:
+        - id: 95ea8acdc60096b3
+          relation: exact
+          party: target
+        - id: 5f6eeeea2f44caf3
+          relation: exact
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.environmental
+    label: Environmental Matters
+    kind: provision
+    nav_parent: ma.nav.reps.assets
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      Statements about compliance with environmental laws and permits, releases of hazardous materials,
+      and environmental claims.
+    canonical_terms:
+      - Environmental Laws
+      - Hazardous Materials
+      - Environmental Permits
+      - Release
+      - environmental claim
+    example_phrases:
+      - >-
+        The Company is, and for the past three years has been, in compliance in all material respects
+        with all Environmental Laws and holds and is in compliance with all Environmental Permits required
+        for the operation of its business.
+      - >-
+        There has been no Release of Hazardous Materials at any property currently or formerly owned or
+        operated by the Company that would reasonably be expected to result in material liability under
+        Environmental Laws.
+    crosswalk:
+      section_v1:
+        - id: d027088109f28e79
+          relation: exact
+          party: target
+        - id: 140ea12576e6e7f0
+          relation: exact
+          party: buyer
+      section_v2:
+        - id: 37685f0299f2d118
+          relation: exact
+          party: target
+        - id: 7b10978c7f55c2ac
+          relation: exact
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.employee_benefits
+    label: Employee Benefit Plans; ERISA
+    kind: provision
+    nav_parent: ma.nav.reps.employees
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      Statements about the party's benefit plans: the list of plans, compliance with ERISA and the Code,
+      plan funding, multiemployer plans, and payments that the deal triggers, including under Sections
+      280G and 409A.
+    canonical_terms:
+      - Company Benefit Plan
+      - ERISA
+      - multiemployer plan
+      - favorable determination letter
+      - excess parachute payment
+      - Section 409A
+    example_phrases:
+      - >-
+        Each Benefit Plan intended to be qualified under Section 401(a) of the Code has received a favorable
+        determination or opinion letter.
+      - >-
+        No Benefit Plan is subject to Title IV of ERISA, and the Company has no liability with respect
+        to any Multiemployer Plan.
+    exclusion_cues:
+      - Labor relations and employment law compliance are ma.rep.labor_employment.
+      - The covenant on benefits after closing is ma.employee.comp_benefits_continuation.
+    crosswalk:
+      section_v1:
+        - id: 09cecc7b4c746f45
+          relation: exact
+          party: target
+        - id: 3ba3af3cb10af71a
+          relation: exact
+          party: buyer
+      section_v2:
+        - id: 8935d2b3614b3246
+          relation: exact
+          party: target
+        - id: 14379b901b986599
+          relation: exact
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.labor_employment
+    label: Labor and Employment
+    kind: provision
+    nav_parent: ma.nav.reps.employees
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      Statements about unions and collective bargaining agreements, strikes, compliance with employment
+      laws, worker classification and the WARN Act.
+    canonical_terms:
+      - collective bargaining agreement
+      - labor union
+      - strike, slowdown or work stoppage
+      - unfair labor practice
+      - WARN Act
+      - independent contractors
+    example_phrases:
+      - >-
+        The Company is not a party to or bound by any collective bargaining agreement, and no labor union
+        represents its employees.
+      - >-
+        The Company is in compliance in all material respects with all Laws respecting labor, employment,
+        wages and hours, and worker classification.
+    crosswalk:
+      section_v1:
+        - id: 4af62e74bcacadb4
+          relation: exact
+          party: target
+        - id: df709e4a49b013a6
+          relation: exact
+          party: buyer
+      section_v2:
+        - id: 55bb0d0cba31fa54
+          relation: exact
+          party: target
+        - id: ff3875f08366a62d
+          relation: exact
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.information_supplied
+    label: Information Supplied; Disclosure Documents
+    kind: provision
+    nav_parent: ma.nav.reps.transaction
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      The information a party supplies for the proxy statement, registration statement or offer documents
+      will not contain a material misstatement or omission.
+    canonical_terms:
+      - information supplied
+      - Proxy Statement
+      - Form S-4
+      - Schedule 14D-9
+      - will not contain any untrue statement of a material fact
+    example_phrases:
+      - >-
+        None of the information supplied or to be supplied by the Company for inclusion in the Proxy Statement
+        will, at the time it is first mailed to stockholders, contain any untrue statement of a material
+        fact.
+    exclusion_cues:
+      - The covenant to prepare and file the proxy statement is ma.approval.proxy_statement.
+      - Past SEC filings are ma.rep.sec_reports.
+    introduced_in: '2026.1'
+
+  - id: ma.rep.fairness_opinion
+    label: Opinion of Financial Advisor
+    kind: provision
+    nav_parent: ma.nav.reps.transaction
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      The board has received an opinion of its financial advisor that the consideration is fair from a
+      financial point of view.
+    canonical_terms:
+      - opinion of financial advisor
+      - fairness opinion
+      - fair, from a financial point of view
+    example_phrases:
+      - >-
+        The Company Board has received the opinion of [•] to the effect that, as of the date of such opinion,
+        the Merger Consideration is fair, from a financial point of view, to the holders of Company Common
+        Stock.
+    introduced_in: '2026.1'
+
+  - id: ma.rep.brokers
+    label: Brokers and Finders
+    kind: provision
+    nav_parent: ma.nav.reps.transaction
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      No broker, finder or financial advisor is entitled to a fee in connection with the deal, other than
+      those named.
+    canonical_terms:
+      - brokers
+      - finders
+      - brokerage, finder's or other fee or commission
+      - financial advisor
+    example_phrases:
+      - >-
+        No broker, finder, or investment banker is entitled to any brokerage, finder's, or other fee or
+        commission in connection with the transactions based upon arrangements made by or on behalf of
+        the Company.
+      - >-
+        Except for fees payable to the financial advisor identified on Schedule [•], no Person is entitled
+        to any fee or commission from the Company in connection with this Agreement.
+    crosswalk:
+      section_v1:
+        - id: c394b106699bd8fe
+          relation: exact
+          party: target
+        - id: f0e1aa390dc4763c
+          relation: exact
+          party: buyer
+      section_v2:
+        - id: fc9e7be96b28aefe
+          relation: exact
+          party: target
+        - id: cb413e92bf5b8d6a
+          relation: exact
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.full_disclosure
+    label: Full Disclosure
+    kind: provision
+    nav_parent: ma.nav.reps.transaction
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      A general statement that the representations and the disclosure schedules contain no material misstatement
+      or omission.
+    canonical_terms:
+      - full disclosure
+      - no representation or warranty contains any untrue statement of a material fact
+      - omits to state a material fact
+    example_phrases:
+      - >-
+        No representation or warranty by the Company in this Agreement contains any untrue statement of
+        a material fact or omits to state a material fact necessary to make the statements herein not
+        misleading.
+    exclusion_cues:
+      - Accuracy of information for the proxy statement is ma.rep.information_supplied.
+    introduced_in: '2026.1'
+
+  - id: ma.rep.financing
+    label: Financing; Sufficiency of Funds
+    kind: provision
+    nav_parent: ma.nav.reps.buyer
+    also_listed_under:
+      - ma.nav.financing.arrangements
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      The buyer has, or will have at closing, enough funds to pay the consideration. Where the deal is
+      financed, it also covers the commitment letters: delivered, in force, with no side letters and no
+      conditions beyond those stated.
+    canonical_terms:
+      - sufficient funds
+      - available funds
+      - Debt Commitment Letter
+      - Equity Commitment Letter
+      - no side letters
+      - Financing
+    example_phrases:
+      - >-
+        These representations are made by Parent (the acquirer) in favor of the Company, typically in
+        a stock-consideration or public-acquirer context.
+      - >-
+        Parent will have at and after the Closing sufficient cash and immediately available funds to pay
+        the aggregate Merger Consideration and all related fees and expenses.
+    exclusion_cues:
+      - The covenant to obtain the financing is ma.financing.buyer_covenant.
+      - A closing condition tied to financing is ma.condition.financing.
+    crosswalk:
+      section_v1:
+        - id: 5685fa4f8c2af577
+          relation: exact
+          party: buyer
+      section_v2:
+        - id: 0f5f28a76cc128f0
+          relation: exact
+          party: buyer
+        - id: 8df9b2d6098cf1d1
+          relation: exact
+          party: target
+    introduced_in: '2026.1'
+
+  - id: ma.rep.solvency
+    label: Solvency
+    kind: provision
+    nav_parent: ma.nav.reps.buyer
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      The buyer and the surviving company will be solvent right after closing, after giving effect to
+      the deal and its financing.
+    canonical_terms:
+      - Solvent
+      - solvency
+      - fair saleable value of its assets
+      - unreasonably small capital
+      - debts as they mature
+    example_phrases:
+      - >-
+        Immediately after giving effect to the transactions contemplated by this Agreement, the Surviving
+        Corporation and its Subsidiaries, taken as a whole, will be Solvent.
+    introduced_in: '2026.1'
+
+  - id: ma.rep.investment_intent
+    label: Investment Intent; Securities Law Status
+    kind: provision
+    nav_parent: ma.nav.reps.buyer
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      A party acquires securities for its own account for investment, is an accredited investor, and understands
+      that the securities are not registered.
+    canonical_terms:
+      - investment intent
+      - purchase for investment
+      - accredited investor
+      - not with a view to distribution
+      - restricted securities
+    example_phrases:
+      - >-
+        Buyer is acquiring the Shares for its own account for investment purposes only and not with a
+        view to any public distribution thereof.
+    exclusion_cues:
+      - Lock-up and registration terms for buyer stock are ma.consideration.buyer_securities.
+    introduced_in: '2026.1'
+
+  - id: ma.rep.ownership_of_target_stock
+    label: Ownership of Target Stock
+    kind: provision
+    nav_parent: ma.nav.reps.buyer
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      The buyer and its affiliates own no target shares and are not an interested stockholder under the
+      anti-takeover statute.
+    canonical_terms:
+      - ownership of Company Common Stock
+      - beneficially owns
+      - interested stockholder
+      - Section 203 of the DGCL
+    example_phrases:
+      - >-
+        Neither Parent nor Merger Sub beneficially owns any shares of Company Common Stock, and neither
+        is an "interested stockholder" of the Company as defined in Section 203 of the DGCL.
+    exclusion_cues:
+      - The target's statement that anti-takeover statutes do not apply is ma.takeover.statutes.
+    introduced_in: '2026.1'
+
+  - id: ma.rep.merger_sub
+    label: Merger Sub; No Prior Activities
+    kind: provision
+    nav_parent: ma.nav.reps.buyer
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      The merger subsidiary was formed only for the deal, has carried on no other business, and is wholly
+      owned by the buyer.
+    canonical_terms:
+      - operations of Merger Sub
+      - formed solely for the purpose of
+      - no prior activities
+      - has not engaged in any business activities
+    example_phrases:
+      - >-
+        Merger Sub was formed solely for the purpose of engaging in the transactions contemplated by this
+        Agreement and has not engaged in any other business activities.
+    exclusion_cues:
+      - The buyer's duty to cause the merger subsidiary to perform is ma.merger_sub_obligations.
+    introduced_in: '2026.1'
+
+  - id: ma.rep.valid_issuance
+    label: Valid Issuance of Buyer Shares
+    kind: provision
+    nav_parent: ma.nav.reps.buyer
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      The buyer shares to be issued as consideration will be duly authorized, validly issued, fully paid
+      and nonassessable.
+    canonical_terms:
+      - valid issuance
+      - when issued, will be duly authorized, validly issued, fully paid and nonassessable
+      - Parent Shares to be issued
+    example_phrases:
+      - >-
+        The shares of Parent Common Stock to be issued in the Merger, when issued in accordance with this
+        Agreement, will be duly authorized, validly issued, fully paid and nonassessable.
+    exclusion_cues:
+      - The buyer's overall capital structure is ma.rep.capitalization.
+    introduced_in: '2026.1'
+
+  - id: ma.rep.no_other_reps
+    label: No Other Representations
+    kind: provision
+    nav_parent: ma.nav.reps.disclaimers
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      A party makes no representation other than those in the agreement, and disclaims projections, forecasts
+      and data room materials.
+    canonical_terms:
+      - no other representations or warranties
+      - exclusivity of representations
+      - expressly disclaims
+      - projections, forecasts
+      - data room
+    example_phrases:
+      - >-
+        Except for the representations and warranties expressly set forth in this Article, the Company
+        makes no other representation or warranty, express or implied, at law or in equity, and the Company
+        hereby disclaims any such other representation or warranty.
+    exclusion_cues:
+      - >-
+        The other party's statement that it did not rely on outside statements is ma.rep.non_reliance.
+      - A clause limiting tax representations to the tax section is tax.rep.ring_fencing.
+    crosswalk:
+      section_v1:
+        - id: a5ff5f6c1fb0d1cd
+          relation: narrower
+          party: target
+        - id: d85b9718366d99a5
+          relation: narrower
+          party: buyer
+      section_v2:
+        - id: 35716c409b331426
+          relation: narrower
+          party: target
+        - id: 303f5a4e8a0af7b6
+          relation: narrower
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.non_reliance
+    label: Non-Reliance; Independent Investigation
+    kind: provision
+    nav_parent: ma.nav.reps.disclaimers
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      A party states that it made its own investigation and did not rely on any statement outside the
+      agreement.
+    canonical_terms:
+      - independent investigation
+      - non-reliance
+      - has not relied on
+      - no outside reliance
+      - own independent review and analysis
+    example_phrases:
+      - >-
+        Buyer acknowledges that it has conducted its own independent investigation of the Company and,
+        in making its decision to enter into this Agreement, has relied solely on the representations
+        and warranties expressly set forth in Article [•].
+    exclusion_cues:
+      - The maker's disclaimer of other representations is ma.rep.no_other_reps.
+    value_schema:
+      status: stub
+      fields:
+        - name: carves_out_fraud
+          type: boolean
+        - name: covers_extra_contractual_statements
+          type: boolean
+    crosswalk:
+      section_v1:
+        - id: a5ff5f6c1fb0d1cd
+          relation: narrower
+          party: target
+        - id: d85b9718366d99a5
+          relation: narrower
+          party: buyer
+      section_v2:
+        - id: 35716c409b331426
+          relation: narrower
+          party: target
+        - id: 303f5a4e8a0af7b6
+          relation: narrower
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.rep.banking
+    label: Banking and Financial Institution Matters
+    kind: provision
+    nav_parent: ma.nav.reps.industry
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      Statements found in bank deals: regulatory reports and agreements with bank regulators, loans and
+      the allowance for loan losses, deposits, Community Reinvestment Act rating, fiduciary accounts,
+      and derivatives.
+    canonical_terms:
+      - agreements with regulatory agencies
+      - loan portfolio
+      - allowance for loan losses
+      - Community Reinvestment Act
+      - deposits
+      - risk management instruments
+      - investment securities
+      - fiduciary accounts
+    example_phrases:
+      - >-
+        Neither the Company nor any of its Subsidiaries is subject to any cease-and-desist or other order
+        issued by, or is a party to any written agreement or memorandum of understanding with, any Regulatory
+        Agency.
+    exclusion_cues:
+      - Bank regulatory approvals for the deal are ma.regulatory.industry_approvals.
+    introduced_in: '2026.1'
+
+  - id: ma.rep.healthcare_regulatory
+    label: Healthcare and Life Sciences Regulatory Matters
+    kind: provision
+    nav_parent: ma.nav.reps.industry
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      Statements about healthcare and drug or device regulation: FDA approvals, clinical trials, Medicare
+      and Medicaid participation, fraud and abuse laws, and HIPAA.
+    canonical_terms:
+      - FDA
+      - Health Care Laws
+      - Medicare
+      - Medicaid
+      - Anti-Kickback Statute
+      - clinical trials
+      - regulatory compliance
+    example_phrases:
+      - >-
+        The Company is, and since [•] has been, in compliance in all material respects with all applicable
+        Health Care Laws.
+    introduced_in: '2026.1'
+
+  - id: ma.rep.insurance_business
+    label: Insurance Business Matters
+    kind: provision
+    nav_parent: ma.nav.reps.industry
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      Statements found in deals for insurance companies: statutory statements, reserves, reinsurance,
+      and insurance licenses and producers.
+    canonical_terms:
+      - statutory statements
+      - SAP
+      - reserves
+      - reinsurance
+      - Insurance Subsidiaries
+      - insurance regulators
+    example_phrases:
+      - >-
+        Each Insurance Subsidiary has filed all annual and quarterly statutory statements required to
+        be filed with the insurance regulator of its state of domicile.
+    introduced_in: '2026.1'
+
+  - id: ma.rep.energy_natural_resources
+    label: Energy and Natural Resources Matters
+    kind: provision
+    nav_parent: ma.nav.reps.industry
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      Statements found in energy and resource deals: oil and gas properties and reserve reports, wells,
+      royalties, mining rights, and utility regulation.
+    canonical_terms:
+      - Oil and Gas Properties
+      - reserve report
+      - wells
+      - royalties
+      - hydrocarbons
+      - FERC
+      - utility
+    example_phrases:
+      - >-
+        The Company has good and defensible title to all of the Oil and Gas Properties forming the basis
+        for the reserves reflected in the Reserve Report.
+    introduced_in: '2026.1'
+
+  - id: ma.rep.other
+    label: Other Representation
+    kind: provision
+    nav_parent: ma.nav.reps.industry
+    tier: label
+    attributes:
+      party: maker
+    description: A representation that fits no other concept in this branch. Use it rarely.
+    exclusion_cues:
+      - Check the industry-specific concepts first.
+    introduced_in: '2026.1'

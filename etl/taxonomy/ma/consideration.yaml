@@ -1,0 +1,734 @@
+# Pandects taxonomy, M&A pack (`ma`). Navigation branch: Consideration and Payment Mechanics.
+# Source of truth for these nodes. Field reference: etl/taxonomy/README.md.
+# Validate with: python -m etl.domain.taxonomy_pack
+pack: ma
+release: '2026.1'
+branch:
+  id: ma.nav.consideration
+  label: Consideration and Payment Mechanics
+  kind: branch
+  order: 2
+  description: >-
+    What the sellers or stockholders receive, how equity awards are treated, how payment is made, and
+    how the price is adjusted.
+  introduced_in: '2026.1'
+groups:
+
+  - id: ma.nav.consideration.price
+    label: Price and Form of Consideration
+    kind: group
+    nav_parent: ma.nav.consideration
+    description: The amount and kind of consideration.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.consideration.equity_awards
+    label: Equity Awards and Other Securities
+    kind: group
+    nav_parent: ma.nav.consideration
+    description: Treatment of options, restricted stock units, warrants and similar securities.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.consideration.exchange
+    label: Exchange and Payment Procedures
+    kind: group
+    nav_parent: ma.nav.consideration
+    description: How holders exchange their shares for the consideration.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.consideration.adjustment
+    label: Purchase Price Adjustment
+    kind: group
+    nav_parent: ma.nav.consideration
+    description: The estimate at closing, the post-closing true-up and its disputes.
+    introduced_in: '2026.1'
+concepts:
+
+  - id: ma.consideration.merger_consideration
+    label: Merger Consideration; Conversion of Shares
+    kind: provision
+    nav_parent: ma.nav.consideration.price
+    tier: label
+    description: >-
+      What each target share converts into at the effective time: cash, buyer stock or both. It also covers
+      the cancellation of treasury and buyer-owned shares and the conversion of merger sub shares.
+    canonical_terms:
+      - Merger Consideration
+      - Per Share Merger Consideration
+      - converted into the right to receive
+      - conversion of shares
+      - effect on capital stock
+      - cancelled and retired
+    example_phrases:
+      - >-
+        Each share of Company Common Stock issued and outstanding immediately prior to the Effective Time
+        shall be converted into the right to receive $[•] in cash, without interest.
+      - >-
+        Each Share shall be converted into the right to receive the Exchange Ratio of validly issued shares
+        of Parent Common Stock.
+    exclusion_cues:
+      - The number of buyer shares per target share is ma.consideration.exchange_ratio.
+      - The mechanics of payment are ma.exchange.procedures.
+      - The price in a private purchase is ma.consideration.purchase_price.
+    value_schema:
+      status: stub
+      fields:
+        - name: cash_per_share
+          type: Money
+        - name: form
+          type: 'enum: cash | stock | mixed | election'
+        - name: stock_component
+          type: text
+    crosswalk:
+      section_v1:
+        - id: 4030ad087c7df49e
+          relation: narrower
+      section_v2:
+        - id: a27ace363a70a93b
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.consideration.exchange_ratio
+    label: Exchange Ratio
+    kind: definition
+    nav_parent: ma.nav.consideration.price
+    tier: label
+    description: >-
+      The number of buyer shares paid for each target share, whether it is fixed or floats with the buyer's
+      stock price, and how it is computed. It includes any collar on the ratio or the deal value and any
+      right to walk away if the buyer's stock price falls below a floor.
+    canonical_terms:
+      - Exchange Ratio
+      - shares of Parent Common Stock for each share
+      - fixed exchange ratio
+      - Parent Stock Price
+      - volume weighted average price
+      - collar
+      - Floor Price
+      - walk-away right
+    example_phrases:
+      - >-
+        "Exchange Ratio" means [•] shares of Parent Common Stock for each share of Company Common Stock.
+    exclusion_cues:
+      - Adjustments for stock splits are ma.consideration.anti_dilution.
+    value_schema:
+      status: stub
+      fields:
+        - name: ratio
+          type: number
+        - name: type
+          type: 'enum: fixed | floating | collar | formula'
+        - name: reference_price_rule
+          type: text
+        - name: collar_floor
+          type: Money
+        - name: collar_cap
+          type: Money
+        - name: walk_away_right
+          type: boolean
+    crosswalk:
+      section_v1:
+        - id: 4030ad087c7df49e
+          relation: narrower
+      section_v2:
+        - id: a27ace363a70a93b
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.consideration.election_proration
+    label: Cash or Stock Election; Proration
+    kind: provision
+    nav_parent: ma.nav.consideration.price
+    tier: label
+    description: >-
+      The stockholder's right to elect cash or stock, the election deadline, and the proration that applies
+      when one form is oversubscribed.
+    canonical_terms:
+      - Cash Election
+      - Stock Election
+      - Election Deadline
+      - Form of Election
+      - proration
+      - Non-Election Shares
+    example_phrases:
+      - >-
+        Each holder of Company Common Stock may elect to receive the Cash Consideration or the Stock Consideration
+        for each share, subject to proration as set forth in this Section.
+    value_schema:
+      status: stub
+      fields:
+        - name: cash_cap_pct
+          type: number
+        - name: default_for_non_electing
+          type: text
+    introduced_in: '2026.1'
+
+  - id: ma.consideration.purchase_price
+    label: Purchase Price
+    kind: provision
+    nav_parent: ma.nav.consideration.price
+    tier: label
+    description: >-
+      The price in a private purchase of shares, interests or assets: the base amount and the formula
+      that leads to the amount paid at closing.
+    canonical_terms:
+      - Purchase Price
+      - Base Purchase Price
+      - Closing Purchase Price
+      - Estimated Purchase Price
+      - aggregate consideration
+    example_phrases:
+      - >-
+        The aggregate purchase price for the Shares shall be an amount in cash equal to (a) $[•] (the
+        "Base Purchase Price"), plus (b) Closing Cash, minus (c) Closing Indebtedness, minus (d) Transaction
+        Expenses, plus or minus (e) the Working Capital Adjustment.
+    exclusion_cues:
+      - The true-up after closing is ma.price_adjustment.mechanism.
+      - The payments made at closing are ma.closing.payments.
+      - The allocation of the price for tax purposes is tax.allocation.purchase_price.
+    value_schema:
+      status: stub
+      fields:
+        - name: base_price
+          type: Money
+        - name: components
+          type: list
+    crosswalk:
+      section_v1:
+        - id: 9f84dd4792f499a1
+          relation: narrower
+      section_v2:
+        - id: d3937510a948cfee
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.consideration.buyer_securities
+    label: Buyer Securities as Consideration; Reservation, Lock-Up and Registration
+    kind: provision
+    nav_parent: ma.nav.consideration.price
+    tier: label
+    description: >-
+      Terms on buyer stock or notes issued as consideration: the duty to reserve the shares, private placement
+      status, legends, lock-up, registration rights and seller notes.
+    canonical_terms:
+      - reservation of shares
+      - restricted securities
+      - legend
+      - lock-up
+      - registration rights
+      - Rule 144
+      - Seller Note
+      - Stock Consideration
+    example_phrases:
+      - >-
+        The Parent Shares issued hereunder have not been registered under the Securities Act and may not
+        be transferred for a period of [•] days after the Closing Date.
+    exclusion_cues:
+      - The seller's representation that it buys for investment is ma.rep.investment_intent.
+      - Listing of buyer shares on an exchange is ma.listing.stock_exchange.
+    introduced_in: '2026.1'
+
+  - id: ma.consideration.rollover
+    label: Rollover Equity
+    kind: provision
+    nav_parent: ma.nav.consideration.price
+    also_listed_under:
+      - ma.nav.financing.arrangements
+    tier: label
+    description: >-
+      Terms under which some holders exchange target equity for equity of the buyer or its parent instead
+      of cash.
+    canonical_terms:
+      - Rollover Shares
+      - Rollover Holders
+      - Rollover Agreement
+      - contributed to Parent
+    example_phrases:
+      - >-
+        Immediately prior to the Effective Time, each Rollover Holder shall contribute the Rollover Shares
+        to Parent in exchange for equity interests of Parent pursuant to the Rollover Agreement.
+    exclusion_cues:
+      - A sponsor's cash equity commitment is ma.financing.equity_commitment.
+    crosswalk:
+      section_v2:
+        - id: 75c250d924bc8087
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.consideration.earnout
+    label: Earnout
+    kind: provision
+    nav_parent: ma.nav.consideration.price
+    tier: label
+    description: >-
+      Additional price that is paid after closing if the business meets stated financial or operating
+      targets, with the measurement rules and the buyer's operating duties.
+    canonical_terms:
+      - Earnout Payment
+      - Earn-Out Period
+      - Milestone Payment
+      - Contingent Consideration
+      - Earnout Statement
+    example_phrases:
+      - >-
+        If the Business achieves the Milestone during the Earnout Period, Purchaser shall pay Seller the
+        Earnout Payment within thirty days following the Earnout Statement.
+      - >-
+        The Earnout Payment shall equal [•]% of Net Revenue in excess of the Threshold during the Earnout
+        Period.
+    exclusion_cues:
+      - A tradable or contractual right issued to public stockholders is ma.consideration.cvr.
+      - The tax treatment of earnout payments is tax.adjustment.earnouts.
+    value_schema:
+      status: stub
+      fields:
+        - name: metric
+          type: text
+        - name: period
+          type: Duration
+        - name: max_amount
+          type: Money
+        - name: operating_covenant
+          type: enum
+        - name: acceleration
+          type: text
+    crosswalk:
+      section_v1:
+        - id: 93dc2f35e87d9015
+          relation: narrower
+      section_v2:
+        - id: 9ec8aa78fd03cf84
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.consideration.cvr
+    label: Contingent Value Rights
+    kind: provision
+    nav_parent: ma.nav.consideration.price
+    tier: label
+    description: >-
+      A contingent value right issued to target stockholders as part of the consideration, and the agreement
+      that governs it.
+    canonical_terms:
+      - Contingent Value Right
+      - CVR
+      - CVR Agreement
+      - Rights Agent
+      - Milestone
+    example_phrases:
+      - >-
+        Each Share shall be converted into the right to receive (a) $[•] in cash and (b) one contractual
+        contingent value right (a "CVR") subject to the terms of the CVR Agreement.
+    exclusion_cues:
+      - An earnout owed to private sellers is ma.consideration.earnout.
+    value_schema:
+      status: stub
+      fields:
+        - name: max_payment_per_cvr
+          type: Money
+        - name: milestones
+          type: list
+    crosswalk:
+      section_v1:
+        - id: 93dc2f35e87d9015
+          relation: narrower
+      section_v2:
+        - id: 9ec8aa78fd03cf84
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.consideration.deposit
+    label: Deposit
+    kind: provision
+    nav_parent: ma.nav.consideration.price
+    tier: label
+    description: >-
+      An earnest money deposit paid at signing: its amount, who holds it, and when it is credited, returned
+      or forfeited.
+    canonical_terms:
+      - Deposit
+      - earnest money
+      - Deposit Escrow
+      - credited against the Purchase Price
+    example_phrases:
+      - >-
+        Concurrently with the execution of this Agreement, Buyer shall deposit $[•] (the "Deposit") with
+        the Escrow Agent, to be credited against the Purchase Price at the Closing.
+    exclusion_cues:
+      - A termination fee is ma.termination.fee.target or ma.termination.fee.reverse.
+    value_schema:
+      status: stub
+      fields:
+        - name: amount
+          type: Money
+        - name: forfeiture_triggers
+          type: text
+    introduced_in: '2026.1'
+
+  - id: ma.consideration.anti_dilution
+    label: Adjustments to Prevent Dilution
+    kind: provision
+    nav_parent: ma.nav.consideration.price
+    tier: label
+    description: >-
+      An adjustment to the consideration if either party's shares change before closing through a stock
+      split, stock dividend, reclassification or similar event.
+    canonical_terms:
+      - adjustments to prevent dilution
+      - stock split
+      - reclassification
+      - equitably adjusted
+      - anti-dilution
+    example_phrases:
+      - >-
+        If, between the date of this Agreement and the Effective Time, the outstanding shares of Parent
+        Common Stock are changed into a different number of shares by reason of any stock split or reclassification,
+        the Exchange Ratio shall be equitably adjusted.
+    introduced_in: '2026.1'
+
+  - id: ma.equity.awards
+    label: Treatment of Equity Awards
+    kind: provision
+    nav_parent: ma.nav.consideration.equity_awards
+    tier: label
+    description: >-
+      What happens to stock options, restricted stock, restricted stock units and performance awards at
+      closing: cash-out, assumption, rollover or cancellation, and whether vesting accelerates.
+    canonical_terms:
+      - Company Options
+      - Company RSUs
+      - Company PSUs
+      - Company Restricted Stock
+      - cancelled and converted into the right to receive
+      - assumed by Parent
+      - Equity Award Exchange Ratio
+    example_phrases:
+      - >-
+        At the Effective Time, each Company Option that is outstanding and unexercised, whether vested
+        or unvested, shall be cancelled and converted into the right to receive an amount in cash equal
+        to the product of the number of Shares subject thereto and the excess of the Per Share Merger
+        Consideration over the exercise price.
+      - >-
+        Each outstanding Company RSU shall be assumed by Parent and converted into a Parent RSU covering
+        a number of shares determined using the Exchange Ratio.
+    exclusion_cues:
+      - The employee stock purchase plan is ma.equity.espp.
+      - Warrants and convertible securities are ma.equity.warrants_convertibles.
+      - Section 16 exemptions for these dispositions are ma.governance.section_16.
+    value_schema:
+      status: stub
+      fields:
+        - name: options
+          type: 'enum: cash_out | assume | cancel | mixed'
+        - name: rsus
+          type: enum
+        - name: psus_performance_level
+          type: text
+        - name: unvested_accelerate
+          type: boolean
+    crosswalk:
+      section_v1:
+        - id: d0c5431584506154
+          relation: narrower
+      section_v2:
+        - id: 984defd83e1666c2
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.equity.espp
+    label: Employee Stock Purchase Plan
+    kind: provision
+    nav_parent: ma.nav.consideration.equity_awards
+    tier: label
+    description: >-
+      Treatment of the employee stock purchase plan: no new offering periods, a final purchase date and
+      termination of the plan.
+    canonical_terms:
+      - Company ESPP
+      - Employee Stock Purchase Plan
+      - final offering period
+      - no new offering period
+    example_phrases:
+      - >-
+        The Company shall take all actions necessary to provide that no new offering period shall commence
+        under the Company ESPP after the date of this Agreement and that the Company ESPP shall terminate
+        as of the Effective Time.
+    crosswalk:
+      section_v1:
+        - id: d0c5431584506154
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.equity.warrants_convertibles
+    label: Warrants, Convertible Notes and Preferred Stock
+    kind: provision
+    nav_parent: ma.nav.consideration.equity_awards
+    tier: label
+    description: >-
+      Treatment of warrants, convertible notes, preferred stock and other securities that are not employee
+      awards.
+    canonical_terms:
+      - Company Warrants
+      - Convertible Notes
+      - Company Preferred Stock
+      - in accordance with the terms of the indenture
+    example_phrases:
+      - >-
+        Each Company Warrant that is outstanding immediately prior to the Effective Time shall be treated
+        in accordance with its terms.
+    exclusion_cues:
+      - Employee options and stock units are ma.equity.awards.
+      - Repayment of ordinary debt is ma.financing.payoff_letters.
+    crosswalk:
+      section_v1:
+        - id: d0c5431584506154
+          relation: narrower
+      section_v2:
+        - id: 984defd83e1666c2
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.exchange.procedures
+    label: Exchange Procedures; Paying Agent
+    kind: provision
+    nav_parent: ma.nav.consideration.exchange
+    tier: label
+    description: >-
+      How holders receive the consideration: the paying or exchange agent, the exchange fund, letters
+      of transmittal, surrender of certificates and book-entry shares, lost certificates, closing of the
+      transfer books and return of unclaimed funds.
+    canonical_terms:
+      - Paying Agent
+      - Exchange Agent
+      - Exchange Fund
+      - letter of transmittal
+      - surrender of Certificates
+      - Book-Entry Shares
+      - lost, stolen or destroyed Certificates
+      - stock transfer books
+      - no further ownership rights
+    example_phrases:
+      - >-
+        Prior to the Effective Time, Parent shall appoint a Paying Agent and shall deposit with the Paying
+        Agent the Exchange Fund.
+      - >-
+        Upon surrender of a Certificate together with a duly completed and executed Letter of Transmittal,
+        the holder shall be entitled to receive the Merger Consideration in respect thereof.
+    exclusion_cues:
+      - The amount each share receives is ma.consideration.merger_consideration.
+      - The payor's right to withhold taxes is tax.withholding.provision.
+    crosswalk:
+      section_v1:
+        - id: e6472f83aba370e6
+          relation: narrower
+      section_v2:
+        - id: dffa35414901279b
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.exchange.dissenting_shares
+    label: Dissenting Shares; Appraisal Rights
+    kind: provision
+    nav_parent: ma.nav.consideration.exchange
+    tier: label
+    description: >-
+      Treatment of shares whose holders demand appraisal, and the target's duties to give notice of demands
+      and not to settle them without consent.
+    canonical_terms:
+      - Dissenting Shares
+      - appraisal rights
+      - Section 262 of the DGCL
+      - dissenters' rights
+      - demand for appraisal
+    example_phrases:
+      - >-
+        Shares that are issued and outstanding immediately prior to the Effective Time and that are held
+        by a holder who has properly demanded appraisal in accordance with Section 262 of the DGCL ('Dissenting
+        Shares') shall not be converted into the right to receive the Merger Consideration.
+      - >-
+        The Company shall give Parent prompt notice of any demands for appraisal received by the Company
+        and the opportunity to participate in all negotiations and proceedings with respect to such demands.
+    exclusion_cues:
+      - >-
+        A closing condition tied to the share of dissenting holders is ma.condition.dissenting_shares.
+    crosswalk:
+      section_v1:
+        - id: 6362a96baf9df82b
+          relation: exact
+      section_v2:
+        - id: 6e522a5e0b60ca49
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.exchange.fractional_shares
+    label: Fractional Shares
+    kind: provision
+    nav_parent: ma.nav.consideration.exchange
+    tier: label
+    description: No fractional buyer shares are issued. Holders receive cash or rounding instead.
+    canonical_terms:
+      - no fractional shares
+      - cash in lieu of fractional shares
+      - rounded to the nearest whole share
+    example_phrases:
+      - >-
+        No fractional shares of Parent Common Stock shall be issued in the Merger, and each holder who
+        would otherwise be entitled to a fraction of a share shall receive cash in lieu thereof.
+    crosswalk:
+      section_v1:
+        - id: e6472f83aba370e6
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.exchange.payment_schedule
+    label: Allocation Schedule; Payment Spreadsheet
+    kind: provision
+    nav_parent: ma.nav.consideration.exchange
+    tier: label
+    description: >-
+      The schedule the target delivers before closing that shows what each holder receives, and the buyer's
+      right to rely on it.
+    canonical_terms:
+      - Allocation Schedule
+      - Payment Spreadsheet
+      - Consideration Spreadsheet
+      - Closing Payment Certificate
+      - Pro Rata Share
+    example_phrases:
+      - >-
+        At least [•] Business Days prior to the Closing, the Company shall deliver to Parent a spreadsheet
+        setting forth, for each Company Securityholder, the portion of the Merger Consideration payable
+        to such holder (the "Allocation Schedule").
+    exclusion_cues:
+      - >-
+        The allocation of the price among assets for tax purposes is tax.allocation.purchase_price.
+    introduced_in: '2026.1'
+
+  - id: ma.price_adjustment.mechanism
+    label: Purchase Price Adjustment
+    kind: provision
+    nav_parent: ma.nav.consideration.adjustment
+    tier: label
+    description: >-
+      The adjustment of the price for working capital, cash, debt and transaction expenses: the estimate
+      delivered before closing and the payment that settles the difference after closing.
+    canonical_terms:
+      - Estimated Closing Statement
+      - Working Capital Adjustment
+      - Final Purchase Price
+      - Adjustment Amount
+      - Target Working Capital
+      - post-closing adjustment
+    example_phrases:
+      - >-
+        Not less than three Business Days prior to Closing, Seller shall deliver an Estimated Closing
+        Statement setting forth its good-faith estimate of Closing Working Capital, Cash, Indebtedness,
+        and Transaction Expenses.
+      - >-
+        The Purchase Price shall be (i) increased dollar-for-dollar by the amount, if any, by which Closing
+        Working Capital exceeds Target Working Capital, and (ii) decreased by the amount of any Closing
+        Indebtedness.
+    exclusion_cues:
+      - >-
+        The buyer's closing statement and the seller's objection are ma.price_adjustment.closing_statement.
+      - The accountant that settles a dispute is ma.price_adjustment.dispute_resolution.
+      - The definition of working capital is ma.def.working_capital.
+    value_schema:
+      status: stub
+      fields:
+        - name: adjusts_for
+          type: 'list: working_capital | cash | indebtedness | transaction_expenses'
+        - name: target_working_capital
+          type: Money
+        - name: collar
+          type: Money
+        - name: cap_on_adjustment
+          type: Money
+    crosswalk:
+      section_v1:
+        - id: 9f84dd4792f499a1
+          relation: narrower
+      section_v2:
+        - id: d3937510a948cfee
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.price_adjustment.closing_statement
+    label: Closing Statement; Review and Objection
+    kind: provision
+    nav_parent: ma.nav.consideration.adjustment
+    tier: label
+    description: >-
+      The post-closing statement of the final figures, the other side's review period, access to records
+      and the notice of disagreement.
+    canonical_terms:
+      - Closing Statement
+      - within [•] days after the Closing Date
+      - Notice of Disagreement
+      - Dispute Notice
+      - Review Period
+    example_phrases:
+      - >-
+        Within 90 days after the Closing Date, Buyer shall deliver to Seller a statement setting forth
+        its calculation of Closing Working Capital, Closing Cash and Closing Indebtedness (the "Closing
+        Statement").
+    crosswalk:
+      section_v1:
+        - id: 9f84dd4792f499a1
+          relation: narrower
+      section_v2:
+        - id: d3937510a948cfee
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.price_adjustment.dispute_resolution
+    label: Independent Accountant Dispute Resolution
+    kind: provision
+    nav_parent: ma.nav.consideration.adjustment
+    tier: label
+    description: >-
+      Referral of a disputed closing statement to an independent accounting firm: its scope, whether it
+      acts as an expert or an arbitrator, and who pays its fees.
+    canonical_terms:
+      - Independent Accountant
+      - Accounting Firm
+      - acting as an expert and not as an arbitrator
+      - final and binding
+      - fees allocated in inverse proportion
+    example_phrases:
+      - >-
+        If the parties are unable to resolve the disputed items within 30 days, they shall submit such
+        items to the Independent Accountant, which shall act as an expert and not as an arbitrator.
+    exclusion_cues:
+      - General arbitration of disputes under the agreement is ma.arbitration.
+    value_schema:
+      status: stub
+      fields:
+        - name: role
+          type: 'enum: expert | arbitrator | not_stated'
+        - name: fee_allocation
+          type: text
+    introduced_in: '2026.1'
+
+  - id: ma.price_adjustment.escrow
+    label: Adjustment Escrow
+    kind: provision
+    nav_parent: ma.nav.consideration.adjustment
+    tier: label
+    description: An escrow or holdback that secures the seller's duty to pay a downward price adjustment.
+    canonical_terms:
+      - Adjustment Escrow Amount
+      - Adjustment Escrow Fund
+      - Working Capital Escrow
+    example_phrases:
+      - >-
+        Any amount owed by Sellers under this Section shall be paid first from the Adjustment Escrow Fund.
+    exclusion_cues:
+      - The escrow that secures indemnity claims is ma.indemn.escrow.
+    value_schema:
+      status: stub
+      fields:
+        - name: amount
+          type: Money
+        - name: sole_recourse
+          type: boolean
+    introduced_in: '2026.1'

@@ -1,0 +1,207 @@
+# Pandects taxonomy, tax pack (`tax`). Navigation branch: Tax Interim Operating Covenants.
+# Structure and labels mirror tax_clause_taxonomy_l1/l2/l3, which was built with a tax professor.
+# Nodes marked `proposed: true` are additions that await the maintainer's decision.
+# Field reference: etl/taxonomy/README.md. Validate with: python -m etl.domain.taxonomy_pack
+pack: tax
+release: '2026.1'
+branch:
+  id: tax.nav.interim
+  label: Tax Interim Operating Covenants
+  kind: branch
+  order: 2
+  assignable: true
+  description: Covenants that limit what the target may do on tax matters between signing and closing.
+  also_listed_under:
+    - ma.nav.conduct.interim
+  crosswalk:
+    tax_v1:
+      - id: tax.2
+        relation: exact
+  introduced_in: '2026.1'
+groups: []
+concepts:
+
+  - id: tax.interim.timely_filing
+    label: Timely Filing of Tax Returns
+    kind: provision
+    nav_parent: tax.nav.interim
+    tier: label
+    description: An interim covenant to file all tax returns on time.
+    canonical_terms:
+      - timely file all Tax Returns
+      - prepare and file when due
+    example_phrases:
+      - The Company shall timely file all Tax Returns required to be filed by it.
+    exclusion_cues:
+      - A representation that returns were filed is tax.rep.returns_filed.
+    crosswalk:
+      tax_v1:
+        - id: tax.2.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.interim.timely_payment
+    label: Timely Payment of Taxes
+    kind: provision
+    nav_parent: tax.nav.interim
+    tier: label
+    description: An interim covenant to pay all taxes when due.
+    canonical_terms:
+      - timely pay all Taxes
+      - pay when due
+    example_phrases:
+      - The Company shall timely pay all Taxes that are due and payable.
+    crosswalk:
+      tax_v1:
+        - id: tax.2.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.interim.maintain_elections
+    label: Maintain Existing Tax Elections / Methods
+    kind: provision
+    nav_parent: tax.nav.interim
+    tier: label
+    description: >-
+      An interim covenant to keep existing tax elections and accounting methods and to file returns in
+      line with past practice.
+    canonical_terms:
+      - consistent with past practice
+      - maintain existing elections
+      - accounting methods
+    example_phrases:
+      - The Company shall prepare all Tax Returns in a manner consistent with past practice.
+    crosswalk:
+      tax_v1:
+        - id: tax.2.3
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.interim.no_new_elections
+    label: No Unusual Tax Election or Accounting Method Change
+    kind: provision
+    nav_parent: tax.nav.interim
+    tier: label
+    description: >-
+      An interim covenant not to make, change or revoke a material tax election or change a tax accounting
+      method or period.
+    canonical_terms:
+      - make, change or revoke any material Tax election
+      - change any method of Tax accounting
+      - change an annual accounting period
+    example_phrases:
+      - >-
+        The Company shall not make, change or revoke any material Tax election or adopt or change any
+        method of Tax accounting.
+    exclusion_cues:
+      - A change to financial accounting methods is ma.conduct.restriction.accounting.
+    crosswalk:
+      tax_v1:
+        - id: tax.2.4
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.interim.no_amended_returns
+    label: No Amended Returns / Voluntary Disclosure / Ruling Request
+    kind: provision
+    nav_parent: tax.nav.interim
+    tier: label
+    description: >-
+      An interim covenant not to amend a tax return, make a voluntary disclosure, or ask for a tax ruling.
+    canonical_terms:
+      - amend any material Tax Return
+      - voluntary disclosure
+      - request any ruling
+    example_phrases:
+      - >-
+        The Company shall not file any amended material Tax Return or request any ruling from a Taxing
+        Authority.
+    exclusion_cues:
+      - A limit on what the buyer may do after closing is tax.cooperation.post_closing_actions.
+    crosswalk:
+      tax_v1:
+        - id: tax.2.5
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.interim.no_limitations_waiver
+    label: No Waiver of Limitations / Extension of Assessment Period
+    kind: provision
+    nav_parent: tax.nav.interim
+    tier: label
+    description: >-
+      An interim covenant not to waive or extend a statute of limitations for the assessment of taxes.
+    canonical_terms:
+      - extension or waiver of the limitation period
+      - statute of limitations
+      - assessment of any Tax
+    example_phrases:
+      - >-
+        The Company shall not consent to any extension or waiver of the limitation period applicable to
+        any Tax claim or assessment.
+    exclusion_cues:
+      - A representation that no waiver is in effect is tax.rep.no_limitations_waiver.
+    crosswalk:
+      tax_v1:
+        - id: tax.2.6
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.interim.no_settlement
+    label: No Settlement of Tax Claims Without Consent
+    kind: provision
+    nav_parent: tax.nav.interim
+    tier: label
+    description: >-
+      An interim covenant not to settle a tax claim, audit or assessment, or enter into a closing agreement,
+      without consent.
+    canonical_terms:
+      - settle or compromise any Tax claim
+      - closing agreement
+      - without the prior written consent of Parent
+    example_phrases:
+      - The Company shall not settle or compromise any material Tax claim, audit or assessment.
+    exclusion_cues:
+      - Settlement of non-tax litigation is ma.conduct.restriction.litigation_settlement.
+    crosswalk:
+      tax_v1:
+        - id: tax.2.7
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.interim.no_refund_surrender
+    label: No Surrender of Refund Rights
+    kind: provision
+    nav_parent: tax.nav.interim
+    tier: label
+    description: An interim covenant not to give up a right to claim a tax refund.
+    canonical_terms:
+      - surrender any right to claim a refund
+      - material Tax refund
+    example_phrases:
+      - The Company shall not surrender any right to claim a material refund of Taxes.
+    crosswalk:
+      tax_v1:
+        - id: tax.2.8
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.interim.no_residency_change
+    label: No Change in Tax Residency / Classification
+    kind: provision
+    nav_parent: tax.nav.interim
+    tier: label
+    description: An interim covenant not to change tax residency or entity classification.
+    canonical_terms:
+      - change its residence for Tax purposes
+      - entity classification
+      - permanent establishment
+    example_phrases:
+      - >-
+        The Company shall not change its residence for any Tax purpose or its U.S. federal income tax
+        classification.
+    crosswalk:
+      tax_v1:
+        - id: tax.2.9
+          relation: exact
+    introduced_in: '2026.1'

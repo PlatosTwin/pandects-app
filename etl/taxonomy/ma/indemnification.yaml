@@ -1,0 +1,606 @@
+# Pandects taxonomy, M&A pack (`ma`). Navigation branch: Indemnification and Risk Allocation.
+# Source of truth for these nodes. Field reference: etl/taxonomy/README.md.
+# Validate with: python -m etl.domain.taxonomy_pack
+pack: ma
+release: '2026.1'
+branch:
+  id: ma.nav.indemnification
+  label: Indemnification and Risk Allocation
+  kind: branch
+  order: 12
+  description: >-
+    Who bears losses after closing: survival, the indemnity and its limits, claim procedures, escrows
+    and insurance.
+  introduced_in: '2026.1'
+groups:
+
+  - id: ma.nav.indemnification.scope
+    label: Survival and Scope
+    kind: group
+    nav_parent: ma.nav.indemnification
+    description: >-
+      How long claims last and what each party indemnifies. The tax indemnity is listed here from the
+      tax pack.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.indemnification.limits
+    label: Limits on Recovery
+    kind: group
+    nav_parent: ma.nav.indemnification
+    description: Caps, baskets and other limits on what an indemnified party can recover.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.indemnification.procedure
+    label: Claims and Sources of Recovery
+    kind: group
+    nav_parent: ma.nav.indemnification
+    description: How claims are made and paid.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.indemnification.insurance
+    label: R&W Insurance
+    kind: group
+    nav_parent: ma.nav.indemnification
+    description: Representation and warranty insurance.
+    introduced_in: '2026.1'
+concepts:
+
+  - id: ma.indemn.survival
+    label: Survival of Representations and Covenants
+    kind: provision
+    nav_parent: ma.nav.indemnification.scope
+    also_listed_under:
+      - ma.nav.general.agreement
+    tier: value
+    description: >-
+      How long the representations, warranties and covenants last after closing. It includes the public-deal
+      clause that they do not survive at all.
+    canonical_terms:
+      - survival
+      - shall survive the Closing for a period of
+      - non-survival of representations and warranties
+      - shall terminate at the Effective Time
+      - until the expiration of the applicable statute of limitations
+    example_phrases:
+      - >-
+        The representations and warranties of the parties contained in this Agreement shall survive the
+        Closing until the date that is eighteen (18) months after the Closing Date.
+      - >-
+        Notwithstanding the foregoing, the Fundamental Representations shall survive until sixty (60)
+        days following the expiration of the applicable statute of limitations, and the Tax Representations
+        shall survive accordingly.
+    exclusion_cues:
+      - The survival of the tax indemnity is tax.indemnity.survival.
+      - Provisions that survive termination are ma.termination.effect.
+    value_schema:
+      status: piloted
+      version: '2.16'
+      source: docs/plans/span-taxonomy.md, section 7.2
+      fields:
+        - periods
+        - no_survival
+    crosswalk:
+      section_v1:
+        - id: 275322efa4672793
+          relation: exact
+      section_v2:
+        - id: 2e5f7f24f7f8e8c0
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.indemn.obligation
+    label: Indemnification Obligation
+    kind: provision
+    nav_parent: ma.nav.indemnification.scope
+    tier: label
+    attributes:
+      party: indemnitor
+    description: >-
+      The promise of one side to indemnify the other for losses from breaches of representations and covenants
+      and from other listed matters. The indemnifying party is an attribute of the instance.
+    canonical_terms:
+      - shall indemnify, defend and hold harmless
+      - Buyer Indemnified Parties
+      - Seller Indemnified Parties
+      - Losses arising out of or resulting from
+      - indemnification by Seller
+      - indemnification by Buyer
+    example_phrases:
+      - >-
+        From and after the Closing, Seller shall indemnify, defend, and hold harmless Buyer and its Affiliates
+        and their respective officers, directors, and employees (the 'Buyer Indemnified Parties') from
+        and against any and all Losses actually incurred arising out of or resulting from (i) any breach
+        of any representation or warranty of Seller, (ii) any breach of any covenant of Seller, and (iii)
+        any Excluded Liability.
+      - >-
+        'Losses' means losses, damages, liabilities, costs, and expenses, including reasonable attorneys'
+        fees.
+    exclusion_cues:
+      - Indemnification of the target's directors and officers is ma.dando.indemnification.
+      - The tax indemnity is tax.indemnity.obligation.
+      - An indemnity for one named matter is ma.indemn.specific.
+    crosswalk:
+      section_v1:
+        - id: ef994612a273fa90
+          relation: exact
+      section_v2:
+        - id: 6ca2b66c7ee43167
+          relation: exact
+          party: target
+        - id: 71555bbd7059319e
+          relation: exact
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.indemn.specific
+    label: Specific Indemnities
+    kind: component
+    nav_parent: ma.nav.indemnification.scope
+    parent: ma.indemn.obligation
+    tier: label
+    attributes:
+      party: indemnitor
+    description: >-
+      An indemnity for a named matter, such as a pending lawsuit, an environmental condition, excluded
+      liabilities or pre-closing indebtedness. It usually sits outside the cap and basket.
+    canonical_terms:
+      - special indemnity
+      - Specified Matters
+      - Excluded Liabilities
+      - the matters set forth on Schedule [•]
+    example_phrases:
+      - >-
+        Seller shall indemnify the Buyer Indemnified Parties from and against all Losses arising out of
+        the matters set forth on Schedule [•], without regard to the limitations in Section [•].
+    exclusion_cues:
+      - The general indemnity for breaches is ma.indemn.obligation.
+    introduced_in: '2026.1'
+
+  - id: ma.indemn.cap
+    label: Indemnification Cap
+    kind: provision
+    nav_parent: ma.nav.indemnification.limits
+    tier: value
+    description: >-
+      The most an indemnifying party must pay, with separate caps for general representations, fundamental
+      representations and other items, and the claims that fall outside the cap.
+    canonical_terms:
+      - Cap
+      - shall not exceed
+      - maximum aggregate liability
+      - '% of the Purchase Price'
+      - Indemnity Escrow Amount
+    example_phrases:
+      - >-
+        The aggregate amount of all Losses for which Seller shall be liable under Section [•](a) shall
+        not exceed $[•] (the "Cap"); provided that the Cap shall not apply to breaches of the Fundamental
+        Representations or to Fraud.
+    exclusion_cues:
+      - The threshold that losses must pass first is ma.indemn.basket.
+      - A cap on liability after termination is ma.termination.fee.exclusive_remedy.
+    value_schema:
+      status: piloted
+      version: '2.16'
+      source: docs/plans/span-taxonomy.md, section 7.2
+      fields:
+        - caps
+        - escrow_sole_recourse
+        - rwi_interaction
+    crosswalk:
+      section_v1:
+        - id: 701339e794fa70ce
+          relation: narrower
+      section_v2:
+        - id: bb4d0ba11aae2936
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.indemn.basket
+    label: Basket; Deductible; De Minimis
+    kind: provision
+    nav_parent: ma.nav.indemnification.limits
+    tier: value
+    description: >-
+      The amount of losses that must build up before the indemnifying party pays, whether it is a deductible
+      or a tipping basket, and any per-claim minimum.
+    canonical_terms:
+      - Basket
+      - Deductible
+      - Threshold
+      - first dollar
+      - only to the extent in excess of
+      - De Minimis Amount
+      - Mini-Basket
+    example_phrases:
+      - >-
+        Seller shall not be liable for any Losses under Section [•](a) until the aggregate amount of all
+        such Losses exceeds $[•] (the "Deductible"), and then only for Losses in excess of the Deductible.
+    exclusion_cues:
+      - The ceiling on recovery is ma.indemn.cap.
+    value_schema:
+      status: piloted
+      version: '2.16'
+      source: docs/plans/span-taxonomy.md, section 7.2
+      fields:
+        - type
+        - amount
+        - de_minimis
+        - applies_to
+        - indemnitor
+    crosswalk:
+      section_v1:
+        - id: 701339e794fa70ce
+          relation: narrower
+      section_v2:
+        - id: bb4d0ba11aae2936
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.indemn.materiality_scrape
+    label: Materiality Scrape
+    kind: modifier
+    nav_parent: ma.nav.indemnification.limits
+    parent: ma.indemn.obligation
+    tier: label
+    description: >-
+      For indemnification, materiality and material adverse effect qualifiers in the representations are
+      ignored, either to measure losses only or also to decide whether a breach exists.
+    canonical_terms:
+      - materiality scrape
+      - without giving effect to any materiality or Material Adverse Effect qualification
+      - read out
+      - for purposes of determining the amount of Losses
+    example_phrases:
+      - >-
+        For purposes of this Article, any inaccuracy in or breach of any representation or warranty shall
+        be determined without regard to any materiality or Material Adverse Effect qualification contained
+        therein.
+    exclusion_cues:
+      - The same wording inside a closing condition is ma.condition.reps_bringdown.
+    value_schema:
+      status: stub
+      fields:
+        - name: scope
+          type: 'enum: losses_only | breach_and_losses'
+    crosswalk:
+      section_v1:
+        - id: c3edef551bf719ae
+          relation: narrower
+      section_v2:
+        - id: 3d843646fd60ebda
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.indemn.sandbagging
+    label: Sandbagging
+    kind: provision
+    nav_parent: ma.nav.indemnification.limits
+    tier: label
+    description: >-
+      Whether an indemnified party's knowledge of a breach before closing affects its right to recover:
+      a pro-sandbagging clause keeps the right, and an anti-sandbagging clause removes it.
+    canonical_terms:
+      - sandbagging
+      - shall not be affected by any investigation or knowledge
+      - effect of investigation
+      - had Knowledge prior to the Closing
+      - reliance
+    example_phrases:
+      - >-
+        The right to indemnification shall not be affected by any investigation conducted or any knowledge
+        acquired at any time with respect to the accuracy of any representation or warranty.
+    value_schema:
+      status: stub
+      fields:
+        - name: type
+          type: 'enum: pro_sandbagging | anti_sandbagging | silent'
+    crosswalk:
+      section_v1:
+        - id: c3edef551bf719ae
+          relation: narrower
+      section_v2:
+        - id: 3d843646fd60ebda
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.indemn.exclusive_remedy
+    label: Exclusive Remedy
+    kind: provision
+    nav_parent: ma.nav.indemnification.limits
+    tier: label
+    description: >-
+      After closing, indemnification is the only remedy for breaches of the agreement, with stated exceptions
+      such as fraud and specific performance.
+    canonical_terms:
+      - sole and exclusive remedy
+      - exclusive remedies
+      - from and after the Closing
+      - except in the case of Fraud
+    example_phrases:
+      - >-
+        From and after the Closing, the indemnification provisions of this Article shall be the sole and
+        exclusive remedy of the parties with respect to any breach of this Agreement, except in the case
+        of Fraud.
+    exclusion_cues:
+      - >-
+        A termination fee as the only remedy before closing is ma.termination.fee.exclusive_remedy.
+      - The tax article's own rule is tax.indemnity.exclusive_remedy.
+    value_schema:
+      status: stub
+      fields:
+        - name: exceptions
+          type: 'list: fraud | specific_performance | price_adjustment | other'
+    crosswalk:
+      section_v1:
+        - id: c3edef551bf719ae
+          relation: narrower
+      section_v2:
+        - id: 3d843646fd60ebda
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.indemn.mitigation
+    label: Mitigation of Losses
+    kind: provision
+    nav_parent: ma.nav.indemnification.limits
+    tier: label
+    description: The indemnified party's duty to take reasonable steps to mitigate its losses.
+    canonical_terms:
+      - mitigate
+      - duty to mitigate
+      - commercially reasonable efforts to mitigate any Losses
+    example_phrases:
+      - >-
+        Each Indemnified Party shall take all commercially reasonable steps to mitigate any Loss upon
+        becoming aware of any event that would reasonably be expected to give rise thereto.
+    exclusion_cues:
+      - The tax article's own rule is tax.indemnity.mitigation.
+    crosswalk:
+      section_v2:
+        - id: 3d843646fd60ebda
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.indemn.recovery_offsets
+    label: Insurance and Other Recovery Offsets
+    kind: provision
+    nav_parent: ma.nav.indemnification.limits
+    tier: label
+    description: >-
+      Reduction of an indemnity claim for insurance proceeds, third-party recoveries and tax benefits,
+      and the rule against recovering twice for the same loss.
+    canonical_terms:
+      - net of any insurance proceeds
+      - Tax benefit actually realized
+      - no double recovery
+      - amounts recovered from third parties
+    example_phrases:
+      - >-
+        The amount of any Loss subject to indemnification shall be calculated net of any insurance proceeds
+        actually received by the Indemnified Party in respect of such Loss.
+    exclusion_cues:
+      - Recovery under a representation and warranty policy is ma.indemn.rwi.
+      - The tax article's own offset is tax.indemnity.benefit_offset.
+    crosswalk:
+      section_v2:
+        - id: 82441ff5092e1695
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.indemn.claims_procedure
+    label: Indemnification Claims Procedure
+    kind: provision
+    nav_parent: ma.nav.indemnification.procedure
+    tier: label
+    description: >-
+      How an indemnified party makes a claim: the claim notice, its contents and timing, the response
+      period, and how direct claims are settled.
+    canonical_terms:
+      - indemnification procedures
+      - Claim Notice
+      - direct claims
+      - within 30 days after receipt
+      - Objection Notice
+    example_phrases:
+      - >-
+        An Indemnified Party seeking indemnification shall deliver a written notice (a "Claim Notice")
+        to the Indemnifying Party describing the claim in reasonable detail and the amount of Losses,
+        and the Indemnifying Party shall respond within 30 days after receipt.
+    exclusion_cues:
+      - Claims brought by an outside person are ma.indemn.third_party_claims.
+    crosswalk:
+      section_v1:
+        - id: 361e70447fa67575
+          relation: narrower
+      section_v2:
+        - id: 710cc9ed4c7c5296
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.indemn.third_party_claims
+    label: Third-Party Claims; Defense and Settlement
+    kind: provision
+    nav_parent: ma.nav.indemnification.procedure
+    tier: label
+    description: >-
+      For a claim brought by an outside person: notice, the indemnifying party's right to take over the
+      defense, the limits on that right, and consent to settlement.
+    canonical_terms:
+      - Third Party Claim
+      - assume the defense
+      - counsel reasonably satisfactory
+      - shall not settle without the prior written consent
+    example_phrases:
+      - >-
+        The Indemnifying Party shall have the right to assume the defense of any Third Party Claim with
+        counsel of its choice, and shall not settle such claim without the consent of the Indemnified
+        Party unless the settlement provides solely for money damages.
+    crosswalk:
+      section_v1:
+        - id: 361e70447fa67575
+          relation: narrower
+      section_v2:
+        - id: 710cc9ed4c7c5296
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.indemn.escrow
+    label: Indemnity Escrow; Holdback
+    kind: provision
+    nav_parent: ma.nav.indemnification.procedure
+    also_listed_under:
+      - ma.nav.consideration.adjustment
+    tier: label
+    description: >-
+      An amount held in escrow or held back from the price to secure indemnity claims: its size, how long
+      it is held, and when it is released.
+    canonical_terms:
+      - Escrow Amount
+      - Indemnity Escrow Fund
+      - Escrow Agent
+      - Escrow Agreement
+      - Holdback Amount
+      - release of the Escrow Fund
+    example_phrases:
+      - >-
+        At the Closing, Buyer shall deposit $[•] (the "Indemnity Escrow Amount") with the Escrow Agent,
+        to be held for [•] months after the Closing Date and released in accordance with the Escrow Agreement.
+    exclusion_cues:
+      - The escrow that secures the price adjustment is ma.price_adjustment.escrow.
+      - A deposit paid at signing is ma.consideration.deposit.
+    value_schema:
+      status: stub
+      fields:
+        - name: amount
+          type: Money
+        - name: release
+          type: Duration
+        - name: sole_recourse
+          type: boolean
+    crosswalk:
+      section_v1:
+        - id: f75af7009288819a
+          relation: narrower
+      section_v2:
+        - id: 82441ff5092e1695
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.indemn.setoff
+    label: Right of Setoff
+    kind: provision
+    nav_parent: ma.nav.indemnification.procedure
+    tier: label
+    description: >-
+      The buyer's right to set off indemnifiable losses against amounts it owes the sellers, such as earnout
+      payments or seller notes.
+    canonical_terms:
+      - setoff
+      - set-off
+      - right to set off
+      - recoupment
+      - against any amounts otherwise payable
+    example_phrases:
+      - >-
+        Buyer shall be entitled to set off any amount to which it is entitled under this Article against
+        any Earnout Payment otherwise payable to Sellers.
+    crosswalk:
+      section_v1:
+        - id: f75af7009288819a
+          relation: narrower
+      section_v2:
+        - id: 82441ff5092e1695
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.indemn.order_of_recovery
+    label: Order and Source of Recovery
+    kind: provision
+    nav_parent: ma.nav.indemnification.procedure
+    tier: label
+    description: >-
+      The order in which an indemnified party must look to the escrow, the insurance policy and the sellers,
+      and whether the escrow or the policy is its only source.
+    canonical_terms:
+      - first, from the Escrow Fund
+      - second, from the R&W Insurance Policy
+      - sole source of recovery
+      - severally and not jointly
+    example_phrases:
+      - >-
+        Any Losses payable to a Buyer Indemnified Party shall be satisfied first from the Indemnity Escrow
+        Fund, second from the R&W Insurance Policy, and thereafter directly from the Sellers, severally
+        and not jointly.
+    crosswalk:
+      section_v2:
+        - id: 82441ff5092e1695
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.seller_representative
+    label: Sellers' Representative
+    kind: provision
+    nav_parent: ma.nav.indemnification.procedure
+    also_listed_under:
+      - ma.nav.general.costs
+    tier: label
+    description: >-
+      Appointment of a representative to act for the sellers or stockholders after closing: its powers,
+      its fund for expenses, its indemnity and its replacement.
+    canonical_terms:
+      - Stockholder Representative
+      - Sellers' Representative
+      - Securityholder Representative
+      - agent and attorney-in-fact
+      - Representative Expense Fund
+    example_phrases:
+      - >-
+        Each Seller hereby irrevocably appoints [•] as its agent and attorney-in-fact (the "Sellers' Representative")
+        to act on its behalf in connection with this Agreement.
+    introduced_in: '2026.1'
+
+  - id: ma.indemn.rwi
+    label: R&W Insurance Policy
+    kind: provision
+    nav_parent: ma.nav.indemnification.insurance
+    tier: label
+    description: >-
+      Terms on a representation and warranty insurance policy: binding the policy, who pays the premium
+      and the retention, the insurer's waiver of subrogation against the sellers, and the policy as a
+      source of recovery.
+    canonical_terms:
+      - R&W Insurance Policy
+      - R&W Policy
+      - representation and warranty insurance
+      - Retention
+      - waiver of subrogation
+      - except in the case of Fraud
+    example_phrases:
+      - >-
+        Buyer shall obtain, effective as of the Closing, a buyer-side representation and warranty insurance
+        policy (the 'R&W Insurance Policy'), the premium, underwriting fees, and retention for which shall
+        be borne [•].
+      - >-
+        The R&W Insurance Policy shall expressly provide that the insurer waives, and agrees not to pursue,
+        any subrogation rights against Seller except in the case of Fraud.
+    exclusion_cues:
+      - The representation on the business's own insurance is ma.rep.insurance.
+    value_schema:
+      status: stub
+      fields:
+        - name: retention
+          type: Money
+        - name: premium_paid_by
+          type: PartyRole
+        - name: sole_recourse
+          type: boolean
+        - name: subrogation_waiver
+          type: boolean
+    crosswalk:
+      section_v1:
+        - id: 15bafa002ee2792e
+          relation: exact
+      section_v2:
+        - id: 75301be761b8c91e
+          relation: exact
+    introduced_in: '2026.1'

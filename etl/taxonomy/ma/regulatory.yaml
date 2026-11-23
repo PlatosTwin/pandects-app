@@ -1,0 +1,332 @@
+# Pandects taxonomy, M&A pack (`ma`). Navigation branch: Efforts and Regulatory Approvals.
+# Source of truth for these nodes. Field reference: etl/taxonomy/README.md.
+# Validate with: python -m etl.domain.taxonomy_pack
+pack: ma
+release: '2026.1'
+branch:
+  id: ma.nav.regulatory
+  label: Efforts and Regulatory Approvals
+  kind: branch
+  order: 6
+  description: >-
+    How hard the parties must work to close, and the filings, remedies and approvals needed from regulators
+    and third parties.
+  introduced_in: '2026.1'
+groups:
+
+  - id: ma.nav.regulatory.efforts
+    label: Efforts to Close
+    kind: group
+    nav_parent: ma.nav.regulatory
+    description: The general efforts covenant and third-party consents.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.regulatory.antitrust
+    label: Antitrust
+    kind: group
+    nav_parent: ma.nav.regulatory
+    description: Antitrust filings, remedies, litigation and control of strategy.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.regulatory.other_approvals
+    label: Other Regulatory Approvals
+    kind: group
+    nav_parent: ma.nav.regulatory
+    description: Foreign investment review and industry regulators.
+    introduced_in: '2026.1'
+concepts:
+
+  - id: ma.efforts.general
+    label: Efforts to Consummate
+    kind: provision
+    nav_parent: ma.nav.regulatory.efforts
+    tier: label
+    description: >-
+      The general promise to use a stated level of efforts to satisfy the closing conditions and complete
+      the deal.
+    canonical_terms:
+      - reasonable best efforts
+      - commercially reasonable efforts
+      - take all actions necessary, proper or advisable
+      - consummate the transactions as promptly as practicable
+    example_phrases:
+      - >-
+        Subject to the terms and conditions of this Agreement, each party shall use its reasonable best
+        efforts to take, or cause to be taken, all actions and to do, or cause to be done, all things
+        necessary, proper, or advisable to consummate and make effective the transactions contemplated
+        hereby as promptly as practicable.
+      - >-
+        Each party shall use reasonable best efforts to obtain all consents, approvals, and authorizations
+        of third parties necessary in connection with the transactions.
+    exclusion_cues:
+      - Divestiture and other antitrust remedies are ma.regulatory.remedies.
+      - Extra documents and acts after closing are ma.further_assurances.
+    value_schema:
+      status: stub
+      fields:
+        - name: efforts_standard
+          type: 'enum: best | reasonable_best | commercially_reasonable | reasonable | other'
+    crosswalk:
+      section_v1:
+        - id: fadbc4454a842009
+          relation: exact
+      section_v2:
+        - id: 22adf399e8cad6c0
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.efforts.third_party_consents
+    label: Third-Party Consents
+    kind: provision
+    nav_parent: ma.nav.regulatory.efforts
+    tier: label
+    description: >-
+      The duty to seek consents from contract counterparties, and the statement that no party has to pay
+      for a consent.
+    canonical_terms:
+      - third party consents
+      - consents under Contracts
+      - shall not be required to pay any consent fee
+    example_phrases:
+      - >-
+        The Company shall use commercially reasonable efforts to obtain all consents of third parties
+        under the Contracts set forth on Schedule [•]; provided that the Company shall not be required
+        to pay any fee to obtain any such consent.
+    exclusion_cues:
+      - A closing condition that consents be obtained is ma.condition.third_party_consents.
+      - Contracts that cannot be assigned in an asset deal are ma.asset.nonassignable_assets.
+    introduced_in: '2026.1'
+
+  - id: ma.regulatory.antitrust_filings
+    label: Antitrust Filings and Cooperation
+    kind: provision
+    nav_parent: ma.nav.regulatory.antitrust
+    tier: label
+    description: >-
+      The duty to make HSR Act and foreign antitrust filings by a deadline, to respond to requests for
+      information, and to cooperate and share communications with regulators.
+    canonical_terms:
+      - HSR Act
+      - Notification and Report Form
+      - within ten Business Days
+      - Second Request
+      - Antitrust Laws
+      - cooperate and consult
+    example_phrases:
+      - >-
+        Each party shall (i) file its Notification and Report Form pursuant to the HSR Act no later than
+        fifteen Business Days after the date hereof and (ii) request early termination of the waiting
+        period.
+      - >-
+        Each party shall promptly supply any additional information and documentary material that may
+        be requested pursuant to a Second Request.
+    exclusion_cues:
+      - What a party must give up to win clearance is ma.regulatory.remedies.
+      - The closing condition is ma.condition.regulatory_approval.
+      - Who pays the filing fee is ma.regulatory.filing_fee_allocation.
+    value_schema:
+      status: stub
+      fields:
+        - name: hsr_filing_deadline
+          type: Duration
+    crosswalk:
+      section_v1:
+        - id: 95db5a813fc055c9
+          relation: narrower
+      section_v2:
+        - id: e080500390c96970
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.regulatory.remedies
+    label: Antitrust Remedies; Divestitures
+    kind: provision
+    nav_parent: ma.nav.regulatory.antitrust
+    tier: label
+    description: >-
+      How far a party must go to obtain clearance: divestitures, hold-separate arrangements and conduct
+      limits, whether the duty is unlimited (hell or high water), and any cap on what must be given up.
+    canonical_terms:
+      - divestiture
+      - hold separate
+      - sell, divest or otherwise dispose of
+      - take any and all actions necessary
+      - shall not be required to
+      - Burdensome Condition
+    example_phrases:
+      - >-
+        Parent shall take any and all actions necessary to obtain the Regulatory Approvals, including
+        proposing, negotiating, and agreeing to the sale, divestiture, or disposition of assets or businesses
+        (a 'hell or high water' obligation).
+      - >-
+        Notwithstanding the foregoing, Parent shall not be required to take any action that would constitute
+        a Burdensome Condition.
+    exclusion_cues:
+      - The duty to fight a challenge in court is ma.regulatory.litigation.
+      - The definition of the limit is ma.def.burdensome_condition.
+    value_schema:
+      status: stub
+      fields:
+        - name: standard
+          type: 'enum: hell_or_high_water | limited | none'
+        - name: divestiture_cap
+          type: text
+        - name: applies_to
+          type: PartyRole
+    crosswalk:
+      section_v1:
+        - id: 14d8323b1e627e9b
+          relation: narrower
+      section_v2:
+        - id: 8ec7524a756ddd05
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.regulatory.litigation
+    label: Duty to Litigate Regulatory Challenges
+    kind: provision
+    nav_parent: ma.nav.regulatory.antitrust
+    tier: label
+    description: >-
+      Whether a party must contest, through litigation and appeal, a governmental action that would block
+      the deal.
+    canonical_terms:
+      - contest and resist any Action
+      - litigation on the merits
+      - vacated, lifted, reversed or overturned
+      - defend through litigation
+    example_phrases:
+      - >-
+        Each party shall use its reasonable best efforts to contest and resist any Action that seeks to
+        restrain or prohibit the consummation of the Merger, and to have vacated or overturned any Order
+        that is in effect.
+    value_schema:
+      status: stub
+      fields:
+        - name: required
+          type: boolean
+    crosswalk:
+      section_v1:
+        - id: 14d8323b1e627e9b
+          relation: narrower
+      section_v2:
+        - id: 8ec7524a756ddd05
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.regulatory.strategy_control
+    label: Control of Regulatory Strategy
+    kind: provision
+    nav_parent: ma.nav.regulatory.antitrust
+    tier: label
+    description: >-
+      Which party directs the regulatory strategy, limits on withdrawing a filing or agreeing to a timing
+      agreement, and a ban on other acquisitions that could delay clearance.
+    canonical_terms:
+      - control and direct the strategy
+      - pull and refile
+      - timing agreement
+      - >-
+        shall not acquire or agree to acquire any business that would reasonably be expected to delay
+    example_phrases:
+      - >-
+        Parent shall, after consulting with the Company, control and direct the strategy for obtaining
+        any clearances required under any Antitrust Law.
+    value_schema:
+      status: stub
+      fields:
+        - name: controlled_by
+          type: PartyRole
+    crosswalk:
+      section_v1:
+        - id: 14d8323b1e627e9b
+          relation: narrower
+      section_v2:
+        - id: 8ec7524a756ddd05
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.regulatory.filing_fee_allocation
+    label: Allocation of Regulatory Filing Fees
+    kind: provision
+    nav_parent: ma.nav.regulatory.antitrust
+    also_listed_under:
+      - ma.nav.general.costs
+    tier: label
+    description: Which party pays the HSR Act and other regulatory filing fees.
+    canonical_terms:
+      - filing fees under the HSR Act
+      - shall be borne by Parent
+      - shared equally
+    example_phrases:
+      - Parent shall pay all filing fees required under the HSR Act and any other Antitrust Law.
+    exclusion_cues:
+      - The general rule on expenses is ma.expenses.
+      - Expense reimbursement on termination is ma.termination.expense_reimbursement.
+    introduced_in: '2026.1'
+
+  - id: ma.regulatory.cfius
+    label: CFIUS and Foreign Investment Review
+    kind: provision
+    nav_parent: ma.nav.regulatory.other_approvals
+    tier: label
+    description: >-
+      Filings with and approval by the Committee on Foreign Investment in the United States or a foreign
+      investment regulator, and any mitigation a party must accept.
+    canonical_terms:
+      - CFIUS
+      - CFIUS Approval
+      - Section 721 of the Defense Production Act
+      - foreign investment laws
+      - mitigation
+    example_phrases:
+      - >-
+        The parties shall prepare and submit a joint voluntary notice to CFIUS with respect to the transactions
+        contemplated by this Agreement.
+    value_schema:
+      status: stub
+      fields:
+        - name: filing_required
+          type: boolean
+        - name: mitigation_limit
+          type: text
+    crosswalk:
+      section_v1:
+        - id: 95db5a813fc055c9
+          relation: narrower
+      section_v2:
+        - id: dbbd03c317960240
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.regulatory.industry_approvals
+    label: Industry Regulatory Approvals
+    kind: provision
+    nav_parent: ma.nav.regulatory.other_approvals
+    tier: label
+    description: >-
+      Filings with and approvals by industry regulators, such as bank regulators, insurance departments,
+      the FCC, FERC, state utility commissions and gaming authorities.
+    canonical_terms:
+      - Requisite Regulatory Approvals
+      - Federal Reserve Board
+      - OCC
+      - FDIC
+      - FCC
+      - FERC
+      - state insurance regulators
+      - public utility commission
+    example_phrases:
+      - >-
+        The parties shall cooperate and use their reasonable best efforts to prepare and file all applications
+        and notices necessary to obtain the Requisite Regulatory Approvals.
+    exclusion_cues:
+      - Antitrust filings are ma.regulatory.antitrust_filings.
+    crosswalk:
+      section_v1:
+        - id: 95db5a813fc055c9
+          relation: narrower
+      section_v2:
+        - id: dbbd03c317960240
+          relation: narrower
+    introduced_in: '2026.1'

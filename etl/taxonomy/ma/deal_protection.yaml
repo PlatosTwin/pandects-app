@@ -1,0 +1,590 @@
+# Pandects taxonomy, M&A pack (`ma`). Navigation branch: Deal Protection and Stockholder Approval.
+# Source of truth for these nodes. Field reference: etl/taxonomy/README.md.
+# Validate with: python -m etl.domain.taxonomy_pack
+pack: ma
+release: '2026.1'
+branch:
+  id: ma.nav.deal_protection
+  label: Deal Protection and Stockholder Approval
+  kind: branch
+  order: 5
+  description: >-
+    Limits on seeking other bids, the board's recommendation and its exceptions, the stockholder vote,
+    and anti-takeover matters.
+  introduced_in: '2026.1'
+groups:
+
+  - id: ma.nav.deal_protection.no_shop
+    label: No-Shop and Go-Shop
+    kind: group
+    nav_parent: ma.nav.deal_protection
+    description: Limits on soliciting and negotiating competing proposals.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.deal_protection.recommendation
+    label: Board Recommendation and Fiduciary Out
+    kind: group
+    nav_parent: ma.nav.deal_protection
+    description: The board's recommendation, when it may change, and the buyer's right to match.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.deal_protection.stockholder_approval
+    label: Stockholder Approval Process
+    kind: group
+    nav_parent: ma.nav.deal_protection
+    description: The meeting, the proxy statement, written consents and voting agreements.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.deal_protection.takeover_defenses
+    label: Takeover Statutes and Rights Plans
+    kind: group
+    nav_parent: ma.nav.deal_protection
+    description: Anti-takeover statutes and stockholder rights plans.
+    introduced_in: '2026.1'
+concepts:
+
+  - id: ma.noshop.non_solicitation
+    label: No-Shop; Non-Solicitation
+    kind: provision
+    nav_parent: ma.nav.deal_protection.no_shop
+    tier: label
+    attributes:
+      party: obligor
+    description: >-
+      The promise not to solicit, encourage or negotiate a competing acquisition proposal, and to end
+      existing talks. In private deals the same promise is often headed Exclusivity.
+    canonical_terms:
+      - no solicitation
+      - shall not, directly or indirectly, solicit, initiate or knowingly encourage
+      - Acquisition Proposal
+      - cease any existing discussions
+      - exclusivity
+      - no shop
+    example_phrases:
+      - >-
+        From the date hereof until the earlier of the Effective Time and termination, the Company shall
+        not, and shall cause its Subsidiaries and Representatives not to, initiate, solicit, or knowingly
+        encourage any inquiry or the making of any proposal that constitutes or would reasonably be expected
+        to lead to an Acquisition Proposal.
+      - >-
+        The Company shall, and shall cause its Representatives to, immediately cease and cause to be terminated
+        any existing discussions with any Person with respect to any Acquisition Proposal.
+    exclusion_cues:
+      - A period in which solicitation is allowed is ma.noshop.go_shop.
+      - The exception for an unsolicited proposal is ma.noshop.unsolicited_proposal_exception.
+      - >-
+        The board's right to change its recommendation is under ma.nav.deal_protection.recommendation.
+      - >-
+        A covenant not to solicit employees or customers after closing is ma.restrictive.non_solicit.
+    crosswalk:
+      section_v1:
+        - id: 1a7aeab47932d0d4
+          relation: narrower
+      section_v2:
+        - id: 60b50919d9882565
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.noshop.go_shop
+    label: Go-Shop Period
+    kind: provision
+    nav_parent: ma.nav.deal_protection.no_shop
+    tier: label
+    description: >-
+      A period after signing in which the target may actively solicit competing proposals, and the treatment
+      of bidders found in that period.
+    canonical_terms:
+      - Go-Shop Period
+      - No-Shop Period Start Date
+      - Excluded Party
+      - initiate, solicit and encourage
+    example_phrases:
+      - >-
+        During the period beginning on the date of this Agreement and continuing until 11:59 p.m. on [•]
+        (the "Go-Shop Period"), the Company shall have the right to initiate, solicit and encourage any
+        Acquisition Proposal.
+    value_schema:
+      status: stub
+      fields:
+        - name: length
+          type: Duration
+        - name: excluded_party_extension
+          type: Duration
+        - name: reduced_fee
+          type: boolean
+    crosswalk:
+      section_v1:
+        - id: 1a7aeab47932d0d4
+          relation: narrower
+      section_v2:
+        - id: 60b50919d9882565
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.noshop.unsolicited_proposal_exception
+    label: Exception for Unsolicited Proposals
+    kind: component
+    nav_parent: ma.nav.deal_protection.no_shop
+    parent: ma.noshop.non_solicitation
+    tier: label
+    description: >-
+      The exception that lets the target give information to, and negotiate with, a bidder that makes
+      an unsolicited proposal, if the board finds the proposal is or could lead to a superior proposal
+      and the bidder signs a confidentiality agreement.
+    canonical_terms:
+      - bona fide written Acquisition Proposal
+      - constitutes or would reasonably be expected to lead to a Superior Proposal
+      - Acceptable Confidentiality Agreement
+      - furnish information
+      - participate in discussions or negotiations
+    example_phrases:
+      - >-
+        If the Company receives a bona fide written Acquisition Proposal that did not result from a breach
+        of this Section and the Company Board determines in good faith that such proposal constitutes
+        or would reasonably be expected to lead to a Superior Proposal, the Company may furnish information
+        and participate in discussions with such Person pursuant to an Acceptable Confidentiality Agreement.
+    exclusion_cues:
+      - >-
+        The right to change the recommendation or terminate for a superior proposal is ma.recommendation.change_superior_proposal.
+    value_schema:
+      status: stub
+      fields:
+        - name: board_standard
+          type: text
+        - name: requires_fiduciary_finding
+          type: boolean
+    crosswalk:
+      section_v1:
+        - id: 1a7aeab47932d0d4
+          relation: narrower
+      section_v2:
+        - id: 60b50919d9882565
+          relation: narrower
+        - id: 4eae406295a1787b
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.noshop.notice_of_proposals
+    label: Notice of Competing Proposals
+    kind: component
+    nav_parent: ma.nav.deal_protection.no_shop
+    parent: ma.noshop.non_solicitation
+    tier: label
+    description: >-
+      The duty to tell the buyer promptly of any competing proposal or inquiry, its terms and the identity
+      of the bidder, and to keep the buyer informed.
+    canonical_terms:
+      - promptly (and in any event within 24 hours) notify Parent
+      - identity of the Person making
+      - material terms and conditions
+      - keep Parent reasonably informed
+    example_phrases:
+      - >-
+        The Company shall promptly, and in any event within 24 hours, notify Parent of the receipt of
+        any Acquisition Proposal, including the identity of the Person making it and its material terms.
+    value_schema:
+      status: stub
+      fields:
+        - name: notice_period
+          type: Duration
+        - name: identity_disclosed
+          type: boolean
+    crosswalk:
+      section_v1:
+        - id: 1a7aeab47932d0d4
+          relation: narrower
+      section_v2:
+        - id: 60b50919d9882565
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.noshop.standstill_waiver
+    label: Standstill Waivers
+    kind: provision
+    nav_parent: ma.nav.deal_protection.no_shop
+    tier: label
+    description: >-
+      Whether the target may or must waive or enforce standstill agreements with other bidders, including
+      a ban on waiving them.
+    canonical_terms:
+      - standstill
+      - shall not terminate, waive, amend or release
+      - enforce the provisions of any standstill agreement
+      - don't ask, don't waive
+    example_phrases:
+      - >-
+        The Company shall not terminate, waive, amend or release any Person from any standstill or similar
+        agreement, unless the Company Board determines that the failure to do so would be inconsistent
+        with its fiduciary duties.
+    introduced_in: '2026.1'
+
+  - id: ma.recommendation.board_recommendation
+    label: Board Recommendation; No Adverse Change
+    kind: provision
+    nav_parent: ma.nav.deal_protection.recommendation
+    tier: label
+    attributes:
+      party: obligor
+    description: >-
+      The board's duty to recommend the deal to stockholders and the ban on withdrawing or changing that
+      recommendation or endorsing another proposal.
+    canonical_terms:
+      - Company Board Recommendation
+      - Adverse Recommendation Change
+      - Change of Recommendation
+      - withdraw, qualify or modify
+      - shall not approve or recommend any Acquisition Proposal
+    example_phrases:
+      - >-
+        Neither the Company Board nor any committee thereof shall withdraw, qualify or modify, in a manner
+        adverse to Parent, the Company Board Recommendation (any such action, an "Adverse Recommendation
+        Change").
+    exclusion_cues:
+      - >-
+        The exceptions are ma.recommendation.change_superior_proposal and ma.recommendation.change_intervening_event.
+    crosswalk:
+      section_v1:
+        - id: 3b7a157321c3876f
+          relation: narrower
+      section_v2:
+        - id: 4eae406295a1787b
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.recommendation.change_superior_proposal
+    label: Fiduciary Out for a Superior Proposal
+    kind: provision
+    nav_parent: ma.nav.deal_protection.recommendation
+    tier: label
+    description: >-
+      The board's right to change its recommendation, or to terminate the agreement, in order to accept
+      a superior proposal, and the fiduciary finding it must make first.
+    canonical_terms:
+      - Superior Proposal
+      - fiduciary out
+      - failure to take such action would be inconsistent with its fiduciary duties
+      - terminate this Agreement to enter into a definitive agreement
+    example_phrases:
+      - >-
+        Prior to obtaining the Company Stockholder Approval, the Company Board may make a Change of Recommendation
+        in response to a Superior Proposal if it determines in good faith, after consultation with outside
+        counsel, that the failure to do so would be inconsistent with its fiduciary duties.
+    exclusion_cues:
+      - The termination right itself is ma.termination.right.superior_proposal.
+      - The buyer's matching right is ma.recommendation.match_right.
+      - The definition is ma.def.superior_proposal.
+    value_schema:
+      status: stub
+      fields:
+        - name: fiduciary_standard
+          type: text
+        - name: may_terminate
+          type: boolean
+    crosswalk:
+      section_v1:
+        - id: 3b7a157321c3876f
+          relation: narrower
+      section_v2:
+        - id: 4eae406295a1787b
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.recommendation.change_intervening_event
+    label: Fiduciary Out for an Intervening Event
+    kind: provision
+    nav_parent: ma.nav.deal_protection.recommendation
+    tier: label
+    description: >-
+      The board's right to change its recommendation because of a new event that is not a competing proposal.
+    canonical_terms:
+      - Intervening Event
+      - not known or reasonably foreseeable
+      - other than in connection with a Superior Proposal
+    example_phrases:
+      - >-
+        The Company Board may make an Adverse Recommendation Change in response to an Intervening Event
+        if it determines in good faith, after consultation with outside counsel, that the failure to do
+        so would be inconsistent with its fiduciary duties.
+    exclusion_cues:
+      - The definition is ma.def.intervening_event.
+    value_schema:
+      status: stub
+      fields:
+        - name: available
+          type: boolean
+        - name: notice_period
+          type: Duration
+    crosswalk:
+      section_v1:
+        - id: 3b7a157321c3876f
+          relation: narrower
+      section_v2:
+        - id: 4eae406295a1787b
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.recommendation.match_right
+    label: Match Right
+    kind: component
+    nav_parent: ma.nav.deal_protection.recommendation
+    parent: ma.recommendation.change_superior_proposal
+    tier: label
+    description: >-
+      The buyer's right to notice and a negotiation period before the board changes its recommendation
+      or terminates, and the shorter period that applies after an amended proposal.
+    canonical_terms:
+      - match right
+      - Notice Period
+      - four Business Days' prior written notice
+      - negotiate in good faith
+      - any amendment to the financial terms shall require a new notice
+    example_phrases:
+      - >-
+        The Company shall have given Parent at least four Business Days' prior written notice of its intention
+        to take such action and, during such period, shall have negotiated in good faith with Parent to
+        make adjustments to this Agreement so that such Acquisition Proposal ceases to be a Superior Proposal.
+    value_schema:
+      status: stub
+      fields:
+        - name: initial_period
+          type: Duration
+        - name: subsequent_period
+          type: Duration
+        - name: unlimited_rounds
+          type: boolean
+    crosswalk:
+      section_v1:
+        - id: 3b7a157321c3876f
+          relation: narrower
+      section_v2:
+        - id: 4eae406295a1787b
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.approval.stockholder_meeting
+    label: Stockholder Meeting
+    kind: provision
+    nav_parent: ma.nav.deal_protection.stockholder_approval
+    tier: label
+    attributes:
+      party: obligor
+    description: >-
+      The duty to call and hold a stockholder meeting to vote on the deal, and the limits on postponing
+      or adjourning it.
+    canonical_terms:
+      - Company Stockholders Meeting
+      - duly call, give notice of, convene and hold
+      - adjourn or postpone
+      - solicit proxies
+    example_phrases:
+      - >-
+        The Company shall, as promptly as practicable after the Form S-4 is declared effective, duly call,
+        give notice of, convene, and hold the Company Stockholders Meeting for the purpose of obtaining
+        the Company Stockholder Approval.
+      - >-
+        The Company shall use reasonable best efforts to solicit from its stockholders proxies in favor
+        of the adoption of this Agreement.
+    exclusion_cues:
+      - >-
+        The duty to hold the meeting even after a change of recommendation is ma.approval.force_the_vote.
+      - The proxy statement is ma.approval.proxy_statement.
+    crosswalk:
+      section_v1:
+        - id: e7baf74d263421c0
+          relation: narrower
+      section_v2:
+        - id: a87f03505324d055
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.approval.force_the_vote
+    label: Force-the-Vote
+    kind: component
+    nav_parent: ma.nav.deal_protection.stockholder_approval
+    parent: ma.approval.stockholder_meeting
+    tier: label
+    description: >-
+      The duty to submit the deal to a stockholder vote even if the board has changed its recommendation.
+    canonical_terms:
+      - force the vote
+      - notwithstanding any Adverse Recommendation Change
+      - shall submit this Agreement to its stockholders
+      - Section 146 of the DGCL
+    example_phrases:
+      - >-
+        Unless this Agreement is terminated, the Company shall submit this Agreement to its stockholders
+        at the Company Stockholders Meeting even if the Company Board has effected an Adverse Recommendation
+        Change.
+    value_schema:
+      status: stub
+      fields:
+        - name: present
+          type: boolean
+    crosswalk:
+      section_v1:
+        - id: 1333a485313cb368
+          relation: narrower
+      section_v2:
+        - id: 9af153875ed400cb
+          relation: narrower
+        - id: a87f03505324d055
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.approval.proxy_statement
+    label: Proxy Statement; Registration Statement
+    kind: provision
+    nav_parent: ma.nav.deal_protection.stockholder_approval
+    tier: label
+    description: >-
+      The duty to prepare and file the proxy statement, Form S-4 or other SEC document for the stockholder
+      vote, to answer SEC comments, and to correct the document.
+    canonical_terms:
+      - Proxy Statement
+      - Form S-4
+      - Registration Statement
+      - Joint Proxy Statement/Prospectus
+      - SEC comments
+      - mail the Proxy Statement
+    example_phrases:
+      - >-
+        As promptly as reasonably practicable following the date hereof, the Company shall prepare and
+        file with the SEC the Proxy Statement, and Parent and the Company shall jointly prepare the Form
+        S-4 in which the Proxy Statement will be included as a prospectus.
+      - >-
+        Each party shall use reasonable best efforts to respond as promptly as practicable to any comments
+        of the SEC and to have the Form S-4 declared effective.
+    exclusion_cues:
+      - The representation that supplied information is accurate is ma.rep.information_supplied.
+      - The Schedule 14D-9 in a tender offer is ma.tender.company_actions.
+    crosswalk:
+      section_v1:
+        - id: e7baf74d263421c0
+          relation: narrower
+      section_v2:
+        - id: d1f7ad8b55c83632
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.approval.written_consent
+    label: Stockholder Written Consent; Information Statement
+    kind: provision
+    nav_parent: ma.nav.deal_protection.stockholder_approval
+    tier: label
+    description: >-
+      Approval of the deal by written consent of stockholders instead of a meeting, the deadline to deliver
+      the consent, and the information statement sent to the other holders.
+    canonical_terms:
+      - Written Consent
+      - Stockholder Consent
+      - Information Statement
+      - Schedule 14C
+      - within 24 hours after the execution of this Agreement
+    example_phrases:
+      - >-
+        Promptly following the execution of this Agreement, and in any event within 24 hours, the Company
+        shall deliver to Parent the Written Consent of stockholders holding the Requisite Stockholder
+        Approval.
+    value_schema:
+      status: stub
+      fields:
+        - name: deadline
+          type: Duration
+    crosswalk:
+      section_v2:
+        - id: a87f03505324d055
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.approval.voting_agreements
+    label: Voting and Support Agreements
+    kind: provision
+    nav_parent: ma.nav.deal_protection.stockholder_approval
+    tier: label
+    description: >-
+      Terms on agreements under which named stockholders promise to vote for the deal or tender their
+      shares.
+    canonical_terms:
+      - Voting Agreement
+      - Support Agreement
+      - Tender and Support Agreement
+      - irrevocable proxy
+    example_phrases:
+      - >-
+        Concurrently with the execution of this Agreement, certain stockholders have executed and delivered
+        Support Agreements pursuant to which they have agreed to vote their Shares in favor of the adoption
+        of this Agreement.
+    exclusion_cues:
+      - A SPAC sponsor's support agreement is ma.spac.sponsor_support.
+    value_schema:
+      status: stub
+      fields:
+        - name: pct_of_shares_committed
+          type: number
+    crosswalk:
+      section_v1:
+        - id: 1333a485313cb368
+          relation: narrower
+      section_v2:
+        - id: 9af153875ed400cb
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.takeover.statutes
+    label: Takeover Statutes
+    kind: provision
+    nav_parent: ma.nav.deal_protection.takeover_defenses
+    also_listed_under:
+      - ma.nav.reps.transaction
+    tier: label
+    description: >-
+      The statement that anti-takeover statutes do not apply to the deal because the board has approved
+      it, and the duty to act so that none applies.
+    canonical_terms:
+      - Takeover Statute
+      - Takeover Laws
+      - Section 203 of the DGCL
+      - fair price, moratorium, control share acquisition
+      - anti-takeover
+    example_phrases:
+      - >-
+        The Company Board has taken all actions necessary to ensure that the restrictions on business
+        combinations set forth in Section 203 of the DGCL do not apply to this Agreement or the transactions.
+    exclusion_cues:
+      - A stockholder rights plan is ma.takeover.rights_plan.
+      - The buyer's statement that it owns no target stock is ma.rep.ownership_of_target_stock.
+    crosswalk:
+      section_v1:
+        - id: 6d1ca58b2fed8a2d
+          relation: exact
+      section_v2:
+        - id: 2ba79d8226115fb6
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.takeover.rights_plan
+    label: Rights Plan
+    kind: provision
+    nav_parent: ma.nav.deal_protection.takeover_defenses
+    also_listed_under:
+      - ma.nav.reps.transaction
+    tier: label
+    description: >-
+      Statements and duties about a stockholder rights plan: that it has been amended so that the deal
+      does not trigger it, or that the target has none and will adopt none.
+    canonical_terms:
+      - Rights Agreement
+      - Company Rights
+      - Distribution Date
+      - Acquiring Person
+      - stockholder rights plan
+    example_phrases:
+      - >-
+        The Company has amended the Rights Agreement so that neither the execution of this Agreement nor
+        the consummation of the Merger will cause Parent to become an "Acquiring Person" or result in
+        a "Distribution Date".
+    crosswalk:
+      section_v2:
+        - id: 2ba79d8226115fb6
+          relation: narrower
+    introduced_in: '2026.1'
