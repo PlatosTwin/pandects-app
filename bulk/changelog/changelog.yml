@@ -166,6 +166,56 @@ unreleased:
     versions are published, so results do not change.
   migration: null
   refs: []
+- type: data
+  severity: notable
+  summary: 'Three more SEC lookups for transaction_price_buyer_owned filled 4 values and lowered 2 totals; 294 served agreements now hold a buyer-owned value, $281.39 billion in all.'
+  details: >
+    In the 2026-11-18 release, 7,250 served agreements had been screened for a prior stake
+    of the buyer but not read for it. Three lookups in SEC filings then covered more of them,
+    and readers read every agreement that a lookup flagged: a first reader, a second reader
+    for every proposed change, and a third reader where the two did not agree.
+
+    First, an EDGAR full-text search of the acquirer's own 10-K, 10-Q, 8-K, 20-F and 6-K
+    filings, from 12 months before signing to 24 months after, for the target's name together
+    with step-acquisition and equity-method wording such as "previously held", "step
+    acquisition" or "the remaining 55%". It searched 5,054 of the 7,250. The other 2,196 were
+    not covered: on 1,062 the acquirer was not found in EDGAR, on 583 it does not file periodic
+    reports, on 418 its name matches more than one filer, 118 were signed before 2001 (full-text
+    search starts in 2001), 14 have no target name that can be searched, and 1 was not
+    searched. The search flagged 246 agreements.
+    Readers found a prior stake on 9 of them. 2 values were filled: Mandarin Drilling / Vantage
+    Drilling $114.26 million (Vantage held 45% and paid $139.65 million for the other 55%)
+    and Ralph Lauren Media / Polo Ralph Lauren $175.00 million (50%, bought for $175.00 million).
+    On 6 no source gives an accepted size, for example Factiva / Dow Jones, where one price
+    covers three agreements. On Optichron / NetLogic the buyer held only warrants, so the
+    row has no buyer-owned value; its total and cash leg were lowered from $80.05 million
+    to $77.26 million, the price of the shares bought, which the signing release gives as
+    about $77 million. On the stored stakes that the search could cover, it flagged 79 of
+    150, so it does not find every stake.
+
+    Second, the deal documents outside the agreement (merger proxy, tender offer document,
+    Schedule 14D-9, S-4, signing 8-K and release) were fetched again for agreements where
+    sec.gov had refused them. Of the 7,250, the agreements with no document that the screen
+    could read fell from 490 to 220, and the screen flagged 73 more agreements. Readers found
+    one stake: Gulf Island Fabrication / IES Holdings, 565,886 shares worth $6.79 million; the
+    total and cash leg, which had counted those shares as paid, were lowered from $192.00
+    million to $185.21 million and $185.19 million.
+
+    Third, the stake of Taiho in Cullinan Pearl, which readers had found with no size, was
+    sized from Cullinan Oncology's 10-Q for the first quarter of 2022: Cullinan held 80% and
+    Taiho 20%, and Taiho paid $275 million for Cullinan's 80%, so the stake is $68.75 million.
+    The total stays $275 million.
+
+    In all, 8 fields changed on 5 agreements: 4 buyer-owned values filled, 2 totals and 2
+    cash legs lowered. 294 served agreements now hold a buyer-owned value, $281.39 billion in
+    all, 2 of them with no total. Readers have now read the field on 5,267 of the 12,198
+    served agreements. On the other 6,931 no screen or lookup flagged the agreement and no
+    reader read the field: an empty value there means that no stake was found, not that the
+    buyer held none, and a total that is a headline for the whole company may still include
+    the buyer's stake.
+  tables: [agreements, latest_sections_search]
+  migration: null
+  refs: []
 releases:
 - version: '2026-11-18'
   released: '2026-11-18T23:48:17Z'
