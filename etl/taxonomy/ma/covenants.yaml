@@ -34,7 +34,9 @@ groups:
     kind: group
     nav_parent: ma.nav.covenants
     assignable: true
-    description: Covenants that run after closing, found mostly in private deals and carve-outs.
+    description: >-
+      Covenants that run after closing, found mostly in private deals and carve-outs, and covenants on
+      separation and environmental clean-up, which may also run before closing.
     introduced_in: '2026.1'
 
   - id: ma.nav.covenants.tax

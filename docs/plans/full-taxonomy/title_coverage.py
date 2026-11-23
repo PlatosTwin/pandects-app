@@ -156,6 +156,7 @@ RULES: list[tuple[str | None, str, str]] = [
     ("COND", r"performance|covenants|compliance with (agreement|obligations)", "ma.condition.covenant_performance"),
     ("COND", r"material adverse|no (adverse )?change", "ma.condition.no_mae"),
     ("COND", r"stockholder|shareholder|vote", "ma.condition.stockholder_approval"),
+    ("COND", r"sale order|bankruptcy court", "ma.bankruptcy.court_approval"),
     ("COND", r"injunction|restraint|illegality|legal (prohibition|impediment)|orders?$|no (law|prohibition|order)", "ma.condition.no_legal_restraint"),
     ("COND", r"hsr|antitrust|regulatory|governmental|approvals|waiting period|cfius", "ma.condition.regulatory_approval"),
     ("COND", r"registration|form s-4|listing|nyse|nasdaq", "ma.condition.registration_listing"),
@@ -175,7 +176,8 @@ RULES: list[tuple[str | None, str, str]] = [
     ("TERM", r"^termination( of (this |the )?agreement)?$|termination (rights|events|by|prior)|right(s)? (to|of) terminat|grounds|abandonment|^terminat", "ma.nav.termination.rights"),
     ("TERM", r"exclusive remed|sole remed|limitation(s)? on (liability|remedies)|liability cap|maximum liability", "ma.termination.fee.exclusive_remedy"),
     # ---- indemnification (context)
-    ("INDEM", r"remediation|remedial", "ma.indemn.specific"),
+    ("INDEM", r"environmental indemn", "ma.indemn.specific"),
+    ("INDEM", r"remediation|remedial", "ma.environmental.remediation"),
     ("INDEM", r"survival|non-?survival|expiration of|time limit|limitation period", "ma.indemn.survival"),
     ("INDEM", r"third.?party claims|defense|control of|assumption of defense", "ma.indemn.claims_procedure"),
     ("INDEM", r"procedure|notice of claims|claims|notification|method of asserting|direct claims|resolution of", "ma.indemn.claims_procedure"),

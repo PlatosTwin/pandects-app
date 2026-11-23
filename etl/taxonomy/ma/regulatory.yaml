@@ -390,6 +390,8 @@ concepts:
     label: Bankruptcy Court Approval; Sale Order; Bidding Procedures
     kind: provision
     nav_parent: ma.nav.regulatory.other_approvals
+    also_listed_under:
+      - ma.nav.conditions.mutual
     tier: label
     wave: 1
     description: >-
@@ -404,7 +406,6 @@ concepts:
       - Section 363 of the Bankruptcy Code
       - Cure Costs
       - higher or otherwise better offer
-      - Final Order
     example_phrases:
       - >-
         Sellers shall file the Sale Motion with the Bankruptcy Court within [•] Business Days after the

@@ -481,7 +481,7 @@ These concepts are new. No leaf of either older section tree has the same or a w
 - `ma.rep.title_to_shares`: Title to the Shares Being Sold
 - `ma.rep.required_vote`: Required Stockholder Vote
 - `ma.rep.receivables_inventory`: Accounts Receivable; Inventory
-- `ma.rep.investment_company`: Investment Company Act Status
+- `ma.rep.investment_company`: Investment Company Act Status; Emerging Growth Company (JOBS Act)
 - `ma.rep.government_contracts`: Government Contracts
 - `ma.rep.product_liability_warranty`: Product Liability; Product Warranty
 - `ma.rep.information_supplied`: Information Supplied; Disclosure Documents

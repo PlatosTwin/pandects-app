@@ -96,7 +96,7 @@ In the M&A pack, † after a group name means that the group can be the label of
 | Legal and Compliance | `ma.rep.litigation` | Litigation; Orders | party: maker |
 | Legal and Compliance | `ma.rep.compliance_permits` | Compliance with Laws; Permits | party: maker |
 | Legal and Compliance | `ma.rep.anti_corruption_sanctions` | Anti-Corruption; Sanctions; Trade Controls | party: maker |
-| Legal and Compliance | `ma.rep.investment_company` | Investment Company Act Status | party: maker |
+| Legal and Compliance | `ma.rep.investment_company` | Investment Company Act Status; Emerging Growth Company (JOBS Act) | party: maker |
 | Commercial | `ma.rep.material_contracts` | Material Contracts | party: maker |
 | Commercial | `ma.rep.customers_suppliers` | Customers and Suppliers | party: maker |
 | Commercial | `ma.rep.affiliate_transactions` | Affiliate and Related-Party Transactions | party: maker |
@@ -196,7 +196,7 @@ In the M&A pack, † after a group name means that the group can be the label of
 | Antitrust † | `ma.regulatory.filing_fee_allocation` | Allocation of Regulatory Filing Fees | wave 2; also under `ma.nav.general.costs` |
 | Other Regulatory Approvals | `ma.regulatory.cfius` | CFIUS and Foreign Investment Review | value stub |
 | Other Regulatory Approvals | `ma.regulatory.industry_approvals` | Industry Regulatory Approvals |  |
-| Other Regulatory Approvals | `ma.bankruptcy.court_approval` | Bankruptcy Court Approval; Sale Order; Bidding Procedures |  |
+| Other Regulatory Approvals | `ma.bankruptcy.court_approval` | Bankruptcy Court Approval; Sale Order; Bidding Procedures | also under `ma.nav.conditions.mutual` |
 
 ### Financing
 

@@ -61,7 +61,7 @@ Labeling of the M&A pack runs in two waves (decided 2026-11-22). Each M&A concep
 
 | Wave | Contents | Rule |
 |---|---|---|
-| `wave: 1` | Section-level topics and the catch-alls | A provision that is the heading of a section of its own in at least 1% of agreements, measured with `docs/plans/full-taxonomy/prevalence.py`. Also the catch-all concepts, and `ma.other.lead_in` for the opening words of an article, which have no heading. |
+| `wave: 1` | Section-level topics and the catch-alls | A provision that is the heading of a section of its own in at least 1% of agreements, measured with `docs/plans/full-taxonomy/prevalence.py`. Also the catch-all concepts, and `ma.other.lead_in` for the opening words of an article when they stand as a section of their own. |
 | `wave: 2` | Clause-level provisions, parts and definitions | A provision that sits inside a larger section, such as a termination trigger or the indemnity cap. Every `component`, `modifier` and `definition`. The catch-all for termination rights, because its siblings are in wave 2. |
 
 A new M&A concept gets its wave by the same rule. The validator rejects an M&A concept with no wave, a part or a definition in wave 1, and a tax concept with a wave.

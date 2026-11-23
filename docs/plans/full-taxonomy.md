@@ -149,7 +149,7 @@ Each node carries `introduced_in: '2026.1'`. The packs are a draft until the mai
 
 Four concepts were added because the title data showed a gap in the first draft: `ma.rule_145_affiliates` (titles in 981 agreements), `ma.asset.title_and_survey` (594), `ma.conduct.integration_planning` (483) and `ma.spac.domestication` (172). A fifth, for SPAC business activities (520), is now part of `ma.rep.merger_sub` (see 4.4).
 
-Four topics were left to catch-alls because they are rare: the SPAC "no trading" covenant (317 sections), comfort letters (114), employee stock ownership plans (100) and like-kind exchanges (83).
+Three topics were left to catch-alls because they are rare: comfort letters (114), employee stock ownership plans (100) and like-kind exchanges (83). The SPAC "no trading" covenant (315 agreements) is above the 1% bar; it stays in `ma.covenant.other` for now, and open question 18 asks whether to give it a concept.
 
 ### 4.3 Size compared with the references
 

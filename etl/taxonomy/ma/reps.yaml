@@ -752,7 +752,7 @@ concepts:
     introduced_in: '2026.1'
 
   - id: ma.rep.investment_company
-    label: Investment Company Act Status
+    label: Investment Company Act Status; Emerging Growth Company (JOBS Act)
     kind: provision
     nav_parent: ma.nav.reps.legal
     tier: label
