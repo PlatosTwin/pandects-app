@@ -1,7 +1,7 @@
 # Graph Report - pandects-app  (2026-11-23)
 
 ## Corpus Check
-- 958 files · ~1,164,096 words
+- 958 files · ~1,165,352 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 55 file(s) not represented in the graph (top: (none) 16, .toml 7, .example 6)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `e4c834f0`
+- Built from commit: `fb004755`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -426,12 +426,12 @@
   .github/workflows/backend-quality.yml → backend/ARCHITECTURE.md
 - `7. MCP integration` --references--> `_server_capabilities_payload()`  [INFERRED]
   bulk/changelog/DESIGN.md → backend/mcp/tools/__init__.py
-- `6.4 API` --references--> `get_section()`  [INFERRED]
-  docs/plans/smart-reader.md → backend/services/agreements_service.py
 - `6.3 Payload and the anchor contract` --references--> `normalizeXmlText()`  [INFERRED]
   docs/plans/smart-reader.md → frontend/client/components/XMLRenderer.tsx
 - `10.9.1 After the flag went on (2026-11-18)` --references--> `tocEntryOutlineId()`  [INFERRED]
   docs/plans/smart-reader.md → frontend/client/lib/reader-index.ts
+- `6.4 API` --references--> `get_section()`  [INFERRED]
+  docs/plans/smart-reader.md → backend/services/agreements_service.py
 
 ## Import Cycles
 - None detected.
@@ -1641,7 +1641,7 @@ Nodes (4): _classify_tokens(), _enum_kind(), _enum_ordinal(), _follows()
   docs/docs/pandects/list-dumps.api.mdx · relation: conceptually_related_to
 
 ## Knowledge Gaps
-- **43 isolated node(s):** `etl`, `RFC-8252`, `RFC-6749`, `Public dump table allowlist`, `Bulk tooling dependencies (boto3, PyMySQL, PyYAML)` (+38 more)
+- **43 isolated node(s):** `Public dump table allowlist`, `Bulk tooling dependencies (boto3, PyMySQL, PyYAML)`, `etl`, `RFC-8252`, `RFC-6749` (+38 more)
   These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 3576 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
 - **144 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -1649,15 +1649,15 @@ Nodes (4): _classify_tokens(), _enum_kind(), _enum_ordinal(), _follows()
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `10.21 Enricher 0.10.0: blind body sample, body clause rules and the second review (2026-11-20)` connect `_resolve` to `10. Phases`, `schemas/sections.py`, `AgreementReader.tsx`?**
-  _High betweenness centrality (0.218) - this node is a cross-community bridge._
+  _High betweenness centrality (0.205) - this node is a cross-community bridge._
 - **Are the 8 inferred relationships involving `McpTests` (e.g. with `ExternalIdentity` and `FulltextSearchBusy`) actually correct?**
   _`McpTests` has 8 INFERRED edges - model-reasoned connections that need verification._
-- **What connects `etl`, `RFC-8252`, `RFC-6749` to the rest of the system?**
+- **What connects `Public dump table allowlist`, `Bulk tooling dependencies (boto3, PyMySQL, PyYAML)`, `etl` to the rest of the system?**
   _43 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `cn` be split into smaller, more focused modules?**
   _Cohesion score 0.039619047619047616 - nodes in this community are weakly interconnected._
 - **Why does `ReaderOutlineNode` connect `AgreementReader.tsx` to `_resolve`?**
-  _High betweenness centrality (0.200) - this node is a cross-community bridge._
+  _High betweenness centrality (0.182) - this node is a cross-community bridge._
 
 ### Low-confidence Hints
 _AMBIGUOUS edges — the extractor was unsure. Verify before acting on these._
