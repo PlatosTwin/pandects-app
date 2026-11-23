@@ -206,7 +206,7 @@ export default function SourcesMethods() {
     };
     // The initial deep link jumps; later hash changes (TOC clicks) animate.
     const syncFromHash = (instant = false) => {
-      let id = "";
+      let id: string;
       try {
         id = decodeURIComponent(window.location.hash.replace(/^#/, ""));
       } catch {

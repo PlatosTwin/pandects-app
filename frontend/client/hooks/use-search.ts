@@ -465,7 +465,7 @@ export function useSearch<TResult>(config: SearchEndpointConfig<TResult>) {
   const downloadCSV = useCallback(async (scope: CsvScope = "auto") => {
     if (scope === "selected" && selectedResults.size === 0) return;
     const isSelection = scope === "selected" || (scope === "auto" && selectedResults.size > 0);
-    let rows: TResult[] = [];
+    let rows: TResult[];
     let exportedFrom: CsvExportRows<TResult> | null = null;
 
     if (isSelection) {

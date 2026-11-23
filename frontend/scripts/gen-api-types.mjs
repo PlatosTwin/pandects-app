@@ -24,7 +24,7 @@ const output = HEADER + "\n" + astToString(ast);
 
 const outPath = fileURLToPath(outUrl);
 if (check) {
-  let current = null;
+  let current;
   try {
     current = await readFile(outUrl, "utf8");
   } catch {
