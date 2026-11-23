@@ -353,7 +353,7 @@ export default function Account() {
     const sortedDays = [...new Set(usageByDay.map((row) => row.day))].sort();
     if (usagePeriod === "all" && sortedDays.length === 0) return [];
 
-    let startMs = todayMs;
+    let startMs: number;
     let endMs = todayMs;
     if (usagePeriod === "all") {
       startMs = parseIsoDayToUtcMs(sortedDays[0]);
