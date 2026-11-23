@@ -76,7 +76,7 @@ export default function Landing() {
                     height={128}
                     srcSet={`${logo128Png} 128w, ${logo256Png} 256w`}
                     sizes="(min-width: 640px) 112px, 88px"
-                    fetchpriority="high"
+                    fetchPriority="high"
                     decoding="async"
                     className="h-[88px] w-[88px] rounded-2xl object-cover shadow-raised ring-1 ring-border sm:h-28 sm:w-28"
                   />

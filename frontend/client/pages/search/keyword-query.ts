@@ -50,7 +50,7 @@ export function validateKeywordQuery(raw: string, mode: TextMatchMode): string |
       return "Use * only at the end of a word, for example indemnif*.";
     }
   }
-  const terms = normalized.match(TERM_RE) ?? [];
+  const terms: string[] = normalized.match(TERM_RE) ?? [];
   if (terms.length === 0) return "Include at least one letter or number.";
   if (terms.length > MAX_TERMS) return `Use at most ${MAX_TERMS} words.`;
   const prefixTerms = terms.filter((term) => term.endsWith("*"));

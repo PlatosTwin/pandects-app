@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import { renderToString } from "react-dom/server";
 import { Route, Routes } from "react-router-dom";
 import { StaticRouter } from "react-router-dom";
@@ -26,7 +27,7 @@ import Terms from "@/pages/Terms";
 import TrendsAnalyses from "@/pages/TrendsAnalyses";
 import XmlSchema from "@/pages/XmlSchema";
 
-const PRERENDER_COMPONENTS: Record<string, JSX.Element> = {
+const PRERENDER_COMPONENTS: Record<string, ReactElement> = {
   "/": <Landing />,
   "/about": <About />,
   "/agreement-index": <AgreementIndex />,
