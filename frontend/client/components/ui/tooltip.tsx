@@ -5,7 +5,16 @@ import { cn } from "@/lib/utils";
 
 const TooltipProvider = TooltipPrimitive.Provider;
 
-const Tooltip = TooltipPrimitive.Root;
+// Each tooltip carries its own provider, so the app root needs no global
+// TooltipProvider. That keeps Radix Tooltip and its positioning code out of
+// the entry bundle: it loads with the pages that show a tooltip.
+function Tooltip(props: React.ComponentProps<typeof TooltipPrimitive.Root>) {
+  return (
+    <TooltipPrimitive.Provider>
+      <TooltipPrimitive.Root {...props} />
+    </TooltipPrimitive.Provider>
+  );
+}
 
 const TooltipTrigger = TooltipPrimitive.Trigger;
 

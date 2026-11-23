@@ -105,7 +105,7 @@ function criticalCssPlugin(): Plugin {
       nextHtml = nextHtml.replace("</head>", `${dnsPrefetch}</head>`);
 
       // Add preload hints for LCP image only if not already present (index.html may have them)
-      const headLinks = nextHtml.match(/<link[^>]+>/g) ?? [];
+      const headLinks: string[] = nextHtml.match(/<link[^>]+>/g) ?? [];
       const hasLogoPreload = headLinks.some(
         (link) =>
           link.includes("rel=\"preload\"") &&
@@ -148,7 +148,7 @@ function criticalCssPlugin(): Plugin {
       const htmlPath = path.join(options.dir || "dist/spa", "index.html");
       if (fs.existsSync(htmlPath)) {
         let html = fs.readFileSync(htmlPath, "utf-8");
-        const headLinks = html.match(/<link[^>]+>/g) ?? [];
+        const headLinks: string[] = html.match(/<link[^>]+>/g) ?? [];
         const hasLogoPreload = headLinks.some(
           (link) =>
             link.includes("rel=\"preload\"") &&
