@@ -146,4 +146,4 @@ Supported public commands:
 
 ## References
 
-- Current status: [CURRENT_STATE.md](/Users/nikitabogdanov/PycharmProjects/merger_agreements/appv2/etl/src/etl/models/ner/CURRENT_STATE.md)
+- Current status: [CURRENT_STATE.md](CURRENT_STATE.md)
