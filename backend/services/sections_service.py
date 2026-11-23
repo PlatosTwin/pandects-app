@@ -869,7 +869,7 @@ def _run_sections(
     # candidate predicate: counting it means running the phrase REGEXP across the
     # whole corpus instead of across the phrase's candidates.
     count_query = q
-    agreement_count_query = q.order_by(None).with_entities(distinct(latest.agreement_uuid))
+    agreement_count_query = q.order_by(None).with_entities(latest.agreement_uuid).distinct()
     if (
         expanded_standard_ids
         and not text_active

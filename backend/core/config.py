@@ -98,11 +98,21 @@ def cors_origins() -> list[str]:
     return combined
 
 
+_PSYCOPG2_URI_PREFIX = "postgresql+psycopg2://"
+
+
 def normalize_database_uri(uri: str) -> str:
+    """Pin bare Postgres URIs to psycopg2 and add a connect timeout.
+
+    SQLAlchemy 2.1 maps a bare ``postgresql://`` URI to psycopg 3, which is not
+    installed; ``psycopg2-binary`` is. Fly supplies ``postgres://`` URIs.
+    """
     normalized = uri.strip()
-    if normalized.startswith("postgres://"):
-        normalized = f"postgresql://{normalized[len('postgres://'):]}"
-    if normalized.startswith("postgresql://") and "connect_timeout=" not in normalized:
+    for bare_prefix in ("postgres://", "postgresql://"):
+        if normalized.startswith(bare_prefix):
+            normalized = f"{_PSYCOPG2_URI_PREFIX}{normalized[len(bare_prefix):]}"
+            break
+    if normalized.startswith(_PSYCOPG2_URI_PREFIX) and "connect_timeout=" not in normalized:
         joiner = "&" if "?" in normalized else "?"
         normalized = f"{normalized}{joiner}connect_timeout=5"
     return normalized
