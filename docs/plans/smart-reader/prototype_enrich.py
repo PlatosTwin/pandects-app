@@ -238,7 +238,7 @@ OTHER_DOC = re.compile(
     r"^\s*(?:\([^)]*\)\s*)*(?:of|to|in|under)\s+(?:the|such|any|each)\s+(?!Agreement\b)(?:[A-Z][\w\-]*\s+){0,5}(?:Agreement|Letter|Plan|Certificate|Charter|Bylaws|Indenture|Note|Schedule|Statement)\b"
     r"|^\s*(?:\([^)]*\)\s*)*(?:of|to|in)\s+(?:the|its|their|such)\s+(?:[a-z]+\s+){0,3}(?:bylaws|by-laws|charter|certificate of incorporation|articles of incorporation|operating agreement)\b",
 )
-# borrowed from the kirkland ingester's AUTHORITY_BEFORE_RE: "Code Section 409A", "Treasury Regulations Section 1.368-2"
+# "Code Section 409A", "Treasury Regulations Section 1.368-2"
 AUTHORITY_BEFORE = re.compile(r"(?:\b(?:Code|Regulations?|Reg\.|ERISA|Act|Rules?|Treas\.|Treasury|Statute|Law|IRC|U\.S\.C\.|C\.F\.R\.)|§)\s*$")
 SEC_FORM = re.compile(r"^(?:\d{2}[A-Z](?:-\d+)?|TO|13E-3)$")
 REF_HEAD = re.compile(r"\b(Sections?|Articles?|Exhibits?|Schedules?|Annex(?:es)?|Appendix|Appendices|clauses?|paragraphs?)\s+(?=[\dIVXLC(A-Z])")

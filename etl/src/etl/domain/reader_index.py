@@ -1479,7 +1479,7 @@ def _act_later(tail: str) -> bool:
     return m is not None and not _VERB.search(tail, 0, m.end())
 
 
-# "Code Section 409A", "Treasury Regulations Section 1.368-2" (from the kirkland ingester)
+# "Code Section 409A", "Treasury Regulations Section 1.368-2"
 AUTHORITY_BEFORE = re.compile(r"(?:\b(?:Code|Regulations?|Reg\.|ERISA|Act|Rules?|Treas\.|Treasury|Statute|Law|IRC|U\.S\.C\.|C\.F\.R\.|CFR|Regs\.)|§)\s*$")
 SEC_FORM = re.compile(r"^(?:\d{2}[A-Z](?:-\d+)?|TO|13E-3)$")
 # lowercase "section 3.5" and "article VI" are references too (rubric v1.4 lists the head words, not their case)

@@ -75,13 +75,13 @@ What matters for this design:
 - **Exhibits and schedules are not structured.** Back matter is flat text; disclosure schedules are never filed at all.
 - **Corpus (local, 2026-10-20):** 9,873 latest verified XMLs, averaging 337 KB (largest 2.4 MB), and 966,534 section rows. About 8,185 latest XMLs contain at least one `<definition>`.
 
-## 3. The reference implementation (kirkland `standard-k` and `ingester`)
+## 3. Design notes for detection
 
-`standard-k` is a document *format* (ODX), not a detector. The detection lives in the sibling repo `kirkland/ingester` (`packages/docx/src/definitions.ts`, `citations.ts`). Both were read read-only.
+These notes set the approach for the enricher.
 
-**What transfers:**
+**Approach:**
 
-- **Model.** Terms and cross-references are inline marks or nodes (`def`, `term`, `xref{target}`) over a block tree. Citation text is *derived* from the target's number, and a status overlay records `resolved | broken | ambiguous | out-of-scope`. We should keep the same separation between "what the text says" and "what we decided it points to".
+- **Model.** Terms and cross-references are inline marks or nodes (`def`, `term`, `xref{target}`) over a block tree. Citation text is *derived* from the target's number, and a status overlay records `resolved | broken | ambiguous | out-of-scope`. Keep a clear separation between "what the text says" and "what we decided it points to".
 - **Definition detection.** It uses an ordered set of declaration patterns with a `consumed` span list: leading (`“X” means`), named-as, "the term X", parenthetical (`(the “Company”)`, `(each, a “Seller”)`) and appositive. A **pointer** declaration ("has the meaning set forth in Section 5.4") counts only if nothing else declares the term; otherwise it becomes a link to the real declaration.
 - **Term-use matching.** One case-sensitive alternation, longest spelling first ("Escrow Amount" before "Escrow"), with plural and possessive forms, a case-insensitive pass only over ALL-CAPS runs, and no marks in headings or inside the declaration. For speed, alternatives are bucketed by first character.
 - **Cross-reference resolution.**
@@ -90,13 +90,12 @@ What matters for this design:
   - Link the deepest block that exists ("6.3(g)" falls back to 6.3).
   - Link only if the target's derived label matches the printed label.
 - **External filters.** `AUTHORITY_BEFORE` ("Code Section", "Treasury Regulations Section", `§`), "of the DGCL / of ERISA" after the number, "thereto" versus "hereto", and "this Section 2.4" forced internal.
-- **Measurement.** Random sampling of marks for human verdicts. Reported: definition precision 99.2%; xrefs 12,510 resolved / 80 broken on 25 Word deals.
+- **Measurement.** Random sampling of marks for human verdicts.
 
-**What does not transfer:**
+**Out of scope:**
 
-- The Word-specific parts: bookmarks, REF fields, tracked-change sides and bidi marks.
-- The JSON block tree as a storage format. We have verified XML and a whole pipeline built on it, and switching the canonical format would be a rewrite.
-- Some rules are fitted to individual deals in a 25-deal corpus. Our corpus is 10k EDGAR filings with OCR-ish text, older drafting styles and UK-style decimal numbering, so every borrowed rule has to be re-measured here.
+- A separate block-tree storage format. We have verified XML and a whole pipeline built on it, and switching the canonical format would be a rewrite.
+- Rules fitted to a few deals. Our corpus is 10k EDGAR filings with OCR-ish text, older drafting styles and UK-style decimal numbering, so every rule has to be measured here.
 
 ## 4. Prototype results
 
@@ -158,7 +157,6 @@ Add `<term ref>`, `<dfn>` and `<xref target status>` inside `<text>`. This is th
 
 - **For:**
   - One artifact. It flows into `sections.xml_content`, bulk dumps and the MCP for free.
-  - It matches the standard-k model.
 - **Against:**
   - **Mixed content breaks consumers silently.** `<text>` is a plain string everywhere today. With inline children, ElementTree's `.text` returns only the text *before the first child*. Taxonomy, sections extraction, embeddings, full-text search (`section_text_search`), the frontend parser, `redaction.py` and every external bulk-dump user would all truncate text without an error. Auditing and changing all of them is the real cost of B.
   - **Coupled iteration.** Every detector improvement means a new XML version. That re-triggers verify, sections, taxonomy and embeddings (the build queue keys off XML versions), or else rewrites a verified artifact in place.
@@ -334,7 +332,7 @@ The data pages are being polished by another session tonight. None of this shoul
 |---|---|
 | Ambiguous section numbers (duplicate "Section 5.1" after a bad parse) | No link; record `ambiguous`; count it as an XML-quality signal |
 | References from exhibits into the agreement ("Section 1.6(f) of the Agreement") | Resolve against body sections; "of the Agreement" means self |
-| References inside an exhibit to its own paragraphs | Resolve within the attachment first, as the ingester does. Needs attachment segmentation (Phase 4) |
+| References inside an exhibit to its own paragraphs | Resolve within the attachment first. Needs attachment segmentation (Phase 4) |
 | Exhibits filed separately or not at all | `unlocated_attachment` chip. Later: link to the EDGAR exhibit in the same accession when we can identify it |
 | Disclosure schedules | Never filed; chip only |
 | Other agreements ("Section 2.1 of the Original Agreement", voting agreements) | External in v1. Later: link amendments to originals when both are in the corpus |
