@@ -156,6 +156,12 @@ concepts:
       - FIRPTA certificate
       - Section 1445
       - non-foreign affidavit
+      - Form W-9
+      - W-9 Form
+      - Form W-8
+      - W-8BEN
+      - non-foreign status
+      - 1.1445-2
     example_phrases:
       - At the Closing, Seller shall deliver to Buyer a properly completed IRS Form W-9.
     exclusion_cues:

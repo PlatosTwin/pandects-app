@@ -550,6 +550,7 @@ The model tiers stay as in 9.2: a smaller model for the first read and wave 2, a
 - **Text.** The 1,196,581 sections hold 3.17 billion characters of XML (mean 2,652 per section), measured with one read-only query. At 3 to 4 characters per token, that is 0.8 to 1.0 billion tokens. Each section is read once in the first read.
 - **Cards and rules.** A short list of 15 to 30 concept cards and the rules add 2,500 to 4,000 tokens per read. With about 15 reads per agreement, that is 0.5 to 0.7 billion tokens.
 - **Second read.** The trial flagged 23.1% of sections for a second read (11.4). The tax pass reads about 3% to 5% of the text.
+- **The corpus run keeps the second read of flagged sections** (decided 2026-11-23, after the re-trial). The re-trial on the same 50 agreements flagged 17.3% of sections (846 of 4,879). When a section flagged only because it reports an out-of-list topic is not counted, the share is 12.5%: about 610 sections, or about 12 sections per agreement. For 12,198 agreements that is about 149,000 sections. A section that validation finds with no label gets `ma.other.unclassified` and a flag, so it always goes to the second read.
 - **Wave 2.** Wave 2 reads the sections that carry a group label a second time. The trial did not measure that share.
 
 The run therefore goes in parts, a set of agreements at a time, so that a usage limit stops it at a known point and it can resume there. Each long step prints its progress.
