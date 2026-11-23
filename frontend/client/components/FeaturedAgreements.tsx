@@ -139,7 +139,7 @@ function FeaturedAgreementRow({
         </span>
       ) : null}
       <ArrowRight
-        className="h-4 w-4 shrink-0 text-muted-foreground transition-[color,transform] duration-150 group-hover:text-foreground motion-safe:group-hover:translate-x-0.5"
+        className="h-4 w-4 shrink-0 text-muted-foreground transition-[color,translate] duration-150 group-hover:text-foreground motion-safe:group-hover:translate-x-0.5"
         aria-hidden="true"
       />
     </Link>

@@ -3,7 +3,7 @@
 @config '../tailwind.config.ts';
 
 /* Scan only what Tailwind 3 scanned (tailwind.config.ts content), not the
-   whole project: docs and specs name classes the app does not use. */
+   whole project: docs and scripts name classes the app does not use. */
 @source './**/*.{ts,tsx}';
 
 /* Tailwind 4 sets each text size's line height as a ratio (for example
@@ -107,7 +107,7 @@
 @utility app-frame {
   /* The one page frame: navigation, footer, page shells, search and the
      reader all line up on it. Change the width here, nowhere else. */
-  @apply mx-auto w-full max-w-(--breakpoint-2xl) px-4 sm:px-6 lg:px-8;
+  @apply mx-auto w-full max-w-[1536px] px-4 sm:px-6 lg:px-8;
 }
 
 @utility app-frame-bleed {

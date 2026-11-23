@@ -1,5 +1,6 @@
-/* Same layer order as Tailwind's stylesheet, which loads after this. */
-@layer theme, base, components, utilities;
+/* The same layer order as Tailwind's stylesheet (properties first), so the
+   order holds wherever this style lands in <head>. */
+@layer properties, theme, base, components, utilities;
 
 @font-face {
   font-family: "Inter Variable";

@@ -520,7 +520,7 @@ export default function SourcesMethods() {
               </ExternalLink>
               .
             </p>
-            <div ref={pipelineRef} className="relative mt-6">
+            <div ref={pipelineRef} className="relative">
               <div
                 aria-hidden="true"
                 className="pointer-events-none absolute left-4 -translate-x-1/2 w-[2px]"
