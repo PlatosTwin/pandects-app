@@ -1,0 +1,715 @@
+{
+ "date": "2026-11-06",
+ "section": "7.34",
+ "schema": "schema_v2_16.md",
+ "gold": "M13 adjudicated gold, adjudicated against the subagent arm",
+ "prices_usd_per_mtok": {
+  "claude-sonnet-5-5": [
+   2,
+   10
+  ],
+  "claude-haiku-5-5": [
+   0.1,
+   0.5
+  ]
+ },
+ "trial_8": {
+  "subagent": {
+   "quote_validity": 1.0,
+   "quotes": 387,
+   "field_values": 163,
+   "field_diffs": 1,
+   "detection_errors": 0
+  },
+  "sonnet_high": {
+   "quote_validity": 0.9922,
+   "quotes": 386,
+   "field_values": 163,
+   "field_diffs": 3,
+   "detection_errors": 0
+  },
+  "sonnet_medium": {
+   "quote_validity": 0.9938,
+   "quotes": 320,
+   "field_values": 163,
+   "field_diffs": 9,
+   "detection_errors": 1
+  },
+  "haiku_high": {
+   "quote_validity": 0.9816,
+   "quotes": 380,
+   "field_values": 163,
+   "field_diffs": 7,
+   "detection_errors": 2
+  }
+ },
+ "batch_50": {
+  "subagent": {
+   "quote_validity": 0.9965,
+   "quotes": 2566,
+   "field_values": 1112,
+   "field_diffs": 29,
+   "detection": {
+    "termination.fee.target": {
+     "tp": 25,
+     "fp": 0,
+     "fn": 0,
+     "tn": 25,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "termination.fee.reverse": {
+     "tp": 16,
+     "fp": 0,
+     "fn": 0,
+     "tn": 34,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "termination.expense_reimbursement": {
+     "tp": 8,
+     "fp": 0,
+     "fn": 0,
+     "tn": 42,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "termination.outside_date": {
+     "tp": 48,
+     "fp": 0,
+     "fn": 0,
+     "tn": 2,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "mae.definition": {
+     "tp": 49,
+     "fp": 0,
+     "fn": 0,
+     "tn": 1,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "financing.structure": {
+     "tp": 37,
+     "fp": 1,
+     "fn": 0,
+     "tn": 12,
+     "precision": 0.974,
+     "recall": 1.0
+    },
+    "indemn.cap": {
+     "tp": 20,
+     "fp": 0,
+     "fn": 0,
+     "tn": 30,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "indemn.basket": {
+     "tp": 19,
+     "fp": 0,
+     "fn": 0,
+     "tn": 31,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "indemn.survival": {
+     "tp": 50,
+     "fp": 0,
+     "fn": 0,
+     "tn": 0,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "election.338h10": {
+     "tp": 6,
+     "fp": 0,
+     "fn": 0,
+     "tn": 44,
+     "precision": 1.0,
+     "recall": 1.0
+    }
+   },
+   "spans": {
+    "termination.outside_date": {
+     "recall": 0.972,
+     "precision": 1.0,
+     "gold": 142,
+     "pred": 126
+    },
+    "mae.definition": {
+     "recall": 0.81,
+     "precision": 0.924,
+     "gold": 158,
+     "pred": 92
+    },
+    "financing.structure": {
+     "recall": 0.787,
+     "precision": 0.929,
+     "gold": 122,
+     "pred": 99
+    },
+    "indemn.cap": {
+     "recall": 0.835,
+     "precision": 0.942,
+     "gold": 85,
+     "pred": 69
+    },
+    "indemn.basket": {
+     "recall": 0.833,
+     "precision": 0.974,
+     "gold": 48,
+     "pred": 38
+    },
+    "indemn.survival": {
+     "recall": 0.847,
+     "precision": 0.952,
+     "gold": 118,
+     "pred": 84
+    },
+    "election.338h10": {
+     "recall": 1.0,
+     "precision": 0.929,
+     "gold": 12,
+     "pred": 14
+    },
+    "termination.fee.target": {
+     "recall": 0.84,
+     "precision": 0.889,
+     "gold": 225,
+     "pred": 189
+    },
+    "termination.fee.reverse": {
+     "recall": 0.828,
+     "precision": 0.955,
+     "gold": 134,
+     "pred": 110
+    },
+    "termination.expense_reimbursement": {
+     "recall": 0.684,
+     "precision": 0.724,
+     "gold": 38,
+     "pred": 29
+    }
+   },
+   "fields": {
+    "financing.structure.committed": [
+     33,
+     37
+    ],
+    "financing.structure.cooperation": [
+     37,
+     37
+    ],
+    "financing.structure.efforts": [
+     37,
+     37
+    ],
+    "financing.structure.financing_condition": [
+     37,
+     37
+    ],
+    "financing.structure.marketing_period": [
+     37,
+     37
+    ],
+    "indemn.basket.baskets": [
+     19,
+     19
+    ],
+    "indemn.basket.de_minimis": [
+     18,
+     19
+    ],
+    "indemn.cap.cap_amounts": [
+     19,
+     20
+    ],
+    "indemn.cap.escrow_sole_recourse": [
+     19,
+     20
+    ],
+    "indemn.survival.fundamental_reps": [
+     50,
+     50
+    ],
+    "indemn.survival.general_reps": [
+     50,
+     50
+    ],
+    "indemn.survival.no_survival": [
+     50,
+     50
+    ],
+    "mae.definition.ability_to_consummate": [
+     49,
+     49
+    ],
+    "mae.definition.carveout_categories": [
+     40,
+     49
+    ],
+    "mae.definition.disproportionate_exception": [
+     48,
+     49
+    ],
+    "mae.definition.n_definitions": [
+     46,
+     49
+    ],
+    "mae.definition.prospects": [
+     48,
+     49
+    ],
+    "termination.expense_reimbursement.cap": [
+     8,
+     8
+    ],
+    "termination.expense_reimbursement.payor_side": [
+     8,
+     8
+    ],
+    "termination.fee.reverse.amounts": [
+     16,
+     16
+    ],
+    "termination.fee.reverse.kind": [
+     15,
+     16
+    ],
+    "termination.fee.reverse.payor_side": [
+     16,
+     16
+    ],
+    "termination.fee.reverse.remedy": [
+     15,
+     16
+    ],
+    "termination.fee.reverse.triggers": [
+     14,
+     16
+    ],
+    "termination.fee.target.amounts": [
+     25,
+     25
+    ],
+    "termination.fee.target.payor_side": [
+     25,
+     25
+    ],
+    "termination.fee.target.remedy": [
+     25,
+     25
+    ],
+    "termination.fee.target.triggers": [
+     23,
+     25
+    ],
+    "termination.outside_date.breach_causation": [
+     48,
+     48
+    ],
+    "termination.outside_date.effect": [
+     48,
+     48
+    ],
+    "termination.outside_date.extension_conditions": [
+     47,
+     48
+    ],
+    "termination.outside_date.initial": [
+     48,
+     48
+    ],
+    "termination.outside_date.n_extensions": [
+     47,
+     48
+    ],
+    "election.338h10.decides": [
+     6,
+     6
+    ],
+    "election.338h10.election": [
+     6,
+     6
+    ],
+    "election.338h10.tax_cost_payer": [
+     6,
+     6
+    ]
+   },
+   "set_field_f1": {
+    "financing.structure.committed": 0.968,
+    "indemn.basket.baskets": 1.0,
+    "indemn.cap.cap_amounts": 0.986,
+    "mae.definition.carveout_categories": 0.978,
+    "termination.expense_reimbursement.payor_side": 1.0,
+    "termination.fee.reverse.amounts": 1.0,
+    "termination.fee.reverse.payor_side": 1.0,
+    "termination.fee.reverse.triggers": 0.966,
+    "termination.fee.target.amounts": 1.0,
+    "termination.fee.target.payor_side": 1.0,
+    "termination.fee.target.triggers": 0.992,
+    "termination.outside_date.breach_causation": 1.0,
+    "termination.outside_date.extension_conditions": 0.982,
+    "election.338h10.tax_cost_payer": 1.0
+   }
+  },
+  "batch_sonnet_high": {
+   "quote_validity": 0.9962,
+   "quotes": 2625,
+   "field_values": 1112,
+   "field_diffs": 44,
+   "detection": {
+    "termination.fee.target": {
+     "tp": 25,
+     "fp": 0,
+     "fn": 0,
+     "tn": 25,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "termination.fee.reverse": {
+     "tp": 16,
+     "fp": 0,
+     "fn": 0,
+     "tn": 34,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "termination.expense_reimbursement": {
+     "tp": 8,
+     "fp": 0,
+     "fn": 0,
+     "tn": 42,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "termination.outside_date": {
+     "tp": 48,
+     "fp": 0,
+     "fn": 0,
+     "tn": 2,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "mae.definition": {
+     "tp": 49,
+     "fp": 0,
+     "fn": 0,
+     "tn": 1,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "financing.structure": {
+     "tp": 37,
+     "fp": 1,
+     "fn": 0,
+     "tn": 12,
+     "precision": 0.974,
+     "recall": 1.0
+    },
+    "indemn.cap": {
+     "tp": 20,
+     "fp": 0,
+     "fn": 0,
+     "tn": 30,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "indemn.basket": {
+     "tp": 19,
+     "fp": 0,
+     "fn": 0,
+     "tn": 31,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "indemn.survival": {
+     "tp": 50,
+     "fp": 0,
+     "fn": 0,
+     "tn": 0,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "election.338h10": {
+     "tp": 6,
+     "fp": 0,
+     "fn": 0,
+     "tn": 44,
+     "precision": 1.0,
+     "recall": 1.0
+    }
+   },
+   "spans": {
+    "termination.outside_date": {
+     "recall": 0.972,
+     "precision": 1.0,
+     "gold": 142,
+     "pred": 134
+    },
+    "mae.definition": {
+     "recall": 0.772,
+     "precision": 0.943,
+     "gold": 158,
+     "pred": 106
+    },
+    "financing.structure": {
+     "recall": 0.844,
+     "precision": 0.908,
+     "gold": 122,
+     "pred": 109
+    },
+    "indemn.cap": {
+     "recall": 0.812,
+     "precision": 0.971,
+     "gold": 85,
+     "pred": 70
+    },
+    "indemn.basket": {
+     "recall": 0.896,
+     "precision": 0.935,
+     "gold": 48,
+     "pred": 46
+    },
+    "indemn.survival": {
+     "recall": 0.949,
+     "precision": 0.948,
+     "gold": 118,
+     "pred": 134
+    },
+    "election.338h10": {
+     "recall": 0.917,
+     "precision": 1.0,
+     "gold": 12,
+     "pred": 11
+    },
+    "termination.fee.target": {
+     "recall": 0.858,
+     "precision": 0.951,
+     "gold": 225,
+     "pred": 183
+    },
+    "termination.fee.reverse": {
+     "recall": 0.761,
+     "precision": 0.945,
+     "gold": 134,
+     "pred": 110
+    },
+    "termination.expense_reimbursement": {
+     "recall": 0.763,
+     "precision": 0.871,
+     "gold": 38,
+     "pred": 31
+    }
+   },
+   "fields": {
+    "financing.structure.committed": [
+     30,
+     37
+    ],
+    "financing.structure.cooperation": [
+     36,
+     37
+    ],
+    "financing.structure.efforts": [
+     37,
+     37
+    ],
+    "financing.structure.financing_condition": [
+     36,
+     37
+    ],
+    "financing.structure.marketing_period": [
+     36,
+     37
+    ],
+    "indemn.basket.baskets": [
+     18,
+     19
+    ],
+    "indemn.basket.de_minimis": [
+     18,
+     19
+    ],
+    "indemn.cap.cap_amounts": [
+     19,
+     20
+    ],
+    "indemn.cap.escrow_sole_recourse": [
+     18,
+     20
+    ],
+    "indemn.survival.fundamental_reps": [
+     50,
+     50
+    ],
+    "indemn.survival.general_reps": [
+     50,
+     50
+    ],
+    "indemn.survival.no_survival": [
+     50,
+     50
+    ],
+    "mae.definition.ability_to_consummate": [
+     48,
+     49
+    ],
+    "mae.definition.carveout_categories": [
+     39,
+     49
+    ],
+    "mae.definition.disproportionate_exception": [
+     48,
+     49
+    ],
+    "mae.definition.n_definitions": [
+     47,
+     49
+    ],
+    "mae.definition.prospects": [
+     47,
+     49
+    ],
+    "termination.expense_reimbursement.cap": [
+     8,
+     8
+    ],
+    "termination.expense_reimbursement.payor_side": [
+     8,
+     8
+    ],
+    "termination.fee.reverse.amounts": [
+     16,
+     16
+    ],
+    "termination.fee.reverse.kind": [
+     15,
+     16
+    ],
+    "termination.fee.reverse.payor_side": [
+     16,
+     16
+    ],
+    "termination.fee.reverse.remedy": [
+     15,
+     16
+    ],
+    "termination.fee.reverse.triggers": [
+     13,
+     16
+    ],
+    "termination.fee.target.amounts": [
+     25,
+     25
+    ],
+    "termination.fee.target.payor_side": [
+     25,
+     25
+    ],
+    "termination.fee.target.remedy": [
+     25,
+     25
+    ],
+    "termination.fee.target.triggers": [
+     20,
+     25
+    ],
+    "termination.outside_date.breach_causation": [
+     47,
+     48
+    ],
+    "termination.outside_date.effect": [
+     48,
+     48
+    ],
+    "termination.outside_date.extension_conditions": [
+     48,
+     48
+    ],
+    "termination.outside_date.initial": [
+     48,
+     48
+    ],
+    "termination.outside_date.n_extensions": [
+     47,
+     48
+    ],
+    "election.338h10.decides": [
+     6,
+     6
+    ],
+    "election.338h10.election": [
+     6,
+     6
+    ],
+    "election.338h10.tax_cost_payer": [
+     5,
+     6
+    ]
+   },
+   "set_field_f1": {
+    "financing.structure.committed": 0.943,
+    "indemn.basket.baskets": 0.955,
+    "indemn.cap.cap_amounts": 0.986,
+    "mae.definition.carveout_categories": 0.974,
+    "termination.expense_reimbursement.payor_side": 1.0,
+    "termination.fee.reverse.amounts": 1.0,
+    "termination.fee.reverse.payor_side": 1.0,
+    "termination.fee.reverse.triggers": 0.965,
+    "termination.fee.target.amounts": 1.0,
+    "termination.fee.target.payor_side": 1.0,
+    "termination.fee.target.triggers": 0.974,
+    "termination.outside_date.breach_causation": 0.98,
+    "termination.outside_date.extension_conditions": 1.0,
+    "election.338h10.tax_cost_payer": 1.0
+   }
+  }
+ },
+ "usage": {
+  "probe_haiku": {
+   "calls": 1,
+   "usd": 0.009,
+   "input": 9992,
+   "cache_write": 19725,
+   "cache_read": 0,
+   "output": 12017
+  },
+  "batch_sonnet_high": {
+   "calls": 50,
+   "usd": 4.599,
+   "input": 1930677,
+   "cache_write": 19725,
+   "cache_read": 966525,
+   "output": 506388
+  },
+  "trial_haiku_high": {
+   "calls": 11,
+   "usd": 0.303,
+   "input": 486116,
+   "cache_write": 0,
+   "cache_read": 216975,
+   "output": 317591
+  },
+  "trial_sonnet_medium": {
+   "calls": 8,
+   "usd": 1.116,
+   "input": 347062,
+   "cache_write": 19725,
+   "cache_read": 138075,
+   "output": 34542
+  },
+  "trial_sonnet_high": {
+   "calls": 9,
+   "usd": 1.676,
+   "input": 357054,
+   "cache_write": 39450,
+   "cache_read": 138075,
+   "output": 83527
+  }
+ },
+ "total_usd_logged": 7.703
+}

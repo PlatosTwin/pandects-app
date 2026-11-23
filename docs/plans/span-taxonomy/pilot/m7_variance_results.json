@@ -1,0 +1,1298 @@
+{
+ "what": "Run-to-run variance on the M7 holdout (plan section 7.18): a second Sonnet extraction of all 50 agreements under schema v2.9, same candidates and post-checks, compared with run 1 (out/sonnet_pc: 30 agreements extracted under v2.8, 20 re-extracted under v2.9) and with adjudicated gold.",
+ "metric": "exact match for scalar fields, set F1 for set fields (as in sections 7.16-7.17); min over the two runs is compared with the 0.97 bar",
+ "detection_decisions_differ": {
+  "all_50": 0,
+  "of": 500
+ },
+ "field_values_differ": {
+  "all_50": [
+   28,
+   1109
+  ],
+  "v29_both_runs_20": [
+   9,
+   445
+  ],
+  "v28_vs_v29_30": [
+   19,
+   664
+  ],
+  "agreements_with_a_difference": 23,
+  "which_run_matches_gold": {
+   "run1": 17,
+   "run2": 11,
+   "neither": 0
+  }
+ },
+ "agreements_needed_to_show_0.97_at_95pct": {
+  "0_errors": 99,
+  "1_error": 157,
+  "2_errors": 208
+ },
+ "run2_vs_gold": {
+  "detection": {
+   "termination.fee.target": {
+    "tp": 25,
+    "fp": 0,
+    "fn": 0,
+    "tn": 25,
+    "precision": 1.0,
+    "recall": 1.0
+   },
+   "termination.fee.reverse": {
+    "tp": 16,
+    "fp": 0,
+    "fn": 0,
+    "tn": 34,
+    "precision": 1.0,
+    "recall": 1.0
+   },
+   "termination.expense_reimbursement": {
+    "tp": 8,
+    "fp": 0,
+    "fn": 0,
+    "tn": 42,
+    "precision": 1.0,
+    "recall": 1.0
+   },
+   "termination.outside_date": {
+    "tp": 49,
+    "fp": 0,
+    "fn": 0,
+    "tn": 1,
+    "precision": 1.0,
+    "recall": 1.0
+   },
+   "mae.definition": {
+    "tp": 50,
+    "fp": 0,
+    "fn": 0,
+    "tn": 0,
+    "precision": 1.0,
+    "recall": 1.0
+   },
+   "financing.structure": {
+    "tp": 36,
+    "fp": 1,
+    "fn": 1,
+    "tn": 12,
+    "precision": 0.973,
+    "recall": 0.973
+   },
+   "indemn.cap": {
+    "tp": 19,
+    "fp": 0,
+    "fn": 0,
+    "tn": 31,
+    "precision": 1.0,
+    "recall": 1.0
+   },
+   "indemn.basket": {
+    "tp": 18,
+    "fp": 0,
+    "fn": 0,
+    "tn": 32,
+    "precision": 1.0,
+    "recall": 1.0
+   },
+   "indemn.survival": {
+    "tp": 50,
+    "fp": 0,
+    "fn": 0,
+    "tn": 0,
+    "precision": 1.0,
+    "recall": 1.0
+   },
+   "election.338h10": {
+    "tp": 3,
+    "fp": 0,
+    "fn": 0,
+    "tn": 47,
+    "precision": 1.0,
+    "recall": 1.0
+   }
+  },
+  "spans": {
+   "termination.fee.target": {
+    "recall": 0.88,
+    "precision": 0.874,
+    "gold": 225,
+    "pred": 214
+   },
+   "termination.fee.reverse": {
+    "recall": 0.812,
+    "precision": 0.931,
+    "gold": 112,
+    "pred": 101
+   },
+   "termination.outside_date": {
+    "recall": 0.956,
+    "precision": 0.983,
+    "gold": 114,
+    "pred": 115
+   },
+   "mae.definition": {
+    "recall": 0.9,
+    "precision": 0.976,
+    "gold": 100,
+    "pred": 127
+   },
+   "financing.structure": {
+    "recall": 0.841,
+    "precision": 0.903,
+    "gold": 113,
+    "pred": 103
+   },
+   "indemn.cap": {
+    "recall": 0.836,
+    "precision": 0.94,
+    "gold": 67,
+    "pred": 67
+   },
+   "indemn.basket": {
+    "recall": 0.897,
+    "precision": 0.946,
+    "gold": 39,
+    "pred": 37
+   },
+   "indemn.survival": {
+    "recall": 0.867,
+    "precision": 0.94,
+    "gold": 83,
+    "pred": 83
+   },
+   "election.338h10": {
+    "recall": 1.0,
+    "precision": 1.0,
+    "gold": 5,
+    "pred": 5
+   },
+   "termination.expense_reimbursement": {
+    "recall": 0.742,
+    "precision": 0.964,
+    "gold": 31,
+    "pred": 28
+   }
+  },
+  "quote_validity": 0.9973,
+  "set_field_f1": {
+   "financing.structure.committed": 0.984,
+   "indemn.basket.baskets": 1.0,
+   "indemn.cap.cap_amounts": 1.0,
+   "mae.definition.carveout_categories": 0.993,
+   "termination.expense_reimbursement.payor_side": 1.0,
+   "termination.fee.reverse.amounts": 1.0,
+   "termination.fee.reverse.payor_side": 1.0,
+   "termination.fee.reverse.triggers": 0.943,
+   "termination.fee.target.amounts": 1.0,
+   "termination.fee.target.payor_side": 1.0,
+   "termination.fee.target.triggers": 0.972,
+   "termination.outside_date.breach_causation": 0.989,
+   "termination.outside_date.extension_conditions": 0.973,
+   "election.338h10.tax_cost_payer": 1.0
+  },
+  "fields": {
+   "financing.structure.committed": [
+    34,
+    36
+   ],
+   "financing.structure.cooperation": [
+    35,
+    36
+   ],
+   "financing.structure.efforts": [
+    34,
+    36
+   ],
+   "financing.structure.financing_condition": [
+    34,
+    36
+   ],
+   "financing.structure.marketing_period": [
+    36,
+    36
+   ],
+   "indemn.basket.baskets": [
+    18,
+    18
+   ],
+   "indemn.basket.de_minimis": [
+    18,
+    18
+   ],
+   "indemn.cap.cap_amounts": [
+    19,
+    19
+   ],
+   "indemn.cap.escrow_sole_recourse": [
+    18,
+    19
+   ],
+   "indemn.survival.fundamental_reps": [
+    48,
+    50
+   ],
+   "indemn.survival.general_reps": [
+    50,
+    50
+   ],
+   "indemn.survival.no_survival": [
+    50,
+    50
+   ],
+   "mae.definition.ability_to_consummate": [
+    50,
+    50
+   ],
+   "mae.definition.carveout_categories": [
+    45,
+    50
+   ],
+   "mae.definition.disproportionate_exception": [
+    50,
+    50
+   ],
+   "mae.definition.n_definitions": [
+    49,
+    50
+   ],
+   "mae.definition.prospects": [
+    50,
+    50
+   ],
+   "termination.expense_reimbursement.cap": [
+    8,
+    8
+   ],
+   "termination.expense_reimbursement.payor_side": [
+    8,
+    8
+   ],
+   "termination.fee.reverse.amounts": [
+    16,
+    16
+   ],
+   "termination.fee.reverse.kind": [
+    16,
+    16
+   ],
+   "termination.fee.reverse.payor_side": [
+    16,
+    16
+   ],
+   "termination.fee.reverse.remedy": [
+    16,
+    16
+   ],
+   "termination.fee.reverse.triggers": [
+    12,
+    16
+   ],
+   "termination.fee.target.amounts": [
+    25,
+    25
+   ],
+   "termination.fee.target.payor_side": [
+    25,
+    25
+   ],
+   "termination.fee.target.remedy": [
+    25,
+    25
+   ],
+   "termination.fee.target.triggers": [
+    17,
+    25
+   ],
+   "termination.outside_date.breach_causation": [
+    46,
+    49
+   ],
+   "termination.outside_date.effect": [
+    49,
+    49
+   ],
+   "termination.outside_date.extension_conditions": [
+    48,
+    49
+   ],
+   "termination.outside_date.initial": [
+    48,
+    49
+   ],
+   "termination.outside_date.n_extensions": [
+    47,
+    49
+   ],
+   "election.338h10.decides": [
+    3,
+    3
+   ],
+   "election.338h10.election": [
+    3,
+    3
+   ],
+   "election.338h10.tax_cost_payer": [
+    3,
+    3
+   ]
+  }
+ },
+ "fields": [
+  {
+   "field": "financing.structure.committed",
+   "metric": "set_f1",
+   "run1": 0.992,
+   "run2": 0.984,
+   "exact_run1": 0.972,
+   "exact_run2": 0.944,
+   "n": 36,
+   "runs_differ": 1,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.835,
+   "tier": "clears"
+  },
+  {
+   "field": "financing.structure.cooperation",
+   "metric": "exact",
+   "run1": 0.972,
+   "run2": 0.972,
+   "exact_run1": 0.972,
+   "exact_run2": 0.972,
+   "n": 36,
+   "runs_differ": 2,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.875,
+   "tier": "clears"
+  },
+  {
+   "field": "financing.structure.marketing_period",
+   "metric": "exact",
+   "run1": 1.0,
+   "run2": 1.0,
+   "exact_run1": 1.0,
+   "exact_run2": 1.0,
+   "n": 36,
+   "runs_differ": 0,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.92,
+   "tier": "clears"
+  },
+  {
+   "field": "indemn.survival.general_reps",
+   "metric": "exact",
+   "run1": 1.0,
+   "run2": 1.0,
+   "exact_run1": 1.0,
+   "exact_run2": 1.0,
+   "n": 50,
+   "runs_differ": 0,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.942,
+   "tier": "clears"
+  },
+  {
+   "field": "indemn.survival.no_survival",
+   "metric": "exact",
+   "run1": 1.0,
+   "run2": 1.0,
+   "exact_run1": 1.0,
+   "exact_run2": 1.0,
+   "n": 50,
+   "runs_differ": 0,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.942,
+   "tier": "clears"
+  },
+  {
+   "field": "mae.definition.ability_to_consummate",
+   "metric": "exact",
+   "run1": 1.0,
+   "run2": 1.0,
+   "exact_run1": 1.0,
+   "exact_run2": 1.0,
+   "n": 50,
+   "runs_differ": 0,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.942,
+   "tier": "clears"
+  },
+  {
+   "field": "mae.definition.carveout_categories",
+   "metric": "set_f1",
+   "run1": 0.995,
+   "run2": 0.993,
+   "exact_run1": 0.9,
+   "exact_run2": 0.9,
+   "n": 50,
+   "runs_differ": 2,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.801,
+   "tier": "clears"
+  },
+  {
+   "field": "mae.definition.disproportionate_exception",
+   "metric": "exact",
+   "run1": 1.0,
+   "run2": 1.0,
+   "exact_run1": 1.0,
+   "exact_run2": 1.0,
+   "n": 50,
+   "runs_differ": 0,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.942,
+   "tier": "clears"
+  },
+  {
+   "field": "mae.definition.prospects",
+   "metric": "exact",
+   "run1": 1.0,
+   "run2": 1.0,
+   "exact_run1": 1.0,
+   "exact_run2": 1.0,
+   "n": 50,
+   "runs_differ": 0,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.942,
+   "tier": "clears"
+  },
+  {
+   "field": "termination.outside_date.effect",
+   "metric": "exact",
+   "run1": 1.0,
+   "run2": 1.0,
+   "exact_run1": 1.0,
+   "exact_run2": 1.0,
+   "n": 49,
+   "runs_differ": 0,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.941,
+   "tier": "clears"
+  },
+  {
+   "field": "termination.outside_date.extension_conditions",
+   "metric": "set_f1",
+   "run1": 1.0,
+   "run2": 0.973,
+   "exact_run1": 1.0,
+   "exact_run2": 0.98,
+   "n": 49,
+   "runs_differ": 1,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.907,
+   "tier": "clears"
+  },
+  {
+   "field": "termination.outside_date.initial",
+   "metric": "exact",
+   "run1": 1.0,
+   "run2": 0.98,
+   "exact_run1": 1.0,
+   "exact_run2": 0.98,
+   "n": 49,
+   "runs_differ": 1,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.907,
+   "tier": "clears"
+  },
+  {
+   "field": "election.338h10.decides",
+   "metric": "exact",
+   "run1": 1.0,
+   "run2": 1.0,
+   "exact_run1": 1.0,
+   "exact_run2": 1.0,
+   "n": 3,
+   "runs_differ": 0,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.368,
+   "tier": "clears, too few instances"
+  },
+  {
+   "field": "election.338h10.election",
+   "metric": "exact",
+   "run1": 1.0,
+   "run2": 1.0,
+   "exact_run1": 1.0,
+   "exact_run2": 1.0,
+   "n": 3,
+   "runs_differ": 0,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.368,
+   "tier": "clears, too few instances"
+  },
+  {
+   "field": "election.338h10.tax_cost_payer",
+   "metric": "set_f1",
+   "run1": 1.0,
+   "run2": 1.0,
+   "exact_run1": 1.0,
+   "exact_run2": 1.0,
+   "n": 3,
+   "runs_differ": 0,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.368,
+   "tier": "clears, too few instances"
+  },
+  {
+   "field": "indemn.basket.baskets",
+   "metric": "set_f1",
+   "run1": 1.0,
+   "run2": 1.0,
+   "exact_run1": 1.0,
+   "exact_run2": 1.0,
+   "n": 18,
+   "runs_differ": 0,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.847,
+   "tier": "clears, too few instances"
+  },
+  {
+   "field": "indemn.cap.cap_amounts",
+   "metric": "set_f1",
+   "run1": 1.0,
+   "run2": 1.0,
+   "exact_run1": 1.0,
+   "exact_run2": 1.0,
+   "n": 19,
+   "runs_differ": 0,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.854,
+   "tier": "clears, too few instances"
+  },
+  {
+   "field": "termination.expense_reimbursement.cap",
+   "metric": "exact",
+   "run1": 1.0,
+   "run2": 1.0,
+   "exact_run1": 1.0,
+   "exact_run2": 1.0,
+   "n": 8,
+   "runs_differ": 0,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.688,
+   "tier": "clears, too few instances"
+  },
+  {
+   "field": "termination.expense_reimbursement.payor_side",
+   "metric": "set_f1",
+   "run1": 1.0,
+   "run2": 1.0,
+   "exact_run1": 1.0,
+   "exact_run2": 1.0,
+   "n": 8,
+   "runs_differ": 0,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.688,
+   "tier": "clears, too few instances"
+  },
+  {
+   "field": "termination.fee.reverse.amounts",
+   "metric": "set_f1",
+   "run1": 1.0,
+   "run2": 1.0,
+   "exact_run1": 1.0,
+   "exact_run2": 1.0,
+   "n": 16,
+   "runs_differ": 0,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.829,
+   "tier": "clears, too few instances"
+  },
+  {
+   "field": "termination.fee.reverse.kind",
+   "metric": "exact",
+   "run1": 1.0,
+   "run2": 1.0,
+   "exact_run1": 1.0,
+   "exact_run2": 1.0,
+   "n": 16,
+   "runs_differ": 0,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.829,
+   "tier": "clears, too few instances"
+  },
+  {
+   "field": "termination.fee.reverse.payor_side",
+   "metric": "set_f1",
+   "run1": 1.0,
+   "run2": 1.0,
+   "exact_run1": 1.0,
+   "exact_run2": 1.0,
+   "n": 16,
+   "runs_differ": 0,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.829,
+   "tier": "clears, too few instances"
+  },
+  {
+   "field": "termination.fee.reverse.remedy",
+   "metric": "exact",
+   "run1": 1.0,
+   "run2": 1.0,
+   "exact_run1": 1.0,
+   "exact_run2": 1.0,
+   "n": 16,
+   "runs_differ": 0,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.829,
+   "tier": "clears, too few instances"
+  },
+  {
+   "field": "termination.fee.target.amounts",
+   "metric": "set_f1",
+   "run1": 1.0,
+   "run2": 1.0,
+   "exact_run1": 1.0,
+   "exact_run2": 1.0,
+   "n": 25,
+   "runs_differ": 0,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.887,
+   "tier": "clears, too few instances"
+  },
+  {
+   "field": "termination.fee.target.payor_side",
+   "metric": "set_f1",
+   "run1": 1.0,
+   "run2": 1.0,
+   "exact_run1": 1.0,
+   "exact_run2": 1.0,
+   "n": 25,
+   "runs_differ": 0,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.887,
+   "tier": "clears, too few instances"
+  },
+  {
+   "field": "termination.fee.target.remedy",
+   "metric": "exact",
+   "run1": 1.0,
+   "run2": 1.0,
+   "exact_run1": 1.0,
+   "exact_run2": 1.0,
+   "n": 25,
+   "runs_differ": 0,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.887,
+   "tier": "clears, too few instances"
+  },
+  {
+   "field": "termination.fee.target.triggers",
+   "metric": "set_f1",
+   "run1": 0.982,
+   "run2": 0.972,
+   "exact_run1": 0.84,
+   "exact_run2": 0.68,
+   "n": 25,
+   "runs_differ": 6,
+   "runs_differ_v29_only": 2,
+   "lower95_run2_exact": 0.496,
+   "tier": "clears, too few instances"
+  },
+  {
+   "field": "financing.structure.financing_condition",
+   "metric": "exact",
+   "run1": 0.972,
+   "run2": 0.944,
+   "exact_run1": 0.972,
+   "exact_run2": 0.944,
+   "n": 36,
+   "runs_differ": 1,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.835,
+   "tier": "one run below"
+  },
+  {
+   "field": "indemn.basket.de_minimis",
+   "metric": "exact",
+   "run1": 0.944,
+   "run2": 1.0,
+   "exact_run1": 0.944,
+   "exact_run2": 1.0,
+   "n": 18,
+   "runs_differ": 1,
+   "runs_differ_v29_only": 1,
+   "lower95_run2_exact": 0.847,
+   "tier": "one run below"
+  },
+  {
+   "field": "indemn.survival.fundamental_reps",
+   "metric": "exact",
+   "run1": 0.98,
+   "run2": 0.96,
+   "exact_run1": 0.98,
+   "exact_run2": 0.96,
+   "n": 50,
+   "runs_differ": 1,
+   "runs_differ_v29_only": 1,
+   "lower95_run2_exact": 0.879,
+   "tier": "one run below"
+  },
+  {
+   "field": "mae.definition.n_definitions",
+   "metric": "exact",
+   "run1": 0.94,
+   "run2": 0.98,
+   "exact_run1": 0.94,
+   "exact_run2": 0.98,
+   "n": 50,
+   "runs_differ": 2,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.909,
+   "tier": "one run below"
+  },
+  {
+   "field": "termination.outside_date.breach_causation",
+   "metric": "set_f1",
+   "run1": 0.967,
+   "run2": 0.989,
+   "exact_run1": 0.918,
+   "exact_run2": 0.939,
+   "n": 49,
+   "runs_differ": 1,
+   "runs_differ_v29_only": 1,
+   "lower95_run2_exact": 0.849,
+   "tier": "one run below"
+  },
+  {
+   "field": "termination.outside_date.n_extensions",
+   "metric": "exact",
+   "run1": 0.98,
+   "run2": 0.959,
+   "exact_run1": 0.98,
+   "exact_run2": 0.959,
+   "n": 49,
+   "runs_differ": 3,
+   "runs_differ_v29_only": 1,
+   "lower95_run2_exact": 0.877,
+   "tier": "one run below"
+  },
+  {
+   "field": "financing.structure.efforts",
+   "metric": "exact",
+   "run1": 0.944,
+   "run2": 0.944,
+   "exact_run1": 0.944,
+   "exact_run2": 0.944,
+   "n": 36,
+   "runs_differ": 2,
+   "runs_differ_v29_only": 1,
+   "lower95_run2_exact": 0.835,
+   "tier": "fails both runs"
+  },
+  {
+   "field": "indemn.cap.escrow_sole_recourse",
+   "metric": "exact",
+   "run1": 0.895,
+   "run2": 0.947,
+   "exact_run1": 0.895,
+   "exact_run2": 0.947,
+   "n": 19,
+   "runs_differ": 1,
+   "runs_differ_v29_only": 0,
+   "lower95_run2_exact": 0.774,
+   "tier": "fails both runs"
+  },
+  {
+   "field": "termination.fee.reverse.triggers",
+   "metric": "set_f1",
+   "run1": 0.953,
+   "run2": 0.943,
+   "exact_run1": 0.812,
+   "exact_run2": 0.75,
+   "n": 16,
+   "runs_differ": 3,
+   "runs_differ_v29_only": 2,
+   "lower95_run2_exact": 0.516,
+   "tier": "fails both runs"
+  }
+ ],
+ "diffs": [
+  {
+   "agreement": "1c285c51-5dd4-5075-aa7f-20ac92c976ae",
+   "concept": "ma.termination.fee.target",
+   "field": "triggers",
+   "a": [
+    "superior_proposal_termination"
+   ],
+   "b": [
+    "other",
+    "superior_proposal_termination"
+   ],
+   "gold": [
+    "superior_proposal_termination"
+   ]
+  },
+  {
+   "agreement": "1c285c51-5dd4-5075-aa7f-20ac92c976ae",
+   "concept": "ma.mae.definition",
+   "field": "n_definitions",
+   "a": 2,
+   "b": 3,
+   "gold": 3
+  },
+  {
+   "agreement": "0224bd6d-fad0-5c32-a61c-8f7644139dc4",
+   "concept": "ma.indemn.survival",
+   "field": "fundamental_reps",
+   "a": [
+    "duration",
+    null,
+    null,
+    null,
+    null
+   ],
+   "b": null,
+   "gold": [
+    "duration",
+    null,
+    null,
+    null,
+    null
+   ]
+  },
+  {
+   "agreement": "1509f5f1-da98-51e1-bdf8-407799006c3e",
+   "concept": "ma.termination.outside_date",
+   "field": "breach_causation",
+   "a": [
+    "no_causation_required"
+   ],
+   "b": [
+    "cause_or_result"
+   ],
+   "gold": [
+    "cause_or_result"
+   ]
+  },
+  {
+   "agreement": "1509f5f1-da98-51e1-bdf8-407799006c3e",
+   "concept": "ma.indemn.basket",
+   "field": "de_minimis",
+   "a": "none",
+   "b": "not_stated",
+   "gold": "not_stated"
+  },
+  {
+   "agreement": "04d3f8ef-0d18-5083-b9a3-12402bf4950c",
+   "concept": "ma.termination.fee.reverse",
+   "field": "triggers",
+   "a": [
+    "breach_of_no_shop",
+    "breach_with_tail",
+    "buyer_recommendation_change",
+    "failure_to_close",
+    "outside_date_with_tail",
+    "recommendation_failure",
+    "superior_proposal_termination"
+   ],
+   "b": [
+    "breach_of_no_shop",
+    "breach_with_tail",
+    "buyer_recommendation_change",
+    "other",
+    "outside_date_with_tail",
+    "recommendation_failure",
+    "superior_proposal_termination"
+   ],
+   "gold": [
+    "breach_of_no_shop",
+    "breach_with_tail",
+    "buyer_recommendation_change",
+    "failure_to_close",
+    "outside_date_with_tail",
+    "recommendation_failure",
+    "superior_proposal_termination"
+   ]
+  },
+  {
+   "agreement": "04d3f8ef-0d18-5083-b9a3-12402bf4950c",
+   "concept": "ma.termination.outside_date",
+   "field": "n_extensions",
+   "a": 1,
+   "b": 2,
+   "gold": 1
+  },
+  {
+   "agreement": "cbc1bf49-a503-5190-b2f0-e10162077208",
+   "concept": "ma.termination.fee.reverse",
+   "field": "triggers",
+   "a": [
+    "buyer_breach",
+    "failure_to_close",
+    "regulatory_failure"
+   ],
+   "b": [
+    "buyer_breach",
+    "failure_to_close",
+    "financing_failure",
+    "regulatory_failure"
+   ],
+   "gold": [
+    "buyer_breach",
+    "failure_to_close",
+    "regulatory_failure"
+   ]
+  },
+  {
+   "agreement": "cbc1bf49-a503-5190-b2f0-e10162077208",
+   "concept": "ma.termination.outside_date",
+   "field": "n_extensions",
+   "a": 2,
+   "b": 1,
+   "gold": 1
+  },
+  {
+   "agreement": "14e30716-ce61-5edf-bb12-9264762056e0",
+   "concept": "ma.indemn.cap",
+   "field": "escrow_sole_recourse",
+   "a": true,
+   "b": false,
+   "gold": false
+  },
+  {
+   "agreement": "450faad1-f07d-52fa-894a-431e524212a7",
+   "concept": "ma.financing.structure",
+   "field": "efforts",
+   "a": "other",
+   "b": "not_stated",
+   "gold": "other"
+  },
+  {
+   "agreement": "be56deba-6715-5170-b9ec-5951eac738b3",
+   "concept": "ma.mae.definition",
+   "field": "carveout_categories",
+   "a": [
+    "announcement_or_pendency",
+    "buyer_action_or_request",
+    "change_in_gaap",
+    "change_in_law",
+    "compliance_with_agreement",
+    "financial_markets",
+    "general_economic",
+    "industry",
+    "natural_disaster",
+    "pandemic",
+    "political_war_terrorism",
+    "stock_price_or_volume"
+   ],
+   "b": [
+    "announcement_or_pendency",
+    "buyer_action_or_request",
+    "change_in_gaap",
+    "change_in_law",
+    "compliance_with_agreement",
+    "financial_markets",
+    "general_economic",
+    "industry",
+    "natural_disaster",
+    "pandemic",
+    "political_war_terrorism"
+   ],
+   "gold": [
+    "announcement_or_pendency",
+    "buyer_action_or_request",
+    "change_in_gaap",
+    "change_in_law",
+    "compliance_with_agreement",
+    "financial_markets",
+    "general_economic",
+    "industry",
+    "natural_disaster",
+    "pandemic",
+    "political_war_terrorism"
+   ]
+  },
+  {
+   "agreement": "ebd2b75e-8b5c-5ff0-ab18-1cd97ab7253d",
+   "concept": "ma.financing.structure",
+   "field": "efforts",
+   "a": "not_stated",
+   "b": "commercially_reasonable",
+   "gold": "commercially_reasonable"
+  },
+  {
+   "agreement": "d166d547-72d0-538d-be65-b506bd212b97",
+   "concept": "ma.mae.definition",
+   "field": "n_definitions",
+   "a": 1,
+   "b": 2,
+   "gold": 2
+  },
+  {
+   "agreement": "eec1f801-675c-5fe8-875d-76a6ffaa2d8c",
+   "concept": "ma.mae.definition",
+   "field": "carveout_categories",
+   "a": [
+    "change_in_gaap",
+    "change_in_law",
+    "compliance_with_agreement",
+    "general_economic",
+    "industry"
+   ],
+   "b": [
+    "change_in_gaap",
+    "change_in_law",
+    "general_economic",
+    "industry",
+    "other"
+   ],
+   "gold": [
+    "change_in_gaap",
+    "change_in_law",
+    "compliance_with_agreement",
+    "general_economic",
+    "industry"
+   ]
+  },
+  {
+   "agreement": "f696a93f-c8a3-55fe-9b67-e8affe8120e7",
+   "concept": "ma.termination.outside_date",
+   "field": "initial",
+   "a": "2005-12-31",
+   "b": "2005-03-31",
+   "gold": "2005-12-31"
+  },
+  {
+   "agreement": "49af7339-17e4-5b52-8bb9-513fa18ce0d6",
+   "concept": "ma.financing.structure",
+   "field": "committed",
+   "a": [
+    "cash_on_hand"
+   ],
+   "b": [
+    "cash_on_hand",
+    "other"
+   ],
+   "gold": [
+    "cash_on_hand"
+   ]
+  },
+  {
+   "agreement": "62b1c56e-a798-5f82-bf4a-e7d7b138c456",
+   "concept": "ma.financing.structure",
+   "field": "cooperation",
+   "a": true,
+   "b": "not_stated",
+   "gold": true
+  },
+  {
+   "agreement": "8eeea4af-43ea-573a-a900-7a2214cf48a0",
+   "concept": "ma.financing.structure",
+   "field": "financing_condition",
+   "a": false,
+   "b": "not_stated",
+   "gold": false
+  },
+  {
+   "agreement": "aa08d303-e578-53c3-9f59-11048237f260",
+   "concept": "ma.termination.fee.target",
+   "field": "triggers",
+   "a": [
+    "approval_failure_naked",
+    "approval_failure_with_tail",
+    "breach_with_tail",
+    "outside_date_with_tail",
+    "superior_proposal_termination"
+   ],
+   "b": [
+    "adverse_recommendation_change",
+    "approval_failure_naked",
+    "approval_failure_with_tail",
+    "breach_with_tail",
+    "outside_date_with_tail",
+    "superior_proposal_termination"
+   ],
+   "gold": [
+    "approval_failure_naked",
+    "approval_failure_with_tail",
+    "breach_with_tail",
+    "outside_date_with_tail",
+    "superior_proposal_termination"
+   ]
+  },
+  {
+   "agreement": "20205629-deb6-5643-a0f9-74c520ee0a32",
+   "concept": "ma.termination.fee.target",
+   "field": "triggers",
+   "a": [
+    "adverse_recommendation_change",
+    "breach_no_tail",
+    "breach_of_no_shop",
+    "breach_with_tail",
+    "outside_date_with_tail",
+    "recommendation_failure"
+   ],
+   "b": [
+    "adverse_recommendation_change",
+    "breach_of_no_shop",
+    "breach_with_tail",
+    "outside_date_with_tail",
+    "recommendation_failure"
+   ],
+   "gold": [
+    "adverse_recommendation_change",
+    "breach_no_tail",
+    "breach_of_no_shop",
+    "breach_with_tail",
+    "outside_date_with_tail",
+    "recommendation_failure"
+   ]
+  },
+  {
+   "agreement": "be399153-e153-5d0c-9ded-3bab870b7405",
+   "concept": "ma.termination.fee.reverse",
+   "field": "triggers",
+   "a": [
+    "approval_failure_with_tail",
+    "buyer_breach",
+    "buyer_recommendation_change",
+    "outside_date_with_tail",
+    "superior_proposal_termination"
+   ],
+   "b": [
+    "approval_failure_with_tail",
+    "breach_with_tail",
+    "buyer_recommendation_change",
+    "outside_date_with_tail",
+    "superior_proposal_termination"
+   ],
+   "gold": [
+    "approval_failure_with_tail",
+    "breach_with_tail",
+    "buyer_recommendation_change",
+    "outside_date_with_tail",
+    "superior_proposal_termination"
+   ]
+  },
+  {
+   "agreement": "cbf35989-8dda-56a9-ab30-991002cde4cc",
+   "concept": "ma.termination.fee.target",
+   "field": "triggers",
+   "a": [
+    "adverse_recommendation_change",
+    "approval_failure_with_tail",
+    "breach_with_tail",
+    "other",
+    "outside_date_with_tail",
+    "recommendation_failure",
+    "superior_proposal_termination"
+   ],
+   "b": [
+    "adverse_recommendation_change",
+    "approval_failure_with_tail",
+    "breach_with_tail",
+    "outside_date_with_tail",
+    "recommendation_failure",
+    "superior_proposal_termination"
+   ],
+   "gold": [
+    "adverse_recommendation_change",
+    "approval_failure_with_tail",
+    "breach_with_tail",
+    "other",
+    "outside_date_with_tail",
+    "recommendation_failure",
+    "superior_proposal_termination"
+   ]
+  },
+  {
+   "agreement": "e446bd34-a8ab-5bbb-85e8-a6e80fc3ebcb",
+   "concept": "ma.termination.fee.target",
+   "field": "triggers",
+   "a": [
+    "adverse_recommendation_change",
+    "approval_failure_with_tail",
+    "breach_of_no_shop",
+    "breach_with_tail",
+    "recommendation_failure",
+    "superior_proposal_termination"
+   ],
+   "b": [
+    "adverse_recommendation_change",
+    "approval_failure_with_tail",
+    "breach_of_no_shop",
+    "breach_with_tail",
+    "other",
+    "outside_date_with_tail",
+    "recommendation_failure",
+    "superior_proposal_termination"
+   ],
+   "gold": [
+    "adverse_recommendation_change",
+    "approval_failure_with_tail",
+    "breach_of_no_shop",
+    "breach_with_tail",
+    "other",
+    "outside_date_with_tail",
+    "recommendation_failure",
+    "superior_proposal_termination"
+   ]
+  },
+  {
+   "agreement": "111f9053-2528-562f-9f06-ec0c485644b1",
+   "concept": "ma.financing.structure",
+   "field": "cooperation",
+   "a": "not_stated",
+   "b": true,
+   "gold": true
+  },
+  {
+   "agreement": "3b86d6d4-ffee-51eb-9061-b0298dd6d52c",
+   "concept": "ma.termination.fee.target",
+   "field": "triggers",
+   "a": [
+    "adverse_recommendation_change",
+    "approval_failure_with_tail",
+    "breach_of_no_shop",
+    "breach_with_tail",
+    "outside_date_with_tail",
+    "recommendation_failure",
+    "superior_proposal_termination"
+   ],
+   "b": [
+    "adverse_recommendation_change",
+    "breach_of_no_shop",
+    "breach_with_tail",
+    "outside_date_with_tail",
+    "recommendation_failure",
+    "superior_proposal_termination"
+   ],
+   "gold": [
+    "adverse_recommendation_change",
+    "approval_failure_with_tail",
+    "breach_of_no_shop",
+    "breach_with_tail",
+    "outside_date_with_tail",
+    "recommendation_failure",
+    "superior_proposal_termination"
+   ]
+  },
+  {
+   "agreement": "4c95f1e9-e218-51bd-8c1a-00598f927de3",
+   "concept": "ma.termination.outside_date",
+   "field": "extension_conditions",
+   "a": [
+    "other",
+    "regulatory_pending"
+   ],
+   "b": [
+    "regulatory_pending"
+   ],
+   "gold": [
+    "other",
+    "regulatory_pending"
+   ]
+  },
+  {
+   "agreement": "4c95f1e9-e218-51bd-8c1a-00598f927de3",
+   "concept": "ma.termination.outside_date",
+   "field": "n_extensions",
+   "a": 3,
+   "b": 2,
+   "gold": 3
+  }
+ ]
+}

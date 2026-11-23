@@ -1,0 +1,348 @@
+{
+ "agreements": 50,
+ "arms": {
+  "sonnet": {
+   "arm": "sonnet",
+   "gold": "gold",
+   "split": null,
+   "agreements": 50,
+   "missing": [],
+   "quote_validity": 1.0,
+   "quotes": 431,
+   "detection": {
+    "financing.structure": {
+     "tp": 34,
+     "fp": 1,
+     "fn": 0,
+     "tn": 15,
+     "precision": 0.971,
+     "recall": 1.0
+    },
+    "indemn.cap": {
+     "tp": 20,
+     "fp": 0,
+     "fn": 0,
+     "tn": 30,
+     "precision": 1.0,
+     "recall": 1.0
+    }
+   },
+   "spans": {
+    "financing.structure": {
+     "recall": 0.754,
+     "precision": 0.964,
+     "gold": 142,
+     "pred": 112
+    },
+    "indemn.cap": {
+     "recall": 0.827,
+     "precision": 0.968,
+     "gold": 127,
+     "pred": 95
+    }
+   },
+   "fields": {
+    "financing.structure.committed": [
+     27,
+     34
+    ],
+    "financing.structure.cooperation": [
+     33,
+     34
+    ],
+    "financing.structure.efforts": [
+     33,
+     34
+    ],
+    "financing.structure.financing_condition": [
+     34,
+     34
+    ],
+    "financing.structure.marketing_period": [
+     34,
+     34
+    ],
+    "indemn.cap.cap_amounts": [
+     19,
+     20
+    ],
+    "indemn.cap.escrow_sole_recourse": [
+     20,
+     20
+    ]
+   },
+   "set_field_f1": {
+    "financing.structure.committed": 0.931,
+    "indemn.cap.cap_amounts": 0.987
+   },
+   "detection_before_adjudication": {
+    "financing.structure": {
+     "tp": 33,
+     "fp": 2,
+     "fn": 0,
+     "tn": 15,
+     "precision": 0.943,
+     "recall": 1.0
+    },
+    "indemn.cap": {
+     "tp": 20,
+     "fp": 0,
+     "fn": 0,
+     "tn": 30,
+     "precision": 1.0,
+     "recall": 1.0
+    }
+   },
+   "verdicts": {},
+   "extractor_errors": {}
+  },
+  "sonnet_pc": {
+   "arm": "sonnet_pc",
+   "gold": "gold",
+   "split": null,
+   "agreements": 50,
+   "missing": [],
+   "quote_validity": 1.0,
+   "quotes": 434,
+   "detection": {
+    "financing.structure": {
+     "tp": 34,
+     "fp": 1,
+     "fn": 0,
+     "tn": 15,
+     "precision": 0.971,
+     "recall": 1.0
+    },
+    "indemn.cap": {
+     "tp": 20,
+     "fp": 0,
+     "fn": 0,
+     "tn": 30,
+     "precision": 1.0,
+     "recall": 1.0
+    }
+   },
+   "spans": {
+    "financing.structure": {
+     "recall": 0.754,
+     "precision": 0.964,
+     "gold": 142,
+     "pred": 112
+    },
+    "indemn.cap": {
+     "recall": 0.827,
+     "precision": 0.968,
+     "gold": 127,
+     "pred": 95
+    }
+   },
+   "fields": {
+    "financing.structure.committed": [
+     30,
+     34
+    ],
+    "financing.structure.cooperation": [
+     33,
+     34
+    ],
+    "financing.structure.efforts": [
+     33,
+     34
+    ],
+    "financing.structure.financing_condition": [
+     34,
+     34
+    ],
+    "financing.structure.marketing_period": [
+     34,
+     34
+    ],
+    "indemn.cap.cap_amounts": [
+     19,
+     20
+    ],
+    "indemn.cap.escrow_sole_recourse": [
+     20,
+     20
+    ]
+   },
+   "set_field_f1": {
+    "financing.structure.committed": 0.962,
+    "indemn.cap.cap_amounts": 0.987
+   },
+   "detection_before_adjudication": {
+    "financing.structure": {
+     "tp": 33,
+     "fp": 2,
+     "fn": 0,
+     "tn": 15,
+     "precision": 0.943,
+     "recall": 1.0
+    },
+    "indemn.cap": {
+     "tp": 20,
+     "fp": 0,
+     "fn": 0,
+     "tn": 30,
+     "precision": 1.0,
+     "recall": 1.0
+    }
+   },
+   "verdicts": {
+    "gold_correct": 9,
+    "schema_ambiguous": 3,
+    "extractor_correct": 2
+   },
+   "extractor_errors": {
+    "missed_rule": 3,
+    "wrong_code": 1,
+    "missed_in_candidates": 3,
+    "retrieval_gap": 2
+   }
+  }
+ },
+ "pct_first_sonnet": {
+  "fields": {
+   "financing.structure.committed": [
+    27,
+    34
+   ],
+   "financing.structure.cooperation": [
+    33,
+    34
+   ],
+   "financing.structure.efforts": [
+    33,
+    34
+   ],
+   "financing.structure.financing_condition": [
+    34,
+    34
+   ],
+   "financing.structure.marketing_period": [
+    34,
+    34
+   ],
+   "indemn.cap.cap_amounts": [
+    19,
+    20
+   ],
+   "indemn.cap.escrow_sole_recourse": [
+    20,
+    20
+   ]
+  },
+  "set_field_f1": {
+   "financing.structure.committed": 0.931,
+   "indemn.cap.cap_amounts": 0.987
+  }
+ },
+ "postcheck_changes": {
+  "agreements": 3,
+  "by_rule": {
+   "v2.5 rule 3": 3
+  },
+  "detail": {
+   "019d7ad0-c394-58a8-8b92-8ba669eabf95": [
+    {
+     "concept": "ma.financing.structure",
+     "rule": "v2.5 rule 3",
+     "added": "Assuming the accuracy of the representations and warranties set forth in Article IV and the Company\u2019s compliance with it"
+    }
+   ],
+   "ba8141b8-903d-516e-897e-bfa5725572e6": [
+    {
+     "concept": "ma.financing.structure",
+     "rule": "v2.5 rule 3",
+     "added": "Subject to the terms and conditions of the Commitment Letter, assuming the satisfaction of the conditions set forth in A"
+    }
+   ],
+   "c96566d2-882e-532b-8c6f-10e62f6abd0d": [
+    {
+     "concept": "ma.financing.structure",
+     "rule": "v2.5 rule 3",
+     "added": "The proceeds funded under the Financing Commitments (or any alternative financing obtained pursuant to Section 6.11), wh"
+    }
+   ]
+  }
+ },
+ "stage1_gold_span_recall": {
+  "hit": 268,
+  "total": 269,
+  "recall": 0.996,
+  "missed_by_concept": {
+   "financing.structure": 1
+  }
+ },
+ "changes_from_7_14": {
+  "cash_on_hand_postcheck": "v2.5 rule 3 in postchecks.py",
+  "colon_definitions": "prepare_v7 v4.DEFINED",
+  "re_extracted": [
+   "67e84aa3-2c7a-50bf-8306-e5cf776c6a88"
+  ],
+  "candidates_changed_by_colon_fix": {
+   "m3holdout": 0,
+   "m4holdout": 0,
+   "m5holdout": 0,
+   "m6holdout": 1
+  }
+ },
+ "cash_on_hand_on_earlier_holdouts": {
+  "m3holdout": {
+   "committed_exact_before": "27/35",
+   "after": "28/35",
+   "helping": 2,
+   "hurting": [
+    "d1bc88a8"
+   ]
+  },
+  "m4holdout": {
+   "committed_exact_before": "35/39",
+   "after": "34/39",
+   "helping": 1,
+   "hurting": [
+    "cd25cee3",
+    "5c8bc13b"
+   ]
+  },
+  "m5holdout": {
+   "committed_exact_before": "25/30",
+   "after": "27/30",
+   "helping": 2,
+   "hurting": []
+  },
+  "m6holdout": {
+   "committed_exact_before": "27/34",
+   "after": "30/34",
+   "helping": 3,
+   "hurting": []
+  }
+ },
+ "cash_on_hand_on_earlier_holdouts_after_adjudication": {
+  "adjudicated": {
+   "m3holdout/d1bc88a8": "add_cash_on_hand",
+   "m4holdout/cd25cee3": "add_cash_on_hand",
+   "m4holdout/5c8bc13b": "add_cash_on_hand"
+  },
+  "m3holdout": {
+   "before": "27/35",
+   "after": "28/35",
+   "hurting": []
+  },
+  "m4holdout": {
+   "before": "33/39",
+   "after": "36/39",
+   "hurting": []
+  },
+  "m5holdout": {
+   "before": "25/30",
+   "after": "27/30",
+   "hurting": []
+  },
+  "m6holdout": {
+   "before": "27/34",
+   "after": "30/34",
+   "hurting": []
+  }
+ }
+}
