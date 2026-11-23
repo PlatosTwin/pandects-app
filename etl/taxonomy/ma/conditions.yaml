@@ -50,7 +50,9 @@ concepts:
         of the outstanding Shares.
     exclusion_cues:
       - The vote itself is stated in ma.rep.required_vote.
-      - The minimum tender condition is ma.tender.offer_conditions.
+      - >-
+        The minimum tender condition is ma.tender.offer_conditions (in wave 1, label its group
+        ma.nav.structure.tender_offer).
     value_schema:
       status: stub
       fields:
@@ -196,6 +198,7 @@ concepts:
       - >-
         The separate condition that no material adverse effect has occurred is ma.condition.no_mae.
       - The condition that the other party has performed its covenants is ma.condition.covenant_performance.
+      - The officer's certificate that confirms the conditions is ma.condition.other.
     value_schema:
       status: stub
       fields:
@@ -283,7 +286,7 @@ concepts:
       - >-
         No Company Material Adverse Effect shall have occurred and be continuing as of the Closing Date.
     exclusion_cues:
-      - The definition is ma.mae.definition.
+      - The definition is ma.mae.definition (in wave 1, label its group ma.nav.definitions.key_terms).
       - >-
         The representation that none has occurred since the balance sheet date is ma.rep.absence_of_changes.
     crosswalk:
@@ -423,19 +426,38 @@ concepts:
     attributes:
       party: tested_party
     description: >-
-      Another closing condition, such as delivery of an officer's certificate or an ancillary agreement,
-      continued employment of key employees, or a payoff letter.
+      A closing condition that has no concept of its own. The common ones are delivery of an officer's or
+      closing certificate, signed ancillary agreements, continued employment of key employees, a payoff
+      letter, and a limit on the target's net debt at closing.
     canonical_terms:
       - officer's certificate
       - certificate signed by an executive officer
       - Key Employees
       - ancillary agreements shall have been executed
+      - closing certificate
+      - Net Indebtedness shall not exceed
     example_phrases:
       - >-
         Parent shall have received a certificate signed by an executive officer of the Company certifying
         that the conditions set forth in Sections [•] and [•] have been satisfied.
     exclusion_cues:
       - A tax opinion condition is tax.opinion.closing_condition.
+      - >-
+        The certificate condition stays here. The conditions that the certificate confirms take their own
+        concepts: ma.condition.reps_bringdown and ma.condition.covenant_performance.
+      - >-
+        The end of the HSR Act waiting period and other approvals by regulators are
+        ma.condition.regulatory_approval. The absence of an order or law that blocks the deal is
+        ma.condition.no_legal_restraint.
+      - >-
+        A SPAC condition on minimum cash after redemptions is ma.spac.minimum_cash (in wave 1, label its
+        group ma.nav.structure.spac). A condition that the SPAC keep net tangible assets of at least
+        $5,000,001 stays here.
+      - Entry of the sale order by a bankruptcy court is ma.bankruptcy.court_approval.
+      - >-
+        Court approval of a plan or scheme of arrangement under Canadian or UK-style law has no concept of
+        its own. A condition on the interim order or the final order stays here.
+      - The opening words of the conditions article that stand as a section of their own are ma.other.lead_in.
     crosswalk:
       section_v2:
         - id: d6c13c12f0313084
@@ -464,5 +486,7 @@ concepts:
         if such failure was caused by such party's failure to perform any of its obligations under this
         Agreement.
     exclusion_cues:
-      - The same rule as a limit on a termination right is ma.termination.outside_date or ma.termination.right.breach.
+      - >-
+        The same rule as a limit on a termination right is ma.termination.outside_date or
+        ma.termination.right.breach (in wave 1, label their group ma.nav.termination.rights).
     introduced_in: '2026.1'

@@ -254,7 +254,9 @@ concepts:
         holders of Company Common Stock do not receive two dividends, or fail to receive one dividend,
         for any quarter.
     exclusion_cues:
-      - The interim limit on paying dividends is ma.conduct.restriction.dividends.
+      - >-
+        The interim limit on paying dividends is ma.conduct.restriction.dividends (in wave 1, label its
+        parent ma.conduct.negative_covenants).
     introduced_in: '2026.1'
 
   - id: ma.rule_145_affiliates
@@ -307,7 +309,8 @@ concepts:
         thereof.
     exclusion_cues:
       - >-
-        The interim limit on settling other claims is ma.conduct.restriction.litigation_settlement.
+        The interim limit on settling other claims is ma.conduct.restriction.litigation_settlement (in wave
+        1, label its parent ma.conduct.negative_covenants).
     crosswalk:
       section_v2:
         - id: aa9042c38b62daf4
@@ -565,6 +568,8 @@ concepts:
       - >-
         At the Closing, Seller and Buyer shall enter into the Transition Services Agreement in the form
         attached as Exhibit [•].
+    exclusion_cues:
+      - The split or shared use of contracts and assets after a carve-out is ma.separation.shared_contracts.
     introduced_in: '2026.1'
 
   - id: ma.intercompany_termination
@@ -620,11 +625,154 @@ concepts:
       - The end of contracts between the target and the seller group is ma.intercompany_termination.
     introduced_in: '2026.1'
 
+  - id: ma.separation.shared_contracts
+    label: Shared Contracts and Shared Assets
+    kind: provision
+    nav_parent: ma.nav.covenants.post_closing
+    tier: label
+    wave: 1
+    description: >-
+      In a carve-out, what happens to contracts, equipment, real estate and other assets that both the
+      sold business and the seller's retained business use: a split or a copy of the contract, a pass-through
+      of its benefits, or continued shared use for a time.
+    canonical_terms:
+      - Shared Contracts
+      - Commingled Contracts
+      - Mixed-Use Contracts
+      - shared assets
+      - separate or replicate
+      - both the Business and the Retained Business
+    example_phrases:
+      - >-
+        With respect to each Shared Contract, the parties shall use commercially reasonable efforts to
+        cause the counterparty to enter into a separate contract with Buyer on substantially the same
+        terms as they relate to the Business, and until then Seller shall pass through to Buyer the benefits
+        and burdens of the portion that relates to the Business.
+    exclusion_cues:
+      - >-
+        A contract that belongs wholly to the sold business and cannot be assigned without a consent
+        is ma.asset.nonassignable_assets.
+      - Services that the seller provides for a time after closing are ma.transition_services.
+      - Assets or payments that reach the wrong party after closing are ma.wrong_pockets.
+      - The end of contracts between the target and the seller group is ma.intercompany_termination.
+      - >-
+        The buyer's access to the seller's insurance policies is ma.separation.insurance_access (in wave
+        1, label its group ma.nav.covenants.post_closing).
+    introduced_in: '2026.1'
+
+  - id: ma.separation.insurance_access
+    label: Post-Closing Access to Seller Insurance
+    kind: provision
+    nav_parent: ma.nav.covenants.post_closing
+    tier: label
+    wave: 2
+    description: >-
+      What happens to the seller group's insurance for the sold business after closing: coverage under
+      the seller's policies ends at closing, and the buyer may or may not make claims under the seller's
+      occurrence-based policies for events before closing, with the seller's help.
+    canonical_terms:
+      - occurrence-based policies
+      - Seller Insurance Policies
+      - coverage shall cease as of the Closing
+      - pre-Closing occurrences
+      - claims under the insurance policies of Seller
+    example_phrases:
+      - >-
+        From and after the Closing, the Company shall cease to be insured by any insurance policy of Seller
+        or its Affiliates, except that Buyer may make claims under Seller's occurrence-based policies
+        for losses arising from events that occurred prior to the Closing, and Seller shall use commercially
+        reasonable efforts to pursue such claims on Buyer's behalf.
+    exclusion_cues:
+      - The representation that the business's insurance is in force is ma.rep.insurance.
+      - Tail insurance for directors and officers is ma.dando.tail_insurance.
+      - A representation and warranty insurance policy is ma.indemn.rwi.
+      - Reduction of an indemnity claim for insurance proceeds is ma.indemn.recovery_offsets.
+    introduced_in: '2026.1'
+
+  - id: ma.environmental.remediation
+    label: Environmental Remediation and Transfer Statutes
+    kind: provision
+    nav_parent: ma.nav.covenants.post_closing
+    tier: label
+    wave: 1
+    attributes:
+      party: obligor
+    description: >-
+      Covenants on known or suspected contamination: who must investigate and clean up a site, to what
+      standard, who controls the work and who pays for it. It also covers compliance with a property
+      transfer statute, such as the New Jersey Industrial Site Recovery Act or the Connecticut Transfer
+      Act, and with an existing environmental consent order.
+    canonical_terms:
+      - Remedial Action
+      - remediation
+      - ISRA
+      - Industrial Site Recovery Act
+      - Connecticut Transfer Act
+      - Phase II
+      - consent order
+      - No Further Action letter
+    example_phrases:
+      - >-
+        Seller shall, at its sole cost and expense, perform all Remedial Action required under ISRA in
+        connection with the transactions, and shall obtain the approval of the environmental agency that
+        permits the Closing to occur.
+      - >-
+        Seller shall control the investigation and remediation of the Identified Environmental Conditions
+        and shall remediate them to the least stringent standard that Environmental Law permits for industrial
+        use of the property.
+    exclusion_cues:
+      - The representation on environmental compliance and releases is ma.rep.environmental.
+      - >-
+        The promise to pay the other side's losses from an environmental condition is ma.indemn.specific
+        (in wave 1, label its parent ma.indemn.obligation). The covenant to do, control or pay for the
+        clean-up stays here.
+      - >-
+        The buyer's right before closing to inspect a property and to claim an environmental defect against
+        the price is ma.asset.title_and_survey. An assessment whose findings trigger a duty to remediate
+        is this concept.
+      - >-
+        Which environmental liabilities the buyer takes over in an asset deal is ma.asset.assumed_liabilities
+        or ma.asset.excluded_liabilities.
+    introduced_in: '2026.1'
+
   - id: ma.covenant.other
     label: Other Covenant
     kind: provision
     nav_parent: ma.nav.covenants.post_closing
     tier: label
     wave: 1
-    description: A covenant that fits no other concept. Use it rarely.
+    attributes:
+      party: obligor
+    description: >-
+      A covenant on a topic that no other concept covers. Check the covenant concepts of every branch first.
+      Covenants that have no concept of their own belong here, for example a promise not to trade in a
+      SPAC's securities, a SPAC's promise to keep its SEC reports current, and the court steps of a plan or
+      scheme of arrangement under Canadian or UK-style law.
+    canonical_terms:
+      - no trading
+      - shall not engage in any transactions involving the securities of Acquiror
+      - keep current and timely file all reports required to be filed with the SEC
+      - Interim Order
+    exclusion_cues:
+      - >-
+        The buyer's duty to reimburse and indemnify the target for financing cooperation is
+        ma.financing.cooperation_costs (in wave 1, label its parent ma.financing.cooperation).
+      - >-
+        The duty to hold the stockholder vote after a change of recommendation is ma.approval.force_the_vote
+        (in wave 1, label its parent ma.approval.stockholder_meeting).
+      - >-
+        The statement that the employee covenants give employees no rights is
+        ma.employee.no_third_party_rights (in wave 1, label its parent
+        ma.employee.comp_benefits_continuation).
+      - >-
+        A statement that the buyer does not control the target's business before closing is
+        ma.conduct.no_control. Efforts to obtain consents under contracts are
+        ma.efforts.third_party_consents. Stockholder suits about the deal are ma.transaction_litigation. The
+        end of contracts with the seller group is ma.intercompany_termination.
+      - >-
+        Clean-up duties and transfer statutes are ma.environmental.remediation. Shared contracts and assets
+        in a carve-out are ma.separation.shared_contracts. The buyer's access to the seller's insurance is
+        ma.separation.insurance_access (in wave 1, label its group ma.nav.covenants.post_closing).
+      - The duty to seek the orders of a bankruptcy court is ma.bankruptcy.court_approval.
+      - The opening words of a covenants article that stand as a section of their own are ma.other.lead_in.
     introduced_in: '2026.1'

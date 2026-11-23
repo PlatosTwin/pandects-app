@@ -118,8 +118,10 @@ concepts:
     exclusion_cues:
       - Indemnification of the target's directors and officers is ma.dando.indemnification.
       - The tax indemnity is tax.indemnity.obligation.
-      - An indemnity for one named matter is ma.indemn.specific.
-      - The definition of losses is ma.def.losses.
+      - >-
+        In wave 1 this label also covers its two parts, which wave 2 marks inside its text: an indemnity for
+        one named matter (ma.indemn.specific) and the materiality scrape (ma.indemn.materiality_scrape).
+      - The definition of losses is ma.def.losses (in wave 1, label its group ma.nav.definitions.key_terms).
       - >-
         The sellers' waiver of contribution or indemnity claims against the target for their own indemnity
         payments is ma.release.
@@ -151,18 +153,22 @@ concepts:
       party: indemnitor
     description: >-
       An indemnity for a named matter, such as a pending lawsuit, an environmental condition, excluded
-      liabilities or pre-closing indebtedness. It usually sits outside the cap and basket.
+      liabilities or pre-closing indebtedness. It usually sits outside the cap and basket, and an
+      environmental indemnity often has its own cap, period and procedure.
     canonical_terms:
       - special indemnity
       - Specified Matters
       - Excluded Liabilities
       - the matters set forth on Schedule [•]
+      - environmental indemnity
+      - Environmental Losses
     example_phrases:
       - >-
         Seller shall indemnify the Buyer Indemnified Parties from and against all Losses arising out of
         the matters set forth on Schedule [•], without regard to the limitations in Section [•].
     exclusion_cues:
       - The general indemnity for breaches is ma.indemn.obligation.
+      - A covenant to do, control or pay for an environmental clean-up is ma.environmental.remediation.
     introduced_in: '2026.1'
 
   - id: ma.indemn.cap
@@ -229,7 +235,7 @@ concepts:
         Seller shall not be liable for any Losses under Section [•](a) until the aggregate amount of all
         such Losses exceeds $[•] (the "Deductible"), and then only for Losses in excess of the Deductible.
     exclusion_cues:
-      - The ceiling on recovery is ma.indemn.cap.
+      - The ceiling on recovery is ma.indemn.cap (in wave 1, label its group ma.nav.indemnification.limits).
     value_schema:
       status: piloted
       version: '2.16'
@@ -339,7 +345,8 @@ concepts:
         of Fraud.
     exclusion_cues:
       - >-
-        A termination fee as the only remedy before closing is ma.termination.fee.exclusive_remedy.
+        A termination fee as the only remedy before closing is ma.termination.fee.exclusive_remedy (in wave
+        1, label its group ma.nav.termination.fees).
       - The tax article's own rule is tax.indemnity.exclusive_remedy.
     value_schema:
       status: stub
@@ -385,19 +392,28 @@ concepts:
     tier: label
     wave: 1
     description: >-
-      Reduction of an indemnity claim for insurance proceeds, third-party recoveries and tax benefits,
-      and the rule against recovering twice for the same loss.
+      Reduction of an indemnity claim for insurance proceeds, third-party recoveries and tax benefits, and
+      the rule against recovering twice for the same loss. It also covers subrogation: after it pays, the
+      indemnifying party takes over the indemnified party's claims against third parties.
     canonical_terms:
       - net of any insurance proceeds
       - Tax benefit actually realized
       - no double recovery
       - amounts recovered from third parties
+      - subrogation
+      - shall be subrogated to the rights of the Indemnified Party
     example_phrases:
       - >-
         The amount of any Loss subject to indemnification shall be calculated net of any insurance proceeds
         actually received by the Indemnified Party in respect of such Loss.
+      - >-
+        Upon making any indemnification payment, the Indemnifying Party shall, to the extent of such
+        payment, be subrogated to all rights of the Indemnified Party against any third party in respect of
+        the Loss to which the payment relates.
     exclusion_cues:
-      - Recovery under a representation and warranty policy is ma.indemn.rwi.
+      - >-
+        Recovery under a representation and warranty policy, and the insurer's waiver of subrogation against
+        the sellers, are ma.indemn.rwi.
       - The tax article's own offset is tax.indemnity.benefit_offset.
     crosswalk:
       section_v2:
@@ -477,11 +493,13 @@ concepts:
         At the Closing, Buyer shall deposit $[•] (the "Indemnity Escrow Amount") with the Escrow Agent,
         to be held for [•] months after the Closing Date and released in accordance with the Escrow Agreement.
     exclusion_cues:
-      - The escrow that secures the price adjustment is ma.price_adjustment.escrow.
+      - >-
+        The escrow that secures the price adjustment is ma.price_adjustment.escrow (in wave 1, label its
+        group ma.nav.consideration.adjustment).
       - A deposit paid at signing is ma.consideration.deposit.
       - >-
-        One escrow that secures both indemnity claims and the price adjustment is this concept. Do not
-        also use ma.price_adjustment.escrow.
+        One escrow that secures both indemnity claims and the price adjustment is this concept. Do not also
+        use ma.price_adjustment.escrow or, in wave 1, its group ma.nav.consideration.adjustment.
     value_schema:
       status: stub
       fields:

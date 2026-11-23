@@ -55,7 +55,12 @@ concepts:
         to preserve substantially intact its business organization and relationships.
     exclusion_cues:
       - The list of actions that need consent is ma.conduct.negative_covenants.
-      - The definition of the term is ma.def.ordinary_course.
+      - >-
+        The definition of the term is ma.def.ordinary_course (in wave 1, label its group
+        ma.nav.definitions.key_terms).
+      - >-
+        In wave 1 this label also covers its part ma.conduct.emergency_exception, which wave 2 marks inside
+        its text: the carve-out for emergency, pandemic or legally required measures.
     value_schema:
       status: stub
       fields:
@@ -82,7 +87,8 @@ concepts:
       party: obligor
     description: >-
       The list of actions a party may not take before closing without the other party's consent. Use this
-      concept for the list as a whole and its lead-in. Use a component for one listed restriction.
+      concept for the list as a whole, its lead-in and, in wave 1, each listed restriction. Wave 2 marks one
+      listed restriction with a component.
     canonical_terms:
       - shall not, without the prior written consent of Parent
       - which consent shall not be unreasonably withheld, conditioned or delayed
@@ -97,6 +103,13 @@ concepts:
     exclusion_cues:
       - Tax restrictions in the list belong to the tax pack under tax.nav.interim.
       - The no-shop covenant is ma.noshop.non_solicitation.
+      - >-
+        In wave 1 this label also covers each listed restriction. Wave 2 marks the ten parts inside its
+        text: ma.conduct.restriction.dividends, ma.conduct.restriction.equity_issuance,
+        ma.conduct.restriction.indebtedness, ma.conduct.restriction.capex,
+        ma.conduct.restriction.acquisitions_dispositions, ma.conduct.restriction.compensation,
+        ma.conduct.restriction.organizational_documents, ma.conduct.restriction.contracts,
+        ma.conduct.restriction.litigation_settlement and ma.conduct.restriction.accounting.
     crosswalk:
       section_v1:
         - id: 4703077b83eea31c
@@ -525,7 +538,9 @@ concepts:
         or would reasonably be expected to cause any of its representations and warranties to be untrue
         or any covenant not to be complied with.
     exclusion_cues:
-      - Notice of a competing proposal is ma.noshop.notice_of_proposals.
+      - >-
+        Notice of a competing proposal is ma.noshop.notice_of_proposals (in wave 1, label its parent
+        ma.noshop.non_solicitation).
       - The right to update the disclosure schedules is ma.access.schedule_updates.
     crosswalk:
       section_v1:
@@ -588,7 +603,9 @@ concepts:
     exclusion_cues:
       - Limits on press releases are ma.access.public_announcements.
       - >-
-        A seller's duty to keep information about the sold business confidential after closing is ma.restrictive.confidentiality.
+        A seller's duty to keep information about the sold business confidential after closing is
+        ma.restrictive.confidentiality (in wave 1, label its group ma.nav.covenants.post_closing). It is
+        drafted with the non-compete and runs from the closing. Do not use this concept for it.
     crosswalk:
       section_v1:
         - id: 73332e4818b3522e

@@ -33,10 +33,13 @@ concepts:
     nav_parent: ma.nav.employees.continuing
     tier: label
     wave: 1
+    attributes:
+      party: obligor
     description: >-
       The covenants for employees who stay after closing: pay and benefits at stated levels for a stated
       period, credit for past service and waiver of pre-existing condition limits under the buyer's plans,
-      and termination of the target's 401(k) plan if the buyer asks.
+      and termination of the target's 401(k) plan if the buyer asks. It also covers the statement that these
+      covenants give employees no rights and amend no plan.
     canonical_terms:
       - Continuing Employees
       - for a period of one year following the Effective Time
@@ -62,10 +65,13 @@ concepts:
         If requested by Parent at least ten Business Days prior to the Closing Date, the Company shall
         terminate the Company 401(k) Plan effective as of the day immediately preceding the Closing Date.
     exclusion_cues:
-      - The interim limit on raising pay before closing is ma.conduct.restriction.compensation.
       - >-
-        The statement that these covenants create no rights for employees and amend no plan is
-        ma.employee.no_third_party_rights.
+        The interim limit on raising pay before closing is ma.conduct.restriction.compensation (in wave 1,
+        label its parent ma.conduct.negative_covenants).
+      - >-
+        In wave 1 this label also covers its part ma.employee.no_third_party_rights, which wave 2 marks
+        inside its text: the statement that these covenants create no rights for employees and amend no
+        plan. Do not send that statement to ma.third_party_beneficiaries or to ma.covenant.other.
     value_schema:
       status: stub
       fields:

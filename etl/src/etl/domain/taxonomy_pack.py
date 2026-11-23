@@ -411,11 +411,82 @@ def groups_with_wave_two_content(taxonomy: Taxonomy) -> set[str]:
     }
 
 
+def wave_one_label(taxonomy: Taxonomy, concept_id: str) -> str | None:
+    """
+    The id that a wave 1 reader gives to the text of an M&A concept.
+
+    A wave 1 concept is its own label. The text of a wave 2 part sits inside the text of its parent, so the part
+    takes the label of its parent. Any other wave 2 concept takes its group, which is assignable for that reason.
+    A derived concept labels no text and has no wave 1 label. The result is None for it, for a tax node and for
+    an id that is not a concept.
+    """
+    nodes = taxonomy.nodes
+    node = nodes.get(concept_id)
+    seen: set[str] = set()
+    while node is not None and node.pack == "ma" and node.is_concept and node.id not in seen:
+        seen.add(node.id)
+        if node.data.get("derived") is True:
+            return None
+        if node.data.get("wave") == 1:
+            return node.id
+        parent = node.data.get("parent")
+        if isinstance(parent, str) and parent in nodes:
+            node = nodes[parent]
+            continue
+        group = nodes.get(node.nav_parent or "")
+        return group.id if group is not None and group.kind == "group" else None
+    return None
+
+
+def wave_two_parts(taxonomy: Taxonomy) -> dict[str, list[str]]:
+    """Each wave 1 M&A concept that has wave 2 parts, with the ids of those parts. Wave 1 labels their text with it."""
+    parts: dict[str, list[str]] = {}
+    for node in taxonomy.nodes.values():
+        if node.pack == "ma" and node.is_concept and node.data.get("wave") == 2 and node.data.get("parent"):
+            label = wave_one_label(taxonomy, node.id)
+            if label is not None and taxonomy.nodes[label].is_concept:
+                parts.setdefault(label, []).append(node.id)
+    return parts
+
+
+def _wave_note_errors(taxonomy: Taxonomy, node: Node, own_parts: list[str]) -> Iterable[str]:
+    """
+    Check the cues of a wave 1 M&A concept against the labels that a wave 1 reader can give.
+
+    Such a reader has the wave 1 concepts and the assignable groups only. A cue that sends text to a wave 2 concept
+    must therefore also name the wave 1 label of that concept. The parts of the concept itself stay inside it:
+    one cue must name each part and say that it keeps this label in wave 1.
+    """
+    nodes = taxonomy.nodes
+    named_parts: set[str] = set()
+    for cue in _as_list(node.data.get("exclusion_cues")):
+        text = str(cue)
+        refs = set(_ID_IN_TEXT_RE.findall(text))
+        says_wave_one = "wave 1" in text
+        for ref in sorted(refs):
+            target = nodes.get(ref)
+            if target is None or target.pack != "ma" or not target.is_concept or target.data.get("wave") != 2:
+                continue
+            label = wave_one_label(taxonomy, ref)
+            if label is None:
+                continue
+            if label == node.id:
+                named_parts.add(ref)
+                if not says_wave_one:
+                    yield f"{node.id}: the cue that names its part {ref} must say that the part keeps this label in wave 1"
+            elif label not in refs or not says_wave_one:
+                yield f"{node.id}: the cue that names {ref} must also give its wave 1 label {label}"
+    for part in own_parts:
+        if part not in named_parts:
+            yield f"{node.id}: an exclusion cue must name the wave 2 part {part} and say that it keeps this label in wave 1"
+
+
 def validate(taxonomy: Taxonomy) -> list[str]:
     """Return every problem found. An empty list means the packs are valid."""
     nodes = taxonomy.nodes
     errors = list(taxonomy.load_errors)
     wave_two_groups = groups_with_wave_two_content(taxonomy)
+    parts_by_parent = wave_two_parts(taxonomy)
 
     for node in nodes.values():
         data = node.data
@@ -539,6 +610,9 @@ def validate(taxonomy: Taxonomy) -> list[str]:
                 for ref in _ID_IN_TEXT_RE.findall(str(cue)):
                     if ref not in nodes:
                         errors.append(f"{node.id}: exclusion cue names unknown id {ref}")
+            # A wave 1 reader cannot give a wave 2 concept, so a wave 1 cue also names the wave 1 label.
+            if node.pack == "ma" and wave == 1:
+                errors.extend(_wave_note_errors(taxonomy, node, parts_by_parent.get(node.id, [])))
 
         errors.extend(_crosswalk_errors(node, taxonomy.legacy))
 

@@ -133,6 +133,11 @@ concepts:
         No failure or delay by any party in exercising any right, power, or privilege hereunder shall
         operate as a waiver thereof, nor shall any single or partial exercise thereof preclude any other
         or further exercise thereof.
+    exclusion_cues:
+      - >-
+        A carve-out or protection for the Financing Sources inside this section, such as a bar on amending
+        the lender clauses without the lenders' consent, also gets ma.financing.source_protections. The rest
+        of the section keeps this label.
     crosswalk:
       section_v1:
         - id: 5fddb016bfeff147
@@ -200,8 +205,14 @@ concepts:
         referenced in Section [•], and (iii) from and after the Effective Time, the holders of Shares
         are intended third-party beneficiaries of the right to receive the Merger Consideration.
     exclusion_cues:
-      - The lenders' rights are ma.financing.source_protections.
-      - The rule for employees is ma.employee.no_third_party_rights.
+      - >-
+        A carve-out or protection for the Financing Sources inside this section, such as a sentence that
+        makes the lenders third-party beneficiaries, also gets ma.financing.source_protections. The rest of
+        the section keeps this label.
+      - >-
+        A statement inside the employee covenants that they give employees no rights and amend no plan is
+        ma.employee.no_third_party_rights (in wave 1, label its parent
+        ma.employee.comp_benefits_continuation). It does not take this concept.
     crosswalk:
       section_v1:
         - id: e63ceec3215c234b
@@ -278,7 +289,9 @@ concepts:
     exclusion_cues:
       - Reimbursement of expenses on termination is ma.termination.expense_reimbursement.
       - Transfer taxes are tax.transfer.allocation.
-      - Regulatory filing fees are ma.regulatory.filing_fee_allocation.
+      - >-
+        Regulatory filing fees are ma.regulatory.filing_fee_allocation (in wave 1, label its group
+        ma.nav.regulatory.antitrust).
     crosswalk:
       section_v1:
         - id: 426429d401a47a6b
@@ -355,6 +368,45 @@ concepts:
           relation: narrower
     introduced_in: '2026.1'
 
+  - id: ma.other.lead_in
+    label: Article or Section Lead-In
+    kind: provision
+    nav_parent: ma.nav.general.other
+    tier: label
+    wave: 1
+    description: >-
+      The opening words of an article, or of a section that holds a list, when they stand as a section
+      of their own and state no term: who represents and warrants to whom, or that a party's obligations
+      are subject to the conditions that follow. Use it only when the section holds nothing else.
+    canonical_terms:
+      - represents and warrants to Parent as follows
+      - hereby represent and warrant
+      - except as set forth in the Disclosure Schedule
+      - subject to the satisfaction or waiver of the following conditions
+      - covenants and agrees as follows
+    example_phrases:
+      - >-
+        Except as set forth in the Company Disclosure Schedule, the Company represents and warrants to
+        Parent and Merger Sub as follows:
+      - >-
+        The obligations of Parent and Merger Sub to effect the Merger are subject to the satisfaction
+        or waiver at or prior to the Closing of the following conditions:
+    exclusion_cues:
+      - >-
+        A lead-in that says how the disclosure schedules or the party's SEC filings qualify the statements
+        (for example, which filings count, or that an item disclosed in one section counts for others)
+        also gets ma.interpretation.disclosure_schedules. A bare "except as set forth in the Disclosure
+        Schedule" does not.
+      - >-
+        A section that holds the lead-in and the statements themselves takes the concepts of the statements
+        only. Do not add this label.
+      - A placeholder with no text, such as "[Reserved]", is ma.other.reserved.
+      - >-
+        Operative text that fits no concept takes the catch-all of its family: ma.rep.other, ma.covenant.other,
+        ma.condition.other or ma.misc.other. Text that fits nowhere is ma.other.unclassified.
+      - The preamble and the recitals of the agreement are ma.recitals.
+    introduced_in: '2026.1'
+
   - id: ma.other.reserved
     label: Reserved; Intentionally Omitted
     kind: provision
@@ -366,6 +418,8 @@ concepts:
       - '[Reserved]'
       - Intentionally Omitted
       - '[Intentionally Deleted]'
+    exclusion_cues:
+      - An opening sentence that leads into an article or a list is ma.other.lead_in.
     introduced_in: '2026.1'
 
   - id: ma.other.unclassified
@@ -377,6 +431,14 @@ concepts:
     description: >-
       Text that fits no concept in the M&A pack or the tax pack. Use it rarely, and review what lands
       here to find gaps.
+    exclusion_cues:
+      - >-
+        The opening words of an article that stand as a section of their own, such as "The Company
+        represents and warrants as follows", are ma.other.lead_in.
+      - A placeholder with no text is ma.other.reserved.
+      - >-
+        Check the catch-all of the family first: ma.rep.other, ma.covenant.other, ma.condition.other or
+        ma.misc.other.
     crosswalk:
       section_v1:
         - id: fa5e1a0374f222f5

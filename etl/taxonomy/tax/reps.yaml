@@ -220,6 +220,59 @@ concepts:
           relation: exact
     introduced_in: '2026.1'
 
+  - id: tax.rep.returns_made_available
+    label: Tax Returns and Audit Reports Made Available
+    kind: provision
+    nav_parent: tax.nav.reps.returns_payments
+    new_in_redesign: true
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      A representation that the company gave the buyer correct and complete copies of its tax returns
+      for stated years, and of examination reports, statements of deficiencies and notices from taxing
+      authorities.
+    canonical_terms:
+      - has made available to Buyer
+      - correct and complete copies of all Tax Returns
+      - examination reports
+      - statements of deficiencies
+    example_phrases:
+      - >-
+        The Company has made available to Buyer correct and complete copies of all income Tax Returns
+        of the Company for all taxable periods ending after [•], and of all examination reports and statements
+        of deficiencies assessed against or agreed to by the Company for such periods.
+    exclusion_cues:
+      - The statement that the returns were filed and are correct is tax.rep.returns_filed.
+      - The statement that no audit is pending is tax.rep.no_audit.
+      - The buyer's access to tax records before closing is tax.cooperation.records_access.
+    introduced_in: '2026.1'
+
+  - id: tax.rep.section_6662_disclosure
+    label: Disclosure of Positions Under Section 6662
+    kind: provision
+    nav_parent: tax.nav.reps.returns_payments
+    new_in_redesign: true
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      A representation that the company disclosed on its tax returns every position that could give rise
+      to a substantial understatement penalty under Section 6662 of the Code.
+    canonical_terms:
+      - Section 6662
+      - substantial understatement of federal income Tax
+      - disclosed on its Tax Returns all positions
+    example_phrases:
+      - >-
+        The Company has disclosed on its federal income Tax Returns all positions taken therein that could
+        give rise to a substantial understatement of federal income Tax within the meaning of Section
+        6662 of the Code.
+    exclusion_cues:
+      - A statement on listed or reportable transactions is tax.rep.reportable_transactions.
+      - The general statement that the returns are correct is tax.rep.returns_filed.
+    introduced_in: '2026.1'
+
   - id: tax.rep.no_audit
     label: No Pending Audit / Examination / Claim
     kind: provision
@@ -292,6 +345,29 @@ concepts:
       tax_v1:
         - id: tax.7.2.3
           relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.rep.no_power_of_attorney
+    label: No Tax Power of Attorney
+    kind: provision
+    nav_parent: tax.nav.reps.audits
+    new_in_redesign: true
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      A representation that no power of attorney for tax matters is in force, or that none will stay in
+      force after closing.
+    canonical_terms:
+      - power of attorney with respect to Taxes
+      - no power of attorney
+      - currently in force
+    example_phrases:
+      - >-
+        No power of attorney with respect to any Taxes of the Company has been granted that will remain
+        in force after the Closing.
+    exclusion_cues:
+      - A waiver or extension of a statute of limitations is tax.rep.no_limitations_waiver.
     introduced_in: '2026.1'
 
   - id: tax.rep.entity_status

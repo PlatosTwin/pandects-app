@@ -587,7 +587,7 @@ concepts:
     exclusion_cues:
       - >-
         The closing condition that no material adverse effect has occurred is ma.condition.no_mae.
-      - The definition is ma.mae.definition.
+      - The definition is ma.mae.definition (in wave 1, label its group ma.nav.definitions.key_terms).
     crosswalk:
       section_v1:
         - id: 5183a719286b2453
@@ -759,10 +759,15 @@ concepts:
     wave: 1
     attributes:
       party: maker
-    description: The party is not an investment company under the Investment Company Act of 1940.
+    description: >-
+      The party is not an investment company under the Investment Company Act of 1940. In SPAC deals the
+      same section often states that the SPAC is an emerging growth company under the JOBS Act. That
+      statement stays here.
     canonical_terms:
       - Investment Company Act of 1940
       - not an investment company
+      - emerging growth company
+      - JOBS Act
     example_phrases:
       - >-
         The Company is not an "investment company" within the meaning of the Investment Company Act of
@@ -951,6 +956,9 @@ concepts:
       - >-
         The covenant to buy tail insurance for directors and officers is ma.dando.tail_insurance.
       - A representation and warranty insurance policy is ma.indemn.rwi.
+      - >-
+        The buyer's access after closing to the seller's policies is ma.separation.insurance_access (in wave
+        1, label its group ma.nav.covenants.post_closing).
     crosswalk:
       section_v1:
         - id: 261083e783b5a952
@@ -1164,6 +1172,10 @@ concepts:
         There has been no Release of Hazardous Materials at any property currently or formerly owned or
         operated by the Company that would reasonably be expected to result in material liability under
         Environmental Laws.
+    exclusion_cues:
+      - >-
+        A covenant to investigate or clean up a site, or to comply with a transfer statute such as ISRA, is
+        ma.environmental.remediation.
     crosswalk:
       section_v1:
         - id: d027088109f28e79
@@ -1418,10 +1430,13 @@ concepts:
         the aggregate Merger Consideration and all related fees and expenses.
     exclusion_cues:
       - The covenant to obtain the financing is ma.financing.buyer_covenant.
-      - A closing condition tied to financing is ma.condition.financing.
       - >-
-        The spans that describe each commitment (source, amount, conditions) also take the components
-        ma.financing.debt_commitment and ma.financing.equity_commitment.
+        A closing condition tied to financing is ma.condition.financing (in wave 1, label its group
+        ma.nav.conditions.party).
+      - >-
+        In wave 1 this label also covers its two parts, which wave 2 marks inside its text: the spans that
+        describe each commitment (source, amount, conditions) take ma.financing.debt_commitment and
+        ma.financing.equity_commitment in wave 2.
     crosswalk:
       section_v1:
         - id: 5685fa4f8c2af577
@@ -1591,9 +1606,10 @@ concepts:
         The other party's statement that it did not rely on outside statements is ma.rep.non_reliance.
       - A clause limiting tax representations to the tax section is tax.rep.ring_fencing.
       - >-
-        The speaker decides. The party that disclaims its own other representations takes this concept.
-        The other party's acknowledgment that no other representation is made takes ma.rep.non_reliance,
-        with the acknowledging party as the maker.
+        The speaker decides. The party that disclaims its own other representations takes this concept. The
+        other party's acknowledgment that no other representation is made takes ma.rep.non_reliance, with
+        the acknowledging party as the maker, also under a heading such as No Other Representations. One
+        section often holds both statements: label each.
     crosswalk:
       section_v1:
         - id: a5ff5f6c1fb0d1cd
@@ -1635,7 +1651,11 @@ concepts:
         in making its decision to enter into this Agreement, has relied solely on the representations
         and warranties expressly set forth in Article [•].
     exclusion_cues:
-      - The maker's disclaimer of other representations is ma.rep.no_other_reps.
+      - >-
+        The speaker decides. A party's acknowledgment that the other side makes no representation outside
+        the agreement takes this concept, with the acknowledging party as the maker, also under a heading
+        such as No Other Representations. The disclaimer by the party that makes the representations takes
+        ma.rep.no_other_reps. One section often holds both statements: label each.
     value_schema:
       status: stub
       fields:
@@ -1669,9 +1689,9 @@ concepts:
     attributes:
       party: maker
     description: >-
-      Statements found in bank deals: regulatory reports and agreements with bank regulators, loans and
-      the allowance for loan losses, deposits, Community Reinvestment Act rating, fiduciary accounts,
-      and derivatives.
+      Statements found in bank deals: reports filed with bank regulators and agreements with them, capital
+      and well-capitalized status, loans and the allowance for loan losses, deposits, Community Reinvestment
+      Act rating, fiduciary accounts, derivatives, and risk management or contingency programs.
     canonical_terms:
       - agreements with regulatory agencies
       - loan portfolio
@@ -1681,6 +1701,8 @@ concepts:
       - risk management instruments
       - investment securities
       - fiduciary accounts
+      - regulatory reports
+      - well capitalized
     example_phrases:
       - >-
         Neither the Company nor any of its Subsidiaries is subject to any cease-and-desist or other order
@@ -1764,6 +1786,41 @@ concepts:
         for the reserves reflected in the Reserve Report.
     introduced_in: '2026.1'
 
+  - id: ma.rep.communications
+    label: Communications and Broadcast Regulatory Matters
+    kind: provision
+    nav_parent: ma.nav.reps.industry
+    tier: label
+    wave: 1
+    attributes:
+      party: maker
+    description: >-
+      Statements found in broadcast, cable, wireless and telecommunications deals: the FCC licenses the
+      party holds and their validity, compliance with the Communications Act and FCC rules, cable franchises
+      and retransmission consent, and the buyer's qualification to hold the licenses.
+    canonical_terms:
+      - FCC Licenses
+      - Communications Act
+      - Communications Laws
+      - FCC Rules
+      - Station Licenses
+      - qualified to hold the FCC Licenses
+      - retransmission consent
+      - MVPD
+    example_phrases:
+      - >-
+        The FCC Licenses are in full force and effect and have not been revoked, suspended, canceled,
+        rescinded or terminated, and the Company has operated the Stations in compliance in all material
+        respects with the Communications Laws and the FCC Licenses.
+      - >-
+        Buyer is legally, financially and otherwise qualified under the Communications Laws to be the
+        licensee of, and to acquire, own and operate, the Stations.
+    exclusion_cues:
+      - The covenant to file FCC applications and seek FCC consent is ma.regulatory.industry_approvals.
+      - General compliance with laws and permits is ma.rep.compliance_permits.
+      - The list of governmental consents that the deal needs is ma.rep.no_conflict.
+    introduced_in: '2026.1'
+
   - id: ma.rep.other
     label: Other Representation
     kind: provision
@@ -1772,7 +1829,42 @@ concepts:
     wave: 1
     attributes:
       party: maker
-    description: A representation that fits no other concept in this branch. Use it rarely.
+    description: >-
+      A representation on a topic that no other concept in this branch covers. Check the general topics and
+      the industry concepts first. Industry statements that have no concept of their own belong here: gaming
+      licenses and gaming law, education (Title IV programs and accreditation), franchise systems,
+      transportation (motor carriers, aviation and vessels), and government grants, incentives and pandemic
+      relief loans.
+    canonical_terms:
+      - Gaming Laws
+      - Gaming Authorities
+      - Title IV Programs
+      - Educational Agency
+      - Franchise Disclosure Document
+      - franchisees
+      - motor carrier
+      - Governmental Grants
+      - PPP Loan
     exclusion_cues:
-      - Check the industry-specific concepts first.
+      - >-
+        Check the industry concepts first: ma.rep.banking, ma.rep.healthcare_regulatory,
+        ma.rep.insurance_business, ma.rep.energy_natural_resources and ma.rep.communications.
+      - >-
+        Statements found in bank deals are ma.rep.banking: reports filed with bank regulators, capital and
+        well-capitalized status, loans, deposits, and risk management or contingency programs.
+      - >-
+        Pending or threatened actions against any party, the buyer included, and compliance with an existing
+        order or consent decree are ma.rep.litigation.
+      - >-
+        A statement that no representation or document contains an untrue statement of a material fact is
+        ma.rep.full_disclosure.
+      - >-
+        Title to real property and valid leases are ma.rep.real_property. Title to other assets is
+        ma.rep.title_sufficiency_assets.
+      - A statement that no governmental consent, approval or filing is required is ma.rep.no_conflict.
+      - A SPAC's statement that it is an emerging growth company is ma.rep.investment_company.
+      - The lead-in of a representations article that stands as a section of its own is ma.other.lead_in.
+      - >-
+        A section that holds all of a party's representations takes the concept of each statement in it. Use
+        this concept only for a statement that fits none.
     introduced_in: '2026.1'

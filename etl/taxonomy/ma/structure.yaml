@@ -309,6 +309,9 @@ concepts:
     exclusion_cues:
       - The general covenant to seek third-party consents is ma.efforts.third_party_consents.
       - Assets or payments that end up with the wrong party after closing are ma.wrong_pockets.
+      - >-
+        A contract that both the sold business and the seller's retained business use is
+        ma.separation.shared_contracts.
     introduced_in: '2026.1'
 
   - id: ma.asset.bulk_sales
@@ -374,6 +377,9 @@ concepts:
     exclusion_cues:
       - The representation on real property is ma.rep.real_property.
       - Damage to the assets before closing is ma.asset.risk_of_loss.
+      - >-
+        A duty to clean up contamination, or to comply with a transfer statute such as ISRA, is
+        ma.environmental.remediation.
     introduced_in: '2026.1'
 
   - id: ma.tender.offer
@@ -397,7 +403,9 @@ concepts:
         Merger Sub shall commence the Offer to purchase all outstanding Shares at the Offer Price as promptly
         as practicable.
     exclusion_cues:
-      - The conditions to the offer are ma.tender.offer_conditions.
+      - >-
+        The conditions to the offer are ma.tender.offer_conditions (in wave 1, label its group
+        ma.nav.structure.tender_offer).
       - The target's duties in the offer are ma.tender.company_actions.
     value_schema:
       status: stub
@@ -566,7 +574,9 @@ concepts:
         Closing).
     exclusion_cues:
       - The moment the merger takes legal effect is ma.structure.effective_time.
-      - The date after which a party may terminate is ma.termination.outside_date.
+      - >-
+        The date after which a party may terminate is ma.termination.outside_date (in wave 1, label its
+        group ma.nav.termination.rights).
     value_schema:
       status: stub
       fields:
@@ -710,6 +720,10 @@ concepts:
       - after giving effect to the Acquiror Share Redemptions
     example_phrases:
       - The Available Closing Cash shall be no less than $[•].
+    exclusion_cues:
+      - >-
+        A condition that the SPAC keep net tangible assets of at least $5,000,001 is ma.condition.other. It
+        comes from the SPAC's charter and is not a negotiated cash floor.
     value_schema:
       status: stub
       fields:
@@ -780,7 +794,9 @@ concepts:
         If the Closing has not occurred by [•], Acquiror shall seek the approval of its stockholders to
         extend the deadline by which it must complete a Business Combination.
     exclusion_cues:
-      - The outside date of the merger agreement is ma.termination.outside_date.
+      - >-
+        The outside date of the merger agreement is ma.termination.outside_date (in wave 1, label its group
+        ma.nav.termination.rights).
       - Redemptions by the public stockholders are ma.spac.redemption.
     introduced_in: '2026.1'
 

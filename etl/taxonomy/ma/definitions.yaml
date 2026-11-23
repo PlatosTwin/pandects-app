@@ -575,12 +575,15 @@ concepts:
     wave: 1
     description: >-
       How the disclosure schedules work: a disclosure in one section counts for others where its relevance
-      is clear, and listing an item is no admission that it is material.
+      is clear, and listing an item is no admission that it is material. It also covers the rule, usually in
+      the lead-in of the representations, that the party's SEC filings qualify its statements.
     canonical_terms:
       - Disclosure Schedule
       - Disclosure Letter
       - reasonably apparent on its face
       - shall not be deemed an admission
+      - except as disclosed in the Company SEC Documents
+      - other than disclosures in the risk factors
     example_phrases:
       - >-
         The Disclosure Schedules are arranged in sections corresponding to the Sections of this Agreement.
@@ -589,6 +592,9 @@ concepts:
         to any other section to the extent its relevance is reasonably apparent on its face.
     exclusion_cues:
       - A right to update the schedules before closing is ma.access.schedule_updates.
+      - >-
+        A lead-in to the representations that only says "except as set forth in the Disclosure Schedule" and
+        states no rule is ma.other.lead_in alone.
     crosswalk:
       section_v1:
         - id: 38bef0ddbf034071

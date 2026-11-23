@@ -46,10 +46,10 @@ A concept's id never states where the concept sits in the tree. The tree can cha
 | `description` | all | One or two sentences, as one string. Written for this project. |
 | `canonical_terms` | concepts | Words and defined terms that signal the concept. |
 | `example_phrases` | concepts | Short illustrative wording. These are examples, not verified quotations. |
-| `exclusion_cues` | concepts | What the concept is not, with the id of the right concept. |
+| `exclusion_cues` | concepts | What the concept is not, with the id of the right concept. A cue of a wave 1 concept also carries the wave notes. See "Wave notes in cues". |
 | `value_schema` | concepts | `status: piloted` for the fields that the value pilot tested. `status: stub` for a first sketch of fields that nobody has tested. The keys are `status`, `fields`, and optionally `version` and `source` (quoted strings). Each entry of `fields` is a name, or a mapping with `name` and an optional `type`. |
 | `crosswalk` | all | Links to older ids. See below. |
-| `new_in_redesign` | tax nodes | `true` for a node that the legacy tax tree does not have. The 7 such nodes were accepted on 2026-11-22. |
+| `new_in_redesign` | tax nodes | `true` for a node that the legacy tax tree does not have. There are 10 such nodes: 7 were accepted on 2026-11-22 and 3 on 2026-11-23. |
 | `introduced_in` | all | The release that added the node, as a quoted string such as `'2026.1'`. Without quotes, YAML reads `2026.10` as the number `2026.1`. |
 | `deprecated_in`, `replaced_by` | all | For a node that a later release retires. `deprecated_in` is a quoted release string. `replaced_by` is a list of ids. A retired node stays in the file. |
 
@@ -61,12 +61,19 @@ Labeling of the M&A pack runs in two waves (decided 2026-11-22). Each M&A concep
 
 | Wave | Contents | Rule |
 |---|---|---|
-| `wave: 1` | Section-level topics and the catch-alls | A provision that is the heading of a section of its own in at least 1% of agreements, measured with `docs/plans/full-taxonomy/prevalence.py`. Also the catch-all concepts. |
+| `wave: 1` | Section-level topics and the catch-alls | A provision that is the heading of a section of its own in at least 1% of agreements, measured with `docs/plans/full-taxonomy/prevalence.py`. Also the catch-all concepts, and `ma.other.lead_in` for the opening words of an article, which have no heading. |
 | `wave: 2` | Clause-level provisions, parts and definitions | A provision that sits inside a larger section, such as a termination trigger or the indemnity cap. Every `component`, `modifier` and `definition`. The catch-all for termination rights, because its siblings are in wave 2. |
 
 A new M&A concept gets its wave by the same rule. The validator rejects an M&A concept with no wave, a part or a definition in wave 1, and a tax concept with a wave.
 
 **Group labels in wave 1** (decided 2026-11-23). In wave 1, a section whose content is only wave 2 concepts gets its group as the label. A "Termination" section gets `ma.nav.termination.rights`. A group is therefore marked `assignable: true` when it holds a wave 2 provision or definition. That is 14 of the 54 groups. A part does not count, because its text sits inside the text of its parent concept, and the parent carries the label. The validator rejects a group that breaks this rule in either direction, and it rejects an assignable M&A branch. A group label does not replace a catch-all: content that fits no concept of any wave goes to the catch-all concept.
+
+**Wave notes in cues** (2026-11-23, after the 50-agreement labeling trial). A wave 1 reader can give only the wave 1 concepts and the assignable groups. In the trial, a cue that named a wave 2 concept sent readers to a label they did not have, and the text ended in a catch-all. Two rules fix this, and the validator checks both for every wave 1 concept:
+
+- A cue that names a wave 2 concept also names the wave 1 label of that concept and says "wave 1". The wave 1 label is the parent for a part, and the group for any other wave 2 concept. Example: "The ceiling on recovery is ma.indemn.cap (in wave 1, label its group ma.nav.indemnification.limits)."
+- A wave 1 concept that has wave 2 parts names each part in a cue that says the part keeps the concept's label in wave 1. Example, on `ma.approval.stockholder_meeting`: "In wave 1 this label also covers its part ma.approval.force_the_vote, which wave 2 marks inside its text".
+
+`taxonomy_pack.wave_one_label(taxonomy, concept_id)` returns the wave 1 label of any M&A concept, and `taxonomy_pack.wave_two_parts(taxonomy)` lists the parts of each wave 1 concept. Code that builds reader cards should use them.
 
 **Derived concepts.** A concept with `derived: true` labels no spans of its own. Its value is built from the spans of other concepts. `ma.financing.structure` is one: it combines the financing representation, covenant and conditions. A derived concept still states its wave, but it does not make its group assignable, because no section gets it as a label. The validator summary counts the derived concepts of each pack.
 
@@ -135,6 +142,7 @@ The validator checks that:
 - each M&A concept has `wave: 1` or `wave: 2`, a part or a definition is in wave 2, and no tax concept has a wave;
 - `derived` is `true` or `false`, and only a concept has it;
 - an M&A group is `assignable` exactly when it holds a wave 2 provision or definition that is not derived, and no M&A branch is assignable;
+- a cue of a wave 1 M&A concept that names a wave 2 concept also names its wave 1 label, and a wave 1 concept names each of its wave 2 parts in a cue that says "wave 1";
 - every tax navigation node is `assignable`;
 - `attributes.party` is one of the six party roles;
 - each id that an exclusion cue names exists.

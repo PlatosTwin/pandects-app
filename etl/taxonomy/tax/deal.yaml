@@ -533,6 +533,10 @@ concepts:
       - >-
         Any payment made under this Article shall be treated by the parties as an adjustment to the Purchase
         Price for all Tax purposes, unless otherwise required by Law.
+    exclusion_cues:
+      - >-
+        A clause on who owns an escrow fund or an exchange fund for tax purposes, and who reports its
+        income, has no concept of its own. It takes the group tax.nav.deal.adjustment_treatment.
     crosswalk:
       tax_v1:
         - id: tax.1.7.1
@@ -556,6 +560,10 @@ concepts:
       - >-
         The parties agree that a portion of each Earnout Payment shall be treated as imputed interest
         to the extent required by Section 483 or Section 1274 of the Code.
+    exclusion_cues:
+      - >-
+        A clause on who owns an escrow fund or an exchange fund for tax purposes, and who reports its
+        income, has no concept of its own. It takes the group tax.nav.deal.adjustment_treatment.
     crosswalk:
       tax_v1:
         - id: tax.1.7.2

@@ -47,7 +47,10 @@ concepts:
       - The Merger and the fiduciary duties of the Company Board shall be governed by the DGCL.
     exclusion_cues:
       - The court that hears disputes is ma.forum_selection.
-      - Law chosen for claims against lenders is ma.financing.source_protections.
+      - >-
+        A carve-out or protection for the Financing Sources inside this section, such as New York law for
+        claims against the lenders, also gets ma.financing.source_protections. The rest of the section keeps
+        this label.
     value_schema:
       status: stub
       fields:
@@ -93,6 +96,10 @@ concepts:
     exclusion_cues:
       - The governing law is ma.governing_law.
       - Arbitration in place of courts is ma.arbitration.
+      - >-
+        A carve-out or protection for the Financing Sources inside this section, such as an exclusive New
+        York forum for claims against the lenders, also gets ma.financing.source_protections. The rest of
+        the section keeps this label.
     value_schema:
       status: stub
       fields:
@@ -129,6 +136,11 @@ concepts:
         Each party certifies that no representative of any other party has represented that it would not
         seek to enforce the foregoing waiver, and acknowledges that it has been induced to enter into
         this Agreement by, among other things, the mutual waivers in this Section.
+    exclusion_cues:
+      - >-
+        A carve-out or protection for the Financing Sources inside this section, such as a jury waiver for
+        claims against the lenders, also gets ma.financing.source_protections. The rest of the section keeps
+        this label.
     value_schema:
       status: stub
       fields:
@@ -170,7 +182,8 @@ concepts:
         in any court of competent jurisdiction.
     exclusion_cues:
       - >-
-        An accounting firm that settles a price adjustment dispute is ma.price_adjustment.dispute_resolution.
+        An accounting firm that settles a price adjustment dispute is ma.price_adjustment.dispute_resolution
+        (in wave 1, label its group ma.nav.consideration.adjustment).
     value_schema:
       status: stub
       fields:
@@ -262,13 +275,18 @@ concepts:
         in value or lost profits, arising out of or relating to this Agreement, except to the extent such
         damages are awarded to a third party.
     exclusion_cues:
-      - The dollar limit on indemnity claims is ma.indemn.cap.
-      - The definition of losses is ma.def.losses.
-      - A dollar cap on a party's liability before closing is ma.termination.fee.exclusive_remedy.
       - >-
-        A clause headed Limitation of Liability that sets a dollar limit is ma.indemn.cap after closing
-        and ma.termination.fee.exclusive_remedy before closing. This concept is the limit on kinds of
-        damages only.
+        The dollar limit on indemnity claims is ma.indemn.cap (in wave 1, label its group
+        ma.nav.indemnification.limits).
+      - The definition of losses is ma.def.losses (in wave 1, label its group ma.nav.definitions.key_terms).
+      - >-
+        A dollar cap on a party's liability before closing is ma.termination.fee.exclusive_remedy (in wave
+        1, label its group ma.nav.termination.fees).
+      - >-
+        A clause headed Limitation of Liability that sets a dollar limit is ma.indemn.cap (in wave 1, label
+        its group ma.nav.indemnification.limits) after closing and ma.termination.fee.exclusive_remedy (in
+        wave 1, label its group ma.nav.termination.fees) before closing. This concept is the limit on kinds
+        of damages only.
     value_schema:
       status: stub
       fields:
@@ -307,7 +325,9 @@ concepts:
         Persons that are expressly identified as parties hereto, and no Non-Recourse Party shall have
         any liability hereunder.
     exclusion_cues:
-      - The matching protection for lenders is ma.financing.source_protections.
+      - >-
+        A carve-out or protection for the Financing Sources inside this section, such as no recourse against
+        the lenders, also gets ma.financing.source_protections. The rest of the section keeps this label.
     introduced_in: '2026.1'
 
   - id: ma.attorneys_fees
@@ -326,6 +346,8 @@ concepts:
         In any action to enforce this Agreement, the prevailing party shall be entitled to recover its
         reasonable attorneys' fees and costs from the non-prevailing party.
     exclusion_cues:
-      - Costs of collecting an unpaid termination fee are ma.termination.collection_costs.
+      - >-
+        Costs of collecting an unpaid termination fee are ma.termination.collection_costs (in wave 1, label
+        its group ma.nav.termination.fees).
       - The general rule on deal expenses is ma.expenses.
     introduced_in: '2026.1'

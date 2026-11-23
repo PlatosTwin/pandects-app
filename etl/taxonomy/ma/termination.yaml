@@ -353,7 +353,8 @@ concepts:
         the provision of this Agreement pursuant to which such termination is made.
     exclusion_cues:
       - >-
-        Liability that remains after termination for a willful breach or fraud is ma.termination.willful_breach_liability.
+        Liability that remains after termination for a willful breach or fraud is
+        ma.termination.willful_breach_liability (in wave 1, label its group ma.nav.termination.effect).
     crosswalk:
       section_v1:
         - id: 84826dbe2b6940b8
@@ -473,7 +474,9 @@ concepts:
         Parent shall pay the Company the Parent Termination Fee if this Agreement is terminated as a result
         of the failure to obtain the Regulatory Approvals or the entry of a permanent antitrust Order.
     exclusion_cues:
-      - A fee paid by the target is ma.termination.fee.target.
+      - >-
+        A fee paid by the target is ma.termination.fee.target (in wave 1, label its group
+        ma.nav.termination.fees).
       - The guarantee of the fee is ma.financing.limited_guarantee.
     value_schema:
       status: piloted
@@ -520,9 +523,15 @@ concepts:
         its reasonable and documented out-of-pocket expenses incurred in connection with this Agreement,
         in an amount not to exceed $[•].
     exclusion_cues:
-      - Costs of collecting an unpaid fee are ma.termination.collection_costs.
-      - Costs of financing cooperation are ma.financing.cooperation_costs.
-      - Regulatory filing fees are ma.regulatory.filing_fee_allocation.
+      - >-
+        Costs of collecting an unpaid fee are ma.termination.collection_costs (in wave 1, label its group
+        ma.nav.termination.fees).
+      - >-
+        Costs of financing cooperation are ma.financing.cooperation_costs (in wave 1, label its parent
+        ma.financing.cooperation).
+      - >-
+        Regulatory filing fees are ma.regulatory.filing_fee_allocation (in wave 1, label its group
+        ma.nav.regulatory.antitrust).
     value_schema:
       status: piloted
       version: '2.16'

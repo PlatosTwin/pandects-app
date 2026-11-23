@@ -184,6 +184,8 @@ concepts:
     nav_parent: ma.nav.financing.covenants
     tier: label
     wave: 1
+    attributes:
+      party: obligor
     description: >-
       The buyer's duty to obtain the financing on the committed terms, not to amend the commitment letters
       in harmful ways, to arrange alternative financing if needed, and to keep the target informed. It also
@@ -229,7 +231,8 @@ concepts:
     wave: 1
     description: >-
       The target's duty to help the buyer arrange its financing: management meetings, financial information,
-      offering documents and know-your-customer materials.
+      offering documents and know-your-customer materials. It also covers the buyer's duty to pay the costs
+      of that help and to indemnify the target for it.
     canonical_terms:
       - financing cooperation
       - Required Information
@@ -249,7 +252,10 @@ concepts:
         action that would conflict with its Organizational Documents.
     exclusion_cues:
       - Repayment of the target's existing debt is ma.financing.payoff_letters.
-      - Who pays for the cooperation is ma.financing.cooperation_costs.
+      - >-
+        In wave 1 this label also covers its part ma.financing.cooperation_costs, which wave 2 marks inside
+        its text: the buyer's duty to reimburse the costs of the cooperation and to indemnify the target for
+        it. Do not send that duty to ma.covenant.other or to ma.financing.buyer_covenant.
     crosswalk:
       section_v1:
         - id: c523ce22f3ead335
@@ -336,6 +342,8 @@ concepts:
       - Financing Source Parties
       - no recourse against any Financing Source
       - expressly intended third-party beneficiaries
+      - Lender Related Parties
+      - Debt Financing Sources shall be express third-party beneficiaries
     example_phrases:
       - >-
         Notwithstanding anything to the contrary, the Company agrees that no Financing Source shall have
@@ -348,6 +356,10 @@ concepts:
         and waives any right to a trial by jury with respect thereto.
     exclusion_cues:
       - A general no-recourse clause for affiliates of the parties is ma.non_recourse.
+      - >-
+        These clauses often sit inside other sections and not in a section of their own. Label the clause
+        with this concept there too, next to ma.governing_law, ma.forum_selection, ma.jury_waiver,
+        ma.amendment, ma.third_party_beneficiaries or ma.non_recourse.
     crosswalk:
       section_v1:
         - id: 5df6ee674091f8ed

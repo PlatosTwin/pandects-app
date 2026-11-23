@@ -33,7 +33,7 @@ groups:
     label: Other Regulatory Approvals
     kind: group
     nav_parent: ma.nav.regulatory
-    description: Foreign investment review and industry regulators.
+    description: Foreign investment review, industry regulators and bankruptcy court approval.
     introduced_in: '2026.1'
 concepts:
 
@@ -43,6 +43,8 @@ concepts:
     nav_parent: ma.nav.regulatory.efforts
     tier: label
     wave: 1
+    attributes:
+      party: obligor
     description: >-
       The general promise to use a stated level of efforts to satisfy the closing conditions and complete
       the deal.
@@ -58,7 +60,9 @@ concepts:
         necessary, proper, or advisable to consummate and make effective the transactions contemplated
         hereby as promptly as practicable.
     exclusion_cues:
-      - Divestiture and other antitrust remedies are ma.regulatory.remedies.
+      - >-
+        Divestiture and other antitrust remedies are ma.regulatory.remedies (in wave 1, label its group
+        ma.nav.regulatory.antitrust).
       - Extra documents and acts after closing are ma.further_assurances.
       - Efforts to obtain consents under contracts are ma.efforts.third_party_consents.
     value_schema:
@@ -130,9 +134,13 @@ concepts:
         Each party shall promptly supply any additional information and documentary material that may
         be requested pursuant to a Second Request.
     exclusion_cues:
-      - What a party must give up to win clearance is ma.regulatory.remedies.
+      - >-
+        What a party must give up to win clearance is ma.regulatory.remedies (in wave 1, label its group
+        ma.nav.regulatory.antitrust).
       - The closing condition is ma.condition.regulatory_approval.
-      - Who pays the filing fee is ma.regulatory.filing_fee_allocation.
+      - >-
+        Who pays the filing fee is ma.regulatory.filing_fee_allocation (in wave 1, label its group
+        ma.nav.regulatory.antitrust).
     value_schema:
       status: stub
       fields:
@@ -376,4 +384,43 @@ concepts:
       section_v2:
         - id: dbbd03c317960240
           relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.bankruptcy.court_approval
+    label: Bankruptcy Court Approval; Sale Order; Bidding Procedures
+    kind: provision
+    nav_parent: ma.nav.regulatory.other_approvals
+    tier: label
+    wave: 1
+    description: >-
+      Terms found only in a sale by a debtor in bankruptcy, usually under Section 363 of the Bankruptcy
+      Code: the duty to seek the bidding procedures order and the sale order, what those orders must
+      say, higher or better bids, the assumption and assignment of contracts with payment of cure costs,
+      and entry of the sale order as a closing condition.
+    canonical_terms:
+      - Sale Order
+      - Bidding Procedures Order
+      - Bankruptcy Court
+      - Section 363 of the Bankruptcy Code
+      - Cure Costs
+      - higher or otherwise better offer
+      - Final Order
+    example_phrases:
+      - >-
+        Sellers shall file the Sale Motion with the Bankruptcy Court within [•] Business Days after the
+        date hereof and shall use reasonable best efforts to obtain entry of the Bidding Procedures Order
+        and the Sale Order.
+      - >-
+        The Bankruptcy Court shall have entered the Sale Order, and the Sale Order shall be a Final Order
+        and shall not have been stayed, vacated or modified.
+    exclusion_cues:
+      - >-
+        The stalking horse buyer's break-up fee is ma.termination.fee.target (in wave 1, label its group
+        ma.nav.termination.fees) and its expense reimbursement is ma.termination.expense_reimbursement.
+        The court's approval of them stays here.
+      - A promise not to solicit other buyers is ma.noshop.non_solicitation.
+      - A general condition that no order or law blocks the deal is ma.condition.no_legal_restraint.
+      - >-
+        Court approval of a plan or scheme of arrangement under Canadian or UK-style law is not this
+        concept. It has no concept of its own: ma.covenant.other or ma.condition.other.
     introduced_in: '2026.1'

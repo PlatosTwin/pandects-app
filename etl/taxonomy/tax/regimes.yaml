@@ -77,6 +77,10 @@ concepts:
       - >-
         No Subsidiary that is a controlled foreign corporation holds an investment in United States property
         within the meaning of Section 956 of the Code.
+    exclusion_cues:
+      - >-
+        A statement on the transition tax under Section 965, such as an election under Section 965(h) to pay
+        it in installments, has no concept of its own. It takes this concept.
     crosswalk:
       tax_v1:
         - id: tax.6.1.1

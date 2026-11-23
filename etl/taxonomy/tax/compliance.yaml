@@ -383,6 +383,10 @@ concepts:
       - >-
         Prior to the Closing, the parties shall cooperate in good faith with respect to Tax matters relating
         to the transactions.
+    exclusion_cues:
+      - >-
+        Cooperation to obtain a tax clearance certificate before closing has no concept of its own. It takes
+        this concept.
     crosswalk:
       tax_v1:
         - id: tax.4.4.3

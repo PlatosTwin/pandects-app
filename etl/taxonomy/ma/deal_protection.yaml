@@ -73,8 +73,13 @@ concepts:
         The Company shall, and shall cause its Representatives to, immediately cease and cause to be terminated
         any existing discussions with any Person with respect to any Acquisition Proposal.
     exclusion_cues:
-      - A period in which solicitation is allowed is ma.noshop.go_shop.
-      - The exception for an unsolicited proposal is ma.noshop.unsolicited_proposal_exception.
+      - >-
+        A period in which solicitation is allowed is ma.noshop.go_shop (in wave 1, label its group
+        ma.nav.deal_protection.no_shop).
+      - >-
+        In wave 1 this label also covers its two parts, which wave 2 marks inside its text: the exception
+        for an unsolicited proposal (ma.noshop.unsolicited_proposal_exception) and the duty to tell the
+        buyer of competing proposals (ma.noshop.notice_of_proposals).
       - >-
         The board's right to change its recommendation is under ma.nav.deal_protection.recommendation.
       - >-
@@ -413,8 +418,8 @@ concepts:
     attributes:
       party: obligor
     description: >-
-      The duty to call and hold a stockholder meeting to vote on the deal, and the limits on postponing
-      or adjourning it.
+      The duty to call and hold a stockholder meeting to vote on the deal, and the limits on postponing or
+      adjourning it. It also covers a duty to hold the vote even after the board changes its recommendation.
     canonical_terms:
       - Company Stockholders Meeting
       - duly call, give notice of, convene and hold
@@ -430,7 +435,9 @@ concepts:
         of the adoption of this Agreement.
     exclusion_cues:
       - >-
-        The duty to hold the meeting even after a change of recommendation is ma.approval.force_the_vote.
+        In wave 1 this label also covers its part ma.approval.force_the_vote, which wave 2 marks inside its
+        text: the duty to hold the meeting and the vote even after a change of recommendation. Do not send
+        that duty to ma.covenant.other.
       - The proxy statement is ma.approval.proxy_statement.
     crosswalk:
       section_v1:

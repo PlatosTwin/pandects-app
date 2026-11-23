@@ -71,6 +71,37 @@ RESTORED_2026_11_23 = {
     "ma.employee.no_third_party_rights": ("component", 2),
 }
 
+# Concepts added after the 50-agreement labeling trial of 2026-11-23: id -> (kind, wave, nav_parent).
+# The wave follows the 1% heading rule, measured with docs/plans/full-taxonomy/prevalence.py.
+TRIAL_CONCEPTS_2026_11_23 = {
+    "ma.other.lead_in": ("provision", 1, "ma.nav.general.other"),
+    "ma.rep.communications": ("provision", 1, "ma.nav.reps.industry"),
+    "ma.bankruptcy.court_approval": ("provision", 1, "ma.nav.regulatory.other_approvals"),
+    "ma.separation.shared_contracts": ("provision", 1, "ma.nav.covenants.post_closing"),
+    "ma.environmental.remediation": ("provision", 1, "ma.nav.covenants.post_closing"),
+    "ma.separation.insurance_access": ("provision", 2, "ma.nav.covenants.post_closing"),
+}
+# Covenant concepts that got the obligor role after the trial (fix 13).
+TRIAL_OBLIGOR_ROLES = (
+    "ma.covenant.other",
+    "ma.efforts.general",
+    "ma.employee.comp_benefits_continuation",
+    "ma.financing.buyer_covenant",
+)
+# Tax nodes that the legacy tax tree does not have: 7 accepted on 2026-11-22 and 3 on 2026-11-23.
+TAX_ADDITIONS = {
+    "tax.nav.definitions",
+    "tax.def.tax",
+    "tax.def.tax_return",
+    "tax.def.tax_period",
+    "tax.international.transfer_pricing",
+    "tax.cooperation.post_closing_actions",
+    "tax.cooperation.tax_sharing_termination",
+    "tax.rep.returns_made_available",
+    "tax.rep.no_power_of_attorney",
+    "tax.rep.section_6662_disclosure",
+}
+
 Change = Callable[[dict[str, Any]], None]
 
 
@@ -220,6 +251,67 @@ class ShippedPacksTest(unittest.TestCase):
         self.assertEqual(nodes["ma.condition.covenant_performance"].data["value_schema"]["status"], "stub")
         self.assertIn("tax.nav.deal.restructuring", nodes["ma.spac.domestication"].data["also_listed_under"])
 
+    def test_trial_concepts_are_present(self) -> None:
+        """The trial of 2026-11-23 added six M&A concepts. Subrogation stays inside the recovery offsets concept."""
+        nodes = self.taxonomy.nodes
+        for concept_id, (kind, wave, nav_parent) in TRIAL_CONCEPTS_2026_11_23.items():
+            node = nodes[concept_id]
+            self.assertEqual((node.kind, node.data["wave"], node.nav_parent), (kind, wave, nav_parent), concept_id)
+        self.assertNotIn("ma.indemn.subrogation", nodes)
+        self.assertIn("subrogation", nodes["ma.indemn.recovery_offsets"].data["canonical_terms"])
+        self.assertEqual(nodes["ma.rep.communications"].data["attributes"], {"party": "maker"})
+        self.assertEqual(nodes["ma.environmental.remediation"].data["attributes"], {"party": "obligor"})
+
+    def test_trial_obligor_roles(self) -> None:
+        for concept_id in TRIAL_OBLIGOR_ROLES:
+            self.assertEqual(self.taxonomy.nodes[concept_id].data.get("attributes"), {"party": "obligor"}, concept_id)
+
+    def test_tax_additions_are_flagged(self) -> None:
+        """Each node that the legacy tax tree does not have is flagged, and no other node is."""
+        flagged = {node.id for node in self.taxonomy.nodes.values() if node.data.get("new_in_redesign")}
+        self.assertEqual(flagged, TAX_ADDITIONS)
+        nodes = self.taxonomy.nodes
+        self.assertEqual(nodes["tax.rep.returns_made_available"].nav_parent, "tax.nav.reps.returns_payments")
+        self.assertEqual(nodes["tax.rep.section_6662_disclosure"].nav_parent, "tax.nav.reps.returns_payments")
+        self.assertEqual(nodes["tax.rep.no_power_of_attorney"].nav_parent, "tax.nav.reps.audits")
+
+    def test_wave_one_label(self) -> None:
+        """What a wave 1 reader gives to the text of a concept: itself, its parent, or its group."""
+        label = lambda concept_id: taxonomy_pack.wave_one_label(self.taxonomy, concept_id)  # noqa: E731
+        self.assertEqual(label("ma.governing_law"), "ma.governing_law")
+        # A wave 2 part takes its wave 1 parent, also when the part sits in another group.
+        self.assertEqual(label("ma.approval.force_the_vote"), "ma.approval.stockholder_meeting")
+        self.assertEqual(label("ma.indemn.materiality_scrape"), "ma.indemn.obligation")
+        # Any other wave 2 concept takes its group. A part of a wave 2 concept takes that concept's group.
+        self.assertEqual(label("ma.indemn.cap"), "ma.nav.indemnification.limits")
+        self.assertEqual(label("ma.restrictive.confidentiality"), "ma.nav.covenants.post_closing")
+        self.assertEqual(label("ma.recommendation.match_right"), "ma.nav.deal_protection.recommendation")
+        self.assertEqual(label("ma.mae.carveout"), "ma.nav.definitions.key_terms")
+        # No wave 1 label: a derived concept, a tax node, a navigation node and an unknown id.
+        for concept_id in ("ma.financing.structure", "tax.election.338h10", "ma.nav.termination.rights", "ma.no_such"):
+            self.assertIsNone(label(concept_id), concept_id)
+
+    def test_every_wave_one_label_is_assignable_in_wave_one(self) -> None:
+        nodes = self.taxonomy.nodes
+        for node in nodes.values():
+            if node.pack != "ma" or not node.is_concept or node.data.get("derived"):
+                continue
+            target = nodes[taxonomy_pack.wave_one_label(self.taxonomy, node.id) or ""]
+            self.assertTrue(target.data.get("wave") == 1 or target.data.get("assignable") is True, node.id)
+
+    def test_wave_one_parents_name_their_parts(self) -> None:
+        """Trial fix 2: the card of a wave 1 concept says that its wave 2 parts keep its label in wave 1."""
+        parts = taxonomy_pack.wave_two_parts(self.taxonomy)
+        self.assertEqual(parts["ma.approval.stockholder_meeting"], ["ma.approval.force_the_vote"])
+        self.assertEqual(parts["ma.employee.comp_benefits_continuation"], ["ma.employee.no_third_party_rights"])
+        self.assertEqual(parts["ma.financing.cooperation"], ["ma.financing.cooperation_costs"])
+        self.assertEqual(len(parts["ma.conduct.negative_covenants"]), 10)
+        self.assertNotIn("ma.recommendation.change_superior_proposal", parts)  # a wave 2 parent
+        for parent, part_ids in parts.items():
+            cues = [cue for cue in self.taxonomy.nodes[parent].data["exclusion_cues"] if "wave 1" in cue]
+            for part_id in part_ids:
+                self.assertTrue(any(part_id in cue for cue in cues), f"{parent} does not name {part_id}")
+
 
 class ValidatorCatchesProblemsTest(unittest.TestCase):
     """Each test breaks a copy of the packs in one way and checks that the validator reports it."""
@@ -366,6 +458,75 @@ class ValidatorCatchesProblemsTest(unittest.TestCase):
     def test_exclusion_cue_with_unknown_id(self) -> None:
         self._edit(lambda doc: _concept(doc, "ma.governing_law")["exclusion_cues"].append("See ma.no_such_concept."))
         self._assert_reported("exclusion cue names unknown id ma.no_such_concept")
+
+    # Wave notes (labeling trial of 2026-11-23, fixes 2 and 3).
+    def test_cue_names_wave_two_concept_without_its_group(self) -> None:
+        self._edit(lambda doc: _concept(doc, "ma.governing_law")["exclusion_cues"].append("The cap is ma.indemn.cap."))
+        self._assert_reported(
+            "ma.governing_law: the cue that names ma.indemn.cap must also give its wave 1 label",
+            "ma.nav.indemnification.limits",
+        )
+
+    def test_cue_names_wave_two_group_without_saying_wave_one(self) -> None:
+        cue = "The cap is ma.indemn.cap, under ma.nav.indemnification.limits."
+        self._edit(lambda doc: _concept(doc, "ma.governing_law")["exclusion_cues"].append(cue))
+        self._assert_reported("ma.governing_law: the cue that names ma.indemn.cap must also give its wave 1 label")
+
+    def test_cue_names_part_without_its_parent(self) -> None:
+        cue = "The duty to hold the vote is ma.approval.force_the_vote."
+        self._edit(lambda doc: _concept(doc, "ma.governing_law")["exclusion_cues"].append(cue))
+        self._assert_reported(
+            "ma.governing_law: the cue that names ma.approval.force_the_vote must also give its wave 1 label",
+            "ma.approval.stockholder_meeting",
+        )
+
+    def test_cue_with_wave_note_is_valid(self) -> None:
+        cues = [
+            "The cap is ma.indemn.cap (in wave 1, label its group ma.nav.indemnification.limits).",
+            "The vote is ma.approval.force_the_vote (in wave 1, label its parent ma.approval.stockholder_meeting).",
+        ]
+        self._edit(lambda doc: _concept(doc, "ma.governing_law")["exclusion_cues"].extend(cues))
+        self.assertEqual(self._errors(), [])
+
+    def test_wave_two_concept_needs_no_wave_note(self) -> None:
+        """Wave 2 readers have every concept, so a cue of a wave 2 concept may name another one plainly."""
+        self._edit(
+            lambda doc: _concept(doc, "ma.termination.outside_date")["exclusion_cues"].append("See ma.indemn.cap."),
+            "ma/termination.yaml",
+        )
+        self.assertEqual(self._errors(), [])
+
+    def test_parent_cue_must_say_that_the_part_stays(self) -> None:
+        cue = "The duty to hold the meeting after a change of recommendation is ma.approval.force_the_vote."
+        self._edit(
+            lambda doc: _concept(doc, "ma.approval.stockholder_meeting").update(exclusion_cues=[cue]),
+            "ma/deal_protection.yaml",
+        )
+        self._assert_reported(
+            "ma.approval.stockholder_meeting: the cue that names its part ma.approval.force_the_vote must say"
+        )
+
+    def test_parent_must_name_each_part(self) -> None:
+        self._edit(
+            lambda doc: _concept(doc, "ma.approval.stockholder_meeting").pop("exclusion_cues"),
+            "ma/deal_protection.yaml",
+        )
+        self._assert_reported(
+            "ma.approval.stockholder_meeting: an exclusion cue must name the wave 2 part ma.approval.force_the_vote"
+        )
+
+    def test_new_part_needs_a_note_on_its_parent(self) -> None:
+        """A part added later is reported until the card of its wave 1 parent names it."""
+
+        def change(doc: dict[str, Any]) -> None:
+            part = dict(_concept(doc, "ma.approval.force_the_vote"), id="ma.approval.quorum")
+            part.pop("crosswalk", None)
+            doc["concepts"].append(part)
+
+        self._edit(change, "ma/deal_protection.yaml")
+        self._assert_reported(
+            "ma.approval.stockholder_meeting: an exclusion cue must name the wave 2 part ma.approval.quorum"
+        )
 
     # Finding 1: a concept parent in the other pack.
     def test_concept_parent_in_another_pack(self) -> None:
