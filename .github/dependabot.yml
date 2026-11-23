@@ -35,6 +35,12 @@ updates:
     groups:
       backend-minor-patch:
         update-types: ["minor", "patch"]
+    ignore:
+      # botocore (a boto3 dependency, used by backend/services/dumps.py)
+      # requires python-dateutil<3.0.0, so a major bump cannot install.
+      # Remove this rule once botocore accepts python-dateutil 3 or newer.
+      - dependency-name: "python-dateutil"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "pip"
     directory: "/bulk"
