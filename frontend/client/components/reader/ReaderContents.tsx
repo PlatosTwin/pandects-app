@@ -154,7 +154,7 @@ export function ReaderContents({
           {hiddenCount > 0 || showAllTypes ? (
             <button
               type="button"
-              className="rounded-full px-2 py-0.5 text-[11px] font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="rounded-full px-2 py-0.5 text-[11px] font-medium text-primary hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
               onClick={() => setShowAllTypes((value) => !value)}
               aria-expanded={showAllTypes}
             >

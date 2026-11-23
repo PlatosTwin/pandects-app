@@ -3,7 +3,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 export const JS_BUDGET_BYTES = 425_000;
-export const CSS_BUDGET_BYTES = 125_000;
+// Raised from 125_000 for Tailwind 4 (2026-11). For the same set of classes,
+// Tailwind 4 writes about 30% more raw CSS than Tailwind 3: each opacity
+// modifier (bg-primary/10) gets a color-mix() rule inside @supports beside a
+// plain fallback, utilities register their variables with @property, and
+// hover styles sit inside @media (hover: hover). Gzipped, the entry CSS grew
+// by about 3 KB (19.8 KB to 23 KB).
+export const CSS_BUDGET_BYTES = 150_000;
 
 // The entry files are the ones dist/spa/index.html loads. Vite also emits other
 // chunks named index-*.js (one per lazy route or folder), so a filename pattern

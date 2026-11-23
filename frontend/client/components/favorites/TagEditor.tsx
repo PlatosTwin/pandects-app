@@ -157,7 +157,7 @@ export function TagEditor({
                   >
                     <button
                       type="button"
-                      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-6 sm:w-6"
+                      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring sm:h-6 sm:w-6"
                       aria-label={`Delete tag ${t.name}`}
                       title={`Delete tag ${t.name}`}
                       onClick={() => setTagPendingDelete(t)}
@@ -169,7 +169,7 @@ export function TagEditor({
                       color={t.color}
                       selected={selectedTagIds.includes(t.id)}
                       onClick={() => toggle(t.id)}
-                      className="max-w-[13rem] justify-self-start"
+                      className="max-w-52 justify-self-start"
                     />
                   </div>
                 ))}

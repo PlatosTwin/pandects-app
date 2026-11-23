@@ -105,7 +105,7 @@ export function TaxonomyNodePanel({
       <button
         type="button"
         onClick={() => onSelectNode(id)}
-        className="rounded-sm text-left text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="rounded-sm text-left text-primary underline-offset-2 hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
       >
         {label}
       </button>

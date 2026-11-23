@@ -353,7 +353,7 @@ export function AgreementIndexOverview() {
               side: "top",
               align: "start",
               className:
-                "max-h-[min(28rem,calc(100vh-6rem))] w-[min(22rem,calc(100vw-2rem))] max-w-[22rem] overflow-y-auto p-3 text-xs",
+                "max-h-[min(28rem,calc(100vh-6rem))] w-[min(22rem,calc(100vw-2rem))] max-w-88 overflow-y-auto p-3 text-xs",
             }}
             delayDuration={0}
           />
@@ -984,7 +984,9 @@ export function AgreementIndexOverview() {
         ) : stagedChartData.length === 0 ? (
           <EmptyState title="No processing status data yet." variant="inline" />
         ) : (
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4">
+            {/* flex + gap, not space-y: the last child is an sr-only table, and
+              Tailwind 4's space-y would add a gap after the visible content. */}
             {renderStagedSummaryTable()}
             {renderStagedChart()}
             {renderStageFunnelTable()}
@@ -1078,7 +1080,8 @@ export function AgreementIndexOverview() {
           ) : dealTypeChartData.length === 0 || dealTypeSeries.length === 0 ? (
             <EmptyState title="No deal type data yet." variant="inline" />
           ) : (
-            <div className="space-y-4">
+            <div className="flex flex-col gap-4">
+              {/* flex + gap, not space-y: see the staged section above. */}
               {renderDealTypeSummaryTable()}
               {renderDealTypeChart()}
               <div className="sr-only"><table id={dealTypeChartTableId}>

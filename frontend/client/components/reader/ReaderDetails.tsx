@@ -26,7 +26,7 @@ export function ReaderDetails({
             <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {item.label}
             </dt>
-            <dd className="break-words text-foreground">{item.value}</dd>
+            <dd className="wrap-break-word text-foreground">{item.value}</dd>
           </div>
         ))}
       </dl>

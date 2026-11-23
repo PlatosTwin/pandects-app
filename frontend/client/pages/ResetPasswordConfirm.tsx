@@ -73,7 +73,7 @@ export default function ResetPasswordConfirm() {
           {!submitted ? (
             <form className="grid gap-5" onSubmit={submit}>
               <div className="grid gap-2">
-                <Label htmlFor="new-password" className="text-sm font-medium text-foreground/90">
+                <Label htmlFor="new-password" className="text-sm/5 font-medium text-foreground/90">
                   New password
                 </Label>
                 <Input
@@ -90,7 +90,7 @@ export default function ResetPasswordConfirm() {
               <div className="grid gap-2">
                 <Label
                   htmlFor="confirm-password"
-                  className="text-sm font-medium text-foreground/90"
+                  className="text-sm/5 font-medium text-foreground/90"
                 >
                   Confirm password
                 </Label>
@@ -109,7 +109,7 @@ export default function ResetPasswordConfirm() {
                 <Button
                   type="submit"
                   disabled={submitting || !userId || !code}
-                  className="min-w-[10rem] px-6"
+                  className="min-w-40 px-6"
                 >
                   {submitting ? "Updating password…" : "Update password"}
                 </Button>

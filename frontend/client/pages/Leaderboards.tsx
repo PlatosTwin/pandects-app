@@ -214,7 +214,7 @@ function LeaderboardSection({ description, side, title }: CounselSectionProps) {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12 text-right">#</TableHead>
-                  <TableHead className="w-[52%] min-w-[12rem] sm:min-w-[14rem]">Firm</TableHead>
+                  <TableHead className="w-[52%] min-w-48 sm:min-w-56">Firm</TableHead>
                   <TableHead className="text-right">Deals</TableHead>
                   <TableHead className="text-right">Total value</TableHead>
                 </TableRow>

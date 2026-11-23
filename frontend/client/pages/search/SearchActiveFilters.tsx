@@ -180,7 +180,7 @@ export function groupChips(chips: ActiveChip[]): ChipRun[] {
 const CHIP_CLASS =
   "inline-flex max-w-full items-center gap-1 rounded-md border border-border bg-background py-0.5 pl-2 pr-0.5 text-xs shadow-raised";
 const CHIP_REMOVE_CLASS =
-  "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring";
 
 function ChipRemoveButton({
   label,
@@ -221,7 +221,7 @@ function GroupedChip({
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="shrink-0 rounded-sm px-1 font-medium text-primary transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="shrink-0 rounded-sm px-1 font-medium text-primary transition-colors hover:bg-accent/60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
             aria-label={`Show all ${chips.length} ${first.label} filters`}
           >
             +{more}
@@ -334,7 +334,7 @@ export function SearchActiveFilters({
             onClearAll();
           }}
           data-chip-clear
-          className="rounded-md px-2 py-1 text-xs font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="rounded-md px-2 py-1 text-xs font-medium text-primary hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
         >
           Clear all
         </button>

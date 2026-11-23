@@ -341,7 +341,7 @@ export default function Login() {
               </div>
               <form className="grid gap-5" onSubmit={submit}>
                 <div className="grid gap-2">
-                  <Label htmlFor="login-email" className="text-sm font-medium text-foreground/90">
+                  <Label htmlFor="login-email" className="text-sm/5 font-medium text-foreground/90">
                     Email
                   </Label>
                   <Input
@@ -358,7 +358,7 @@ export default function Login() {
                   <div className="flex items-center justify-between gap-4">
                     <Label
                       htmlFor="login-password"
-                      className="text-sm font-medium text-foreground/90"
+                      className="text-sm/5 font-medium text-foreground/90"
                     >
                       Password
                     </Label>

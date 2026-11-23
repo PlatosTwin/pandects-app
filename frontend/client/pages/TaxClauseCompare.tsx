@@ -190,7 +190,7 @@ export default function TaxClauseCompare() {
                   <button
                     type="button"
                     onClick={() => removeClause(c.id)}
-                    className="rounded-sm opacity-0 transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 group-hover:opacity-100"
+                    className="rounded-sm opacity-0 transition-opacity focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 group-hover:opacity-100"
                     aria-label="Remove from compare"
                   >
                     <X className="h-3.5 w-3.5 text-muted-foreground" />

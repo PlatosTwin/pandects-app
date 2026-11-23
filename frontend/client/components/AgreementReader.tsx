@@ -1011,7 +1011,7 @@ export function AgreementReader({
                     {index > 0 ? <span aria-hidden="true">›</span> : null}
                     <button
                       type="button"
-                      className="min-w-0 truncate rounded-sm hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="min-w-0 truncate rounded-sm hover:text-foreground hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                       onClick={() => jumpToOutline(item.id)}
                       aria-current={
                         index === (breadcrumb?.length ?? 0) - 1 ? "location" : undefined
@@ -1084,7 +1084,14 @@ export function AgreementReader({
                 : "mx-auto",
             )}
           >
-            <div className="mb-4 space-y-1.5 print:hidden">
+            <div
+              className={cn(
+                "mb-4 space-y-1.5 print:hidden",
+                // From lg up the acquirer line is hidden. Tailwind 3's space-y
+                // still put its gap above the next line; keep that spacing.
+                showAcquirer && "lg:pt-1.5",
+              )}
+            >
               {showAcquirer ? (
                 <p className="text-sm text-muted-foreground lg:hidden">
                   Acquired by {acquirerName}
@@ -1146,7 +1153,8 @@ export function AgreementReader({
                     mode="agreement"
                     isMobile={isMobile}
                     className={cn(
-                      "leading-relaxed text-foreground break-words",
+                      // No leading-*: each text size brings its own line height.
+                      "text-foreground wrap-break-word",
                       agreementTextSizeClass,
                     )}
                     showBodyOnly={showBodyOnly}

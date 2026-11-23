@@ -1,3 +1,7 @@
+/* The same layer order as Tailwind's stylesheet (properties first), so the
+   order holds wherever this style lands in <head>. */
+@layer properties, theme, base, components, utilities;
+
 @font-face {
   font-family: "Inter Variable";
   font-style: normal;
@@ -96,6 +100,10 @@
   }
 }
 
+/* Tailwind 4 puts its CSS in cascade layers, and unlayered CSS beats every
+   layer. These element rules go in the base layer so Tailwind utilities
+   (border-input, bg-*) still override them, as they did under Tailwind 3. */
+@layer base {
 html {
   font-size: 16.5px;
   scrollbar-gutter: stable;
@@ -126,4 +134,5 @@ body {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
 }

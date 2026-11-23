@@ -1,13 +1,180 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss' source(none);
 
-@font-face {
-  font-family: "Inter Variable";
-  font-style: normal;
-  font-display: swap;
-  font-weight: 100 900;
-  src: url("/fonts/inter-latin-wght-normal.woff2") format("woff2-variations");
+@config '../tailwind.config.ts';
+
+/* Scan only what Tailwind 3 scanned (tailwind.config.ts content), not the
+   whole project: docs and scripts name classes the app does not use. */
+@source './**/*.{ts,tsx}';
+
+/* Tailwind 4 sets each text size's line height as a ratio (for example
+   1.25 / 0.875 for text-sm), and children inherit the ratio: a text-[10px]
+   badge inside text-sm text got a 14px line instead of 20px. Use the
+   Tailwind 3 rem values, which children inherit as fixed lengths. */
+@theme {
+  --text-xs--line-height: 1rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl--line-height: 2rem;
+  --text-3xl--line-height: 2.25rem;
+  --text-4xl--line-height: 2.5rem;
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+/* Tailwind 4 gives buttons the default cursor; Tailwind 3 gave them a
+   pointer. Keep the pointer (from the Tailwind 4 upgrade guide). */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@utility prose-copy {
+  color: hsl(var(--secondary-foreground) / 0.82);
+
+  & :where(p, li):not(:where([class~='not-prose'], [class~='not-prose'] *)) {
+    color: hsl(var(--secondary-foreground) / 0.82);
+  }
+
+  &:is(p, li) {
+    color: hsl(var(--secondary-foreground) / 0.82);
+  }
+
+  & :where(strong):not(:where([class~='not-prose'], [class~='not-prose'] *)) {
+    color: hsl(var(--secondary-foreground) / 0.9);
+  }
+
+  &:is(strong) {
+    color: hsl(var(--secondary-foreground) / 0.9);
+  }
+
+  & :where(a):not(:where([class~='not-prose'], [class~='not-prose'] *)) {
+    color: hsl(var(--primary));
+  }
+}
+
+@utility tooltip-help-trigger {
+  @apply inline-flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-foreground/35 bg-background text-[10px] font-semibold text-foreground/80 transition-colors hover:border-foreground/60 hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background print:hidden;
+}
+
+@utility tooltip-help-trigger-compact {
+  @apply tooltip-help-trigger h-4 w-4 text-[9px];
+}
+
+@utility legal-example-notice {
+  @apply rounded-xl border border-border bg-muted/25 px-5 py-4 text-sm text-foreground shadow-none;
+
+  & code {
+    @apply bg-transparent p-0 text-[0.95em] font-medium text-foreground;
+    font-family:
+      'Geist',
+      'Inter Variable',
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      'Segoe UI',
+      'Helvetica Neue',
+      Arial,
+      'Noto Sans',
+      'Apple Color Emoji',
+      'Segoe UI Emoji',
+      'Segoe UI Symbol',
+      sans-serif;
+    white-space: pre-wrap;
+  }
+}
+
+@utility app-frame {
+  /* The one page frame: navigation, footer, page shells, search and the
+     reader all line up on it. Change the width here, nowhere else. */
+  @apply mx-auto w-full max-w-[1536px] px-4 sm:px-6 lg:px-8;
+}
+
+@utility app-frame-bleed {
+  /* The Search workspace's frame: full-bleed, with lg:pl-5 lining content up
+     with the filter rail's and lg:pr-8 with the results' edge. The nav stays
+     on app-frame here too, so it never shifts between pages. */
+  @apply w-full px-4 sm:px-6 lg:pl-5 lg:pr-8;
+}
+
+@utility surface-interactive {
+  /* A surface that is itself one link or button (starter tile, linked fact
+     card): it rises a pixel and picks up the primary border on hover, settles on press. Its
+     hover beats plain utilities, so don't use it on selectable surfaces. Pair
+     with a resting shadow-raised. Motion is dropped for reduced-motion users;
+     the shadow and border still change. */
+  @apply transition-[box-shadow,border-color,background-color,transform] duration-150 ease-out;
+  &:hover {
+    @apply border-primary/30 shadow-lifted;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    &:hover {
+      transform: translateY(-1px);
+    }
+    &:active {
+      transform: translateY(0);
+    }
+  }
+}
+
+@utility reader-term {
+  /* Smart reader overlay (docs/plans/smart-reader.md, Section 6.5). Thousands
+     of these render per agreement, so they are classes, not utility strings. */
+  @apply cursor-pointer rounded-sm underline decoration-primary/70 decoration-dotted decoration-[1.5px] underline-offset-4 hover:bg-primary/10 hover:decoration-primary print:no-underline;
+
+  &[data-active='true'] {
+    @apply bg-primary/10 decoration-primary;
+  }
+}
+
+@utility reader-xref {
+  @apply rounded-sm text-primary underline decoration-primary/40 underline-offset-[3px] hover:decoration-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring print:text-inherit print:no-underline;
+}
+
+@utility reader-toc-link {
+  /* An entry of the printed table of contents that links to its section. */
+  @apply rounded-sm text-primary underline decoration-transparent underline-offset-[3px] transition-colors hover:decoration-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring print:text-inherit print:no-underline;
+}
+
+@utility reader-flash {
+  /* A cross-reference or "Go to definition" target, marked for a moment. */
+  animation: reader-flash 1.8s ease-out;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    outline: 2px solid hsl(var(--primary) / 0.4);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  @font-face {
+    font-family: 'Inter Variable';
+    font-style: normal;
+    font-display: swap;
+    font-weight: 100 900;
+    src: url('/fonts/inter-latin-wght-normal.woff2') format('woff2-variations');
+  }
 }
 
 @layer base {
@@ -207,167 +374,56 @@
 }
 
 @layer utilities {
-  .prose-copy {
-    color: hsl(var(--secondary-foreground) / 0.82);
+  @media (prefers-reduced-motion: reduce) {
+    .animate-spin,
+    .animate-pulse {
+      animation: none !important;
+    }
   }
 
-  .prose-copy :where(p, li):not(:where([class~="not-prose"], [class~="not-prose"] *)),
-  .prose-copy:is(p, li) {
-    color: hsl(var(--secondary-foreground) / 0.82);
-  }
-
-  .prose-copy :where(strong):not(:where([class~="not-prose"], [class~="not-prose"] *)),
-  .prose-copy:is(strong) {
-    color: hsl(var(--secondary-foreground) / 0.9);
-  }
-
-  .prose-copy :where(a):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
-    color: hsl(var(--primary));
-  }
-}
-
-@layer components {
-  .tooltip-help-trigger {
-    @apply inline-flex h-5 w-5 cursor-help items-center justify-center rounded-full border border-foreground/35 bg-background text-[10px] font-semibold text-foreground/80 transition-colors hover:border-foreground/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background print:hidden;
-  }
-
-  .tooltip-help-trigger-compact {
-    @apply tooltip-help-trigger h-4 w-4 text-[9px];
-  }
-
-  .legal-example-notice {
-    @apply rounded-xl border border-border bg-muted/25 px-5 py-4 text-sm text-foreground shadow-none;
-  }
-
-  .legal-example-notice code {
-    @apply bg-transparent p-0 text-[0.95em] font-medium text-foreground;
-    font-family:
-      "Geist",
-      "Inter Variable",
-      ui-sans-serif,
-      system-ui,
-      -apple-system,
-      BlinkMacSystemFont,
-      "Segoe UI",
-      "Helvetica Neue",
-      Arial,
-      "Noto Sans",
-      "Apple Color Emoji",
-      "Segoe UI Emoji",
-      "Segoe UI Symbol",
-      sans-serif;
-    white-space: pre-wrap;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-spin,
-  .animate-pulse {
-    animation: none !important;
-  }
-}
-
-/* Docs and legal pages on paper. The nav, footer, docs TOC, Buttons and "?"
+  /* Docs and legal pages on paper. The nav, footer, docs TOC, Buttons and "?"
    help triggers are hidden by their print: classes (text-bearing inline
    triggers stay, so no sentence loses words); here code wraps instead of being
    clipped by its scroll region, and the page prints light even from dark mode. */
-@media print {
-  @page {
-    margin: 18mm 16mm;
-  }
-
-  :root {
-    /* Beats the inline color-scheme the theme script sets on <html>. */
-    color-scheme: light !important;
-  }
-
-  body {
-    background: #fff;
-  }
-
-  [data-radix-popper-content-wrapper] {
-    display: none !important;
-  }
-
-  main pre,
-  main [role="region"] {
-    overflow: visible !important;
-    white-space: pre-wrap !important;
-    width: auto !important;
-  }
-
-  pre,
-  tr,
-  img {
-    break-inside: avoid;
-  }
-
-  h2,
-  h3 {
-    break-after: avoid;
-  }
-}
-
-@layer components {
-  /* The one page frame: navigation, footer, page shells, search and the
-     reader all line up on it. Change the width here, nowhere else. */
-  .app-frame {
-    @apply mx-auto w-full max-w-screen-2xl px-4 sm:px-6 lg:px-8;
-  }
-
-  /* The Search workspace's frame: full-bleed, with lg:pl-5 lining content up
-     with the filter rail's and lg:pr-8 with the results' edge. The nav stays
-     on app-frame here too, so it never shifts between pages. */
-  .app-frame-bleed {
-    @apply w-full px-4 sm:px-6 lg:pl-5 lg:pr-8;
-  }
-
-  /* A surface that is itself one link or button (starter tile, linked fact
-     card): it rises a pixel and picks up the primary border on hover, settles on press. Its
-     hover beats plain utilities, so don't use it on selectable surfaces. Pair
-     with a resting shadow-raised. Motion is dropped for reduced-motion users;
-     the shadow and border still change. */
-  .surface-interactive {
-    @apply transition-[box-shadow,border-color,background-color,transform] duration-150 ease-out;
-  }
-  .surface-interactive:hover {
-    @apply border-primary/30 shadow-lifted;
-  }
-  @media (prefers-reduced-motion: no-preference) {
-    .surface-interactive:hover {
-      transform: translateY(-1px);
+  @media print {
+    @page {
+      margin: 18mm 16mm;
     }
-    .surface-interactive:active {
-      transform: translateY(0);
+
+    :root {
+      /* Beats the inline color-scheme the theme script sets on <html>. */
+      color-scheme: light !important;
+    }
+
+    body {
+      background: #fff;
+    }
+
+    [data-radix-popper-content-wrapper] {
+      display: none !important;
+    }
+
+    main pre,
+    main [role='region'] {
+      overflow: visible !important;
+      white-space: pre-wrap !important;
+      width: auto !important;
+    }
+
+    pre,
+    tr,
+    img {
+      break-inside: avoid;
+    }
+
+    h2,
+    h3 {
+      break-after: avoid;
     }
   }
 }
 
 @layer components {
-  /* Smart reader overlay (docs/plans/smart-reader.md, Section 6.5). Thousands
-     of these render per agreement, so they are classes, not utility strings. */
-  .reader-term {
-    @apply cursor-pointer rounded-sm underline decoration-primary/70 decoration-dotted decoration-[1.5px] underline-offset-[4px] hover:bg-primary/10 hover:decoration-primary print:no-underline;
-  }
-
-  .reader-term[data-active="true"] {
-    @apply bg-primary/10 decoration-primary;
-  }
-
-  .reader-xref {
-    @apply rounded-sm text-primary underline decoration-primary/40 underline-offset-[3px] hover:decoration-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring print:text-inherit print:no-underline;
-  }
-
-  /* An entry of the printed table of contents that links to its section. */
-  .reader-toc-link {
-    @apply rounded-sm text-primary underline decoration-transparent underline-offset-[3px] transition-colors hover:decoration-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring print:text-inherit print:no-underline;
-  }
-
-  /* A cross-reference or "Go to definition" target, marked for a moment. */
-  .reader-flash {
-    animation: reader-flash 1.8s ease-out;
-  }
-
   @keyframes reader-flash {
     0%,
     35% {
@@ -377,14 +433,6 @@
     100% {
       background-color: transparent;
       box-shadow: 0 0 0 4px transparent;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .reader-flash {
-      animation: none;
-      outline: 2px solid hsl(var(--primary) / 0.4);
-      outline-offset: 2px;
     }
   }
 }

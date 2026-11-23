@@ -112,7 +112,7 @@ export default function ResetPassword() {
 
           <form className="grid gap-5" onSubmit={submit}>
             <div className="grid gap-2">
-              <Label htmlFor="reset-email" className="text-sm font-medium text-foreground/90">
+              <Label htmlFor="reset-email" className="text-sm/5 font-medium text-foreground/90">
                 Email
               </Label>
               <Input
@@ -144,7 +144,7 @@ export default function ResetPassword() {
                   !captchaResolved ||
                   (captchaSiteKey !== null && !captchaToken)
                 }
-                className="min-w-[10rem] px-6"
+                className="min-w-40 px-6"
               >
                 {submitting ? "Sending reset link…" : "Send reset link"}
               </Button>

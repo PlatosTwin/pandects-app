@@ -129,8 +129,8 @@ describe("XMLRenderer table of contents rendering", () => {
     expect(markup).toContain("text-right tabular-nums");
     expect(markup).toContain("role=\"list\"");
     expect(markup).toContain("role=\"listitem\"");
-    expect(markup).toContain("ARTICLE I THE MERGER</span><span class=\"w-10 flex-shrink-0 text-right tabular-nums text-muted-foreground\">6</span>");
-    expect(markup).toContain("1.4 Certificate of Formation and Bylaws of the Surviving Corporation</span><span class=\"w-10 flex-shrink-0 text-right tabular-nums text-muted-foreground\">6</span>");
+    expect(markup).toContain("ARTICLE I THE MERGER</span><span class=\"w-10 shrink-0 text-right tabular-nums text-muted-foreground\">6</span>");
+    expect(markup).toContain("1.4 Certificate of Formation and Bylaws of the Surviving Corporation</span><span class=\"w-10 shrink-0 text-right tabular-nums text-muted-foreground\">6</span>");
     expect(markup).not.toContain(">1.4     Certificate of Formation and Bylaws of the Surviving Corporation");
   });
 
@@ -158,10 +158,10 @@ describe("XMLRenderer table of contents rendering", () => {
       ">TABLE OF SCHEDULES AND EXHIBITS</div>",
     );
     expect(markup).toContain(
-      "Schedule A - Definitions</span><span class=\"w-10 flex-shrink-0 text-right tabular-nums text-muted-foreground\">ix</span>",
+      "Schedule A - Definitions</span><span class=\"w-10 shrink-0 text-right tabular-nums text-muted-foreground\">ix</span>",
     );
     expect(markup).toContain(
-      "Exhibit B - Form of Certificate</span><span class=\"w-10 flex-shrink-0 text-right tabular-nums text-muted-foreground\">x</span>",
+      "Exhibit B - Form of Certificate</span><span class=\"w-10 shrink-0 text-right tabular-nums text-muted-foreground\">x</span>",
     );
     expect(markup.match(/TABLE OF SCHEDULES AND EXHIBITS/g)).toHaveLength(1);
   });

@@ -36,7 +36,7 @@ const GRID_TEXTURE_STYLE = {
 } as const;
 
 const DEV_LINK =
-  "inline-flex min-h-11 items-center gap-2 rounded-md text-sm font-medium text-foreground/80 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-0";
+  "inline-flex min-h-11 items-center gap-2 rounded-md text-sm font-medium text-foreground/80 transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-0";
 
 export default function Landing() {
   const isLockedOut = useIsLockedOut();
@@ -51,7 +51,7 @@ export default function Landing() {
         className="pointer-events-none absolute inset-0 -z-10"
         style={GRID_TEXTURE_STYLE}
       />
-      <Card className="mx-auto w-full max-w-[960px] border-border bg-background/80 px-5 py-10 shadow-overlay backdrop-blur supports-[backdrop-filter]:bg-background/75 sm:px-10 sm:py-14">
+      <Card className="mx-auto w-full max-w-[960px] border-border bg-background/80 px-5 py-10 shadow-overlay backdrop-blur-sm supports-backdrop-filter:bg-background/75 sm:px-10 sm:py-14">
         <section
           aria-labelledby="landing-heading"
           className="flex flex-col items-center text-center"
@@ -61,7 +61,7 @@ export default function Landing() {
               <button
                 type="button"
                 aria-label="About the Pandects name"
-                className="mb-6 block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:mb-8"
+                className="mb-6 block rounded-2xl focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:mb-8"
               >
                 <picture>
                   <source
@@ -103,7 +103,7 @@ export default function Landing() {
           />
           <h1
             id="landing-heading"
-            className="text-balance text-[clamp(2rem,1.2rem+2.6vw,2.75rem)] font-semibold leading-[1.1] tracking-[-0.025em] text-foreground"
+            className="text-balance text-[clamp(2rem,1.2rem+2.6vw,2.75rem)] font-semibold leading-[1.1] tracking-tight text-foreground"
           >
             {"Search Thousands of M&A\u00A0Agreements"}
           </h1>
@@ -148,11 +148,11 @@ export default function Landing() {
                           to_path: link.to,
                         })
                       }
-                      className="group flex min-h-[3.75rem] items-center justify-between gap-3 px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                      className="group flex min-h-15 items-center justify-between gap-3 px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent/60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                     >
                       {link.label}
                       <ArrowRight
-                        className="h-4 w-4 shrink-0 text-muted-foreground transition-[color,transform] duration-150 group-hover:text-foreground motion-safe:group-hover:translate-x-0.5"
+                        className="h-4 w-4 shrink-0 text-muted-foreground transition-[color,translate] duration-150 group-hover:text-foreground motion-safe:group-hover:translate-x-0.5"
                         aria-hidden="true"
                       />
                     </Link>

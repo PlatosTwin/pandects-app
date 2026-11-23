@@ -173,7 +173,7 @@ export function ValueRangeFilter({
         aria-label="Deal value component"
         value={component}
         onValueChange={(value) => setComponent(value as PriceField)}
-        className="mb-2 grid w-full grid-cols-[auto_auto_auto] [&>*]:min-w-0 [&>*]:px-0.5"
+        className="mb-2 grid w-full grid-cols-[auto_auto_auto] *:min-w-0 *:px-0.5"
         options={PRICE_FIELDS.map((field) => ({
           value: field,
           label: (

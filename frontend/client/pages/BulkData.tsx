@@ -133,7 +133,7 @@ function CommandRow({
       <div className="min-w-0 flex-1">
         <p className="text-sm text-muted-foreground">{command.caption}</p>
         {/* Wraps at every width, so the whole command is always on screen. */}
-        <pre className="mt-1 whitespace-pre-wrap font-mono text-[13px] leading-relaxed text-foreground [overflow-wrap:anywhere]">
+        <pre className="mt-1 whitespace-pre-wrap font-mono text-[13px] leading-relaxed text-foreground wrap-anywhere">
           {command.ready ? (
             <span aria-hidden="true" className="select-none text-muted-foreground">
               ${" "}

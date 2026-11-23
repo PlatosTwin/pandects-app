@@ -81,14 +81,14 @@ export function LegalMarkdownPage({
     <PageShell layout="docs" title={title} description={prepared?.subtitle}>
       <div>
           <div
-            className="prose prose-slate max-w-none dark:prose-invert prose-headings:tracking-tight prose-h2:scroll-mt-24 prose-h2:text-xl prose-h2:font-semibold prose-h2:mt-10 prose-h2:mb-3 prose-h3:text-base prose-h3:font-semibold prose-h3:mt-6 prose-h3:mb-2 prose-p:leading-relaxed [&_pre:focus-visible]:outline-none [&_pre:focus-visible]:ring-2 [&_pre:focus-visible]:ring-ring"
+            className="prose prose-slate max-w-none dark:prose-invert prose-headings:tracking-tight prose-h2:scroll-mt-24 prose-h2:text-xl prose-h2:font-semibold prose-h2:mt-10 prose-h2:mb-3 prose-h3:text-base prose-h3:font-semibold prose-h3:mt-6 prose-h3:mb-2 prose-p:leading-relaxed [&_pre:focus-visible]:outline-hidden [&_pre:focus-visible]:ring-2 [&_pre:focus-visible]:ring-ring"
             dangerouslySetInnerHTML={{ __html: html }}
           />
           {downloadHref && (
             <p className="not-prose mt-6 text-sm text-muted-foreground">
               Download:{" "}
               <a
-                className="rounded-sm text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                className="rounded-sm text-primary underline underline-offset-4 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 href={downloadHref}
                 aria-label={`Download ${title} as Markdown`}
               >

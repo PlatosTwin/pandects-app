@@ -520,16 +520,16 @@ export default function SourcesMethods() {
               </ExternalLink>
               .
             </p>
-            <div ref={pipelineRef} className="relative mt-6">
+            <div ref={pipelineRef} className="relative">
               <div
                 aria-hidden="true"
                 className="pointer-events-none absolute left-4 -translate-x-1/2 w-[2px]"
                 style={{ top: pipelineLine.top, height: pipelineLine.height }}
               >
-                <div className="absolute left-0 top-0 h-full w-full bg-[linear-gradient(to_bottom,hsl(var(--border)/0.6)_0,hsl(var(--border)/0.6)_6px,transparent_6px,transparent_12px)] bg-[length:2px_12px] bg-repeat-y" />
+                <div className="absolute left-0 top-0 h-full w-full bg-[linear-gradient(to_bottom,hsl(var(--border)/0.6)_0,hsl(var(--border)/0.6)_6px,transparent_6px,transparent_12px)] bg-size-[2px_12px] bg-repeat-y" />
                 <div
                   ref={progressRef}
-                  className="absolute left-0 top-0 h-full w-full origin-top bg-gradient-to-b from-success/40 via-success/80 to-success shadow-[0_0_10px_hsl(var(--success)/0.35)]"
+                  className="absolute left-0 top-0 h-full w-full origin-top bg-linear-to-b from-success/40 via-success/80 to-success shadow-[0_0_10px_hsl(var(--success)/0.35)]"
                   style={{ transform: "scaleY(0)" }}
                 />
               </div>
@@ -910,7 +910,7 @@ export default function SourcesMethods() {
                 trigger={
                   <button
                     type="button"
-                    className="cursor-help appearance-none rounded-sm bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    className="cursor-help appearance-none rounded-sm bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   >
                     open-source models
                   </button>
@@ -1126,7 +1126,7 @@ export default function SourcesMethods() {
                       trigger={
                         <button
                           type="button"
-                          className="cursor-help appearance-none rounded-sm bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          className="cursor-help appearance-none rounded-sm bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         >
                           <strong>61,825</strong>
                         </button>
@@ -1251,7 +1251,7 @@ export default function SourcesMethods() {
                       trigger={
                         <button
                           type="button"
-                          className="cursor-help appearance-none rounded-sm bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          className="cursor-help appearance-none rounded-sm bg-transparent p-0 text-inherit underline decoration-dotted underline-offset-4 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         >
                           upsample Article entities
                         </button>

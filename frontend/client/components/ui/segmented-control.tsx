@@ -53,7 +53,7 @@ export function SegmentedControl<T extends string>({
           disabled={option.disabled}
           className={cn(
             "inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-md font-medium text-muted-foreground transition-colors",
-            "hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+            "hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
             "disabled:pointer-events-none disabled:opacity-50",
             "data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-raised",
             size === "sm" ? "h-7 px-2.5 text-xs" : "h-8 px-3 text-sm",
