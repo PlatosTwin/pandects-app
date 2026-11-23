@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `0541fa73`
+- Built from commit: `69a5e7a1`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -1398,7 +1398,7 @@ Nodes (3): map_private_use_glyphs(), restore_page_text(), GlyphTests
 
 ### Community 303 - "emails/package.json"
 Cohesion: 0.15
-Nodes (16): devDependencies, react-email@6.11.14, @react-email/preview-server@5.2.10, tsx@^4.23.15, @types/react@^19.3.0, @types/react-dom@^19.3.0, tsx, @types/react (+8 more)
+Nodes (16): devDependencies, react-email@6.11.16, @react-email/preview-server@5.2.10, tsx@^4.23.15, @types/react@^19.3.0, @types/react-dom@^19.3.0, tsx, @types/react (+8 more)
 
 ### Community 304 - "pull_agreement_content"
 Cohesion: 0.29
@@ -1482,7 +1482,7 @@ Nodes (11): resolutions, joi, **/openapi-to-postmanv2/js-yaml, postcss-selector-
 
 ### Community 365 - "dependencies"
 Cohesion: 0.18
-Nodes (11): dependencies, react@^19.3.1, react-dom@^19.3.1, @react-email/components@1.0.12, @react-email/render@^2.3.1, resend@^6.38.1, react, react-dom (+3 more)
+Nodes (11): dependencies, react@^19.3.1, react-dom@^19.3.1, @react-email/components@1.0.12, @react-email/render@^2.3.1, resend@^6.39.0, react, react-dom (+3 more)
 
 ### Community 369 - "Pandects plugin"
 Cohesion: 0.25
