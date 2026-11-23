@@ -146,7 +146,7 @@
  "m10_us_50": {
   "raw_gold": {
    "holdouts": [
-    "/Users/nikitabogdanov/PycharmProjects/merger_agreements/appv2/.claude/worktrees/span-taxonomy-design-a2f823/.claude/span-taxonomy-runs/m10holdout:sonnet_pc:gold_raw"
+    ".claude/span-taxonomy-runs/m10holdout:sonnet_pc:gold_raw"
    ],
    "agreements": 50,
    "detection": {
@@ -594,7 +594,7 @@
   },
   "adjudicated_gold": {
    "holdouts": [
-    "/Users/nikitabogdanov/PycharmProjects/merger_agreements/appv2/.claude/worktrees/span-taxonomy-design-a2f823/.claude/span-taxonomy-runs/m10holdout:sonnet_pc:gold"
+    ".claude/span-taxonomy-runs/m10holdout:sonnet_pc:gold"
    ],
    "agreements": 50,
    "detection": {
@@ -1290,7 +1290,7 @@
  "pooled_us_192_m7_to_m10": {
   "holdouts": [
    "m9_v213_results.json#pooled_us_142_after",
-   "/Users/nikitabogdanov/PycharmProjects/merger_agreements/appv2/.claude/worktrees/span-taxonomy-design-a2f823/.claude/span-taxonomy-runs/m10holdout:sonnet_pc:gold"
+   ".claude/span-taxonomy-runs/m10holdout:sonnet_pc:gold"
   ],
   "agreements": 192,
   "detection": {

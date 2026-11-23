@@ -103,7 +103,7 @@
  "gold_change": "85487997 ma.mae.definition gains a buyer-side entry (extractor_correct on the re-extraction), so the 7.27 numbers are re-computed below against the current gold",
  "m11_us_50_before": {
   "holdouts": [
-   "/Users/nikitabogdanov/PycharmProjects/merger_agreements/appv2/.claude/worktrees/span-taxonomy-design-a2f823/.claude/span-taxonomy-runs/m11holdout:sonnet_pc_pre_728:gold"
+   ".claude/span-taxonomy-runs/m11holdout:sonnet_pc_pre_728:gold"
   ],
   "agreements": 50,
   "detection": {
@@ -551,7 +551,7 @@
  },
  "m11_us_50_after": {
   "holdouts": [
-   "/Users/nikitabogdanov/PycharmProjects/merger_agreements/appv2/.claude/worktrees/span-taxonomy-design-a2f823/.claude/span-taxonomy-runs/m11holdout:sonnet_pc:gold"
+   ".claude/span-taxonomy-runs/m11holdout:sonnet_pc:gold"
   ],
   "agreements": 50,
   "detection": {
@@ -1318,7 +1318,7 @@
  "pooled_us_242_before": {
   "holdouts": [
    "m10_v214_results.json#pooled_us_192_after",
-   "/Users/nikitabogdanov/PycharmProjects/merger_agreements/appv2/.claude/worktrees/span-taxonomy-design-a2f823/.claude/span-taxonomy-runs/m11holdout:sonnet_pc_pre_728:gold"
+   ".claude/span-taxonomy-runs/m11holdout:sonnet_pc_pre_728:gold"
   ],
   "agreements": 242,
   "detection": {
@@ -1710,7 +1710,7 @@
  "pooled_us_242_after": {
   "holdouts": [
    "m10_v214_results.json#pooled_us_192_after",
-   "/Users/nikitabogdanov/PycharmProjects/merger_agreements/appv2/.claude/worktrees/span-taxonomy-design-a2f823/.claude/span-taxonomy-runs/m11holdout:sonnet_pc:gold"
+   ".claude/span-taxonomy-runs/m11holdout:sonnet_pc:gold"
   ],
   "agreements": 242,
   "detection": {
