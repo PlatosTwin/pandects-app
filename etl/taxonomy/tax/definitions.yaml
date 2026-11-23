@@ -37,6 +37,14 @@ concepts:
       - >-
         "Taxes" means all federal, state, local and foreign taxes, including income, gross receipts, sales,
         use, payroll, withholding and property taxes, together with any interest, penalties or additions.
+    exclusion_cues:
+      - >-
+        A definition of "Indemnified Taxes" is not this concept. Its listed categories take the concepts
+        under tax.nav.indemnity.indemnified_taxes, and its lead-in takes that group.
+      - A definition of "Pre-Closing Taxes" is tax.indemnity.pre_closing_taxes.
+      - >-
+        A definition of "Transfer Taxes" is tax.nav.transfer_withholding.transfer. When the term is defined
+        inside the sentence that says who bears those taxes, the sentence is tax.transfer.allocation.
     introduced_in: '2026.1'
 
   - id: tax.def.tax_return
@@ -72,4 +80,6 @@ concepts:
         Date.
     exclusion_cues:
       - The rule that splits the tax of a straddle period is under tax.nav.indemnity.straddle.
+      - >-
+        A definition of "Pre-Closing Taxes", the taxes for those periods, is tax.indemnity.pre_closing_taxes.
     introduced_in: '2026.1'

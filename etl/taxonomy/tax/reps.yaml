@@ -497,6 +497,15 @@ concepts:
         The Company will not be required to include any item of income in, or exclude any item of deduction
         from, taxable income for any period ending after the Closing Date as a result of any transaction
         made on or prior to the Closing Date.
+      - >-
+        The Company will not be required to include any item of income in, or exclude any item of deduction
+        from, taxable income for any taxable period ending after the Closing Date as a result of any of
+        the following:
+    exclusion_cues:
+      - >-
+        Each listed cause of the income, such as a change in accounting method, a closing agreement, an
+        installment sale or a prepaid amount, is tax.rep.no_deferred_income. This concept takes the lead-in,
+        and the whole statement when it lists no causes.
     crosswalk:
       tax_v1:
         - id: tax.7.6.1
@@ -513,8 +522,8 @@ concepts:
       party: maker
     description: >-
       The listed causes of deferred income: a change in accounting method, a closing agreement, an installment
-      sale, a prepaid amount or an intercompany transaction before closing. When a sentence holds the list,
-      the whole sentence takes this concept.
+      sale, a prepaid amount or an intercompany transaction before closing. This concept takes the listed
+      causes. The lead-in statement takes tax.rep.no_post_closing_income.
     canonical_terms:
       - change in method of accounting
       - Section 481
@@ -545,8 +554,7 @@ concepts:
     attributes:
       party: maker
     description: >-
-      A representation that an entity is, and has been, classified as a partnership or disregarded entity
-      for tax purposes.
+      A representation that an entity is, and has been, classified as a partnership for tax purposes.
     canonical_terms:
       - classified as a partnership
       - not a publicly traded partnership
@@ -555,6 +563,9 @@ concepts:
       - >-
         The Company has at all times since its formation been classified as a partnership for U.S. federal
         income tax purposes.
+    exclusion_cues:
+      - >-
+        A representation that an entity is disregarded as separate from its owner is tax.rep.entity_status.
     crosswalk:
       tax_v1:
         - id: tax.7.7.1
@@ -661,18 +672,20 @@ concepts:
     attributes:
       party: maker
     description: >-
-      A representation that nothing has ended or will end the S election, and that the company has no
-      built-in gains tax exposure.
+      A representation that nothing has ended or will end the S election.
     canonical_terms:
       - termination of S corporation status
-      - Section 1374
-      - has not acquired assets from a C corporation
+      - would terminate the S election
+      - revocation of the S corporation election
     example_phrases:
       - >-
         No event has occurred that would terminate the Company's status as an S corporation, other than
         the transactions contemplated by this Agreement.
     exclusion_cues:
       - Covenants and indemnities on built-in gains tax under Section 1374 are tax.passthrough.s_corporation.
+      - >-
+        A representation on built-in gains tax under Section 1374 has no concept of its own. It takes the
+        group tax.nav.reps.s_corporation.
     crosswalk:
       tax_v1:
         - id: tax.7.8.3

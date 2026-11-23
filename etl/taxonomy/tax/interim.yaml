@@ -26,6 +26,8 @@ concepts:
     kind: provision
     nav_parent: tax.nav.interim
     tier: label
+    attributes:
+      party: obligor
     description: An interim covenant to file all tax returns on time.
     canonical_terms:
       - timely file all Tax Returns
@@ -45,6 +47,8 @@ concepts:
     kind: provision
     nav_parent: tax.nav.interim
     tier: label
+    attributes:
+      party: obligor
     description: An interim covenant to pay all taxes when due.
     canonical_terms:
       - timely pay all Taxes
@@ -62,6 +66,8 @@ concepts:
     kind: provision
     nav_parent: tax.nav.interim
     tier: label
+    attributes:
+      party: obligor
     description: >-
       An interim covenant to keep existing tax elections and accounting methods and to file returns in
       line with past practice.
@@ -70,7 +76,16 @@ concepts:
       - maintain existing elections
       - accounting methods
     example_phrases:
-      - The Company shall prepare all Tax Returns in a manner consistent with past practice.
+      - >-
+        Prior to the Closing, the Company shall maintain in effect all Tax elections and methods of Tax
+        accounting in effect on the date of this Agreement.
+    exclusion_cues:
+      - >-
+        The duty to file returns on time is tax.interim.timely_filing. A clause in the same sentence that
+        requires consistency with past elections and methods takes this concept.
+      - >-
+        Preparation after closing of returns for pre-closing periods in line with past practice is tax.returns.past_practice.
+      - A ban on making or changing an election is tax.interim.no_new_elections.
     crosswalk:
       tax_v1:
         - id: tax.2.3
@@ -82,6 +97,8 @@ concepts:
     kind: provision
     nav_parent: tax.nav.interim
     tier: label
+    attributes:
+      party: obligor
     description: >-
       An interim covenant not to make, change or revoke a material tax election or change a tax accounting
       method or period.
@@ -106,6 +123,8 @@ concepts:
     kind: provision
     nav_parent: tax.nav.interim
     tier: label
+    attributes:
+      party: obligor
     description: >-
       An interim covenant not to amend a tax return, make a voluntary disclosure, or ask for a tax ruling.
     canonical_terms:
@@ -129,6 +148,8 @@ concepts:
     kind: provision
     nav_parent: tax.nav.interim
     tier: label
+    attributes:
+      party: obligor
     description: >-
       An interim covenant not to waive or extend a statute of limitations for the assessment of taxes.
     canonical_terms:
@@ -152,6 +173,8 @@ concepts:
     kind: provision
     nav_parent: tax.nav.interim
     tier: label
+    attributes:
+      party: obligor
     description: >-
       An interim covenant not to settle a tax claim, audit or assessment, or enter into a closing agreement,
       without consent.
@@ -174,6 +197,8 @@ concepts:
     kind: provision
     nav_parent: tax.nav.interim
     tier: label
+    attributes:
+      party: obligor
     description: An interim covenant not to give up a right to claim a tax refund.
     canonical_terms:
       - surrender any right to claim a refund
@@ -191,6 +216,8 @@ concepts:
     kind: provision
     nav_parent: tax.nav.interim
     tier: label
+    attributes:
+      party: obligor
     description: An interim covenant not to change tax residency or entity classification.
     canonical_terms:
       - change its residence for Tax purposes

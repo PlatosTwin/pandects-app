@@ -125,6 +125,11 @@ concepts:
       - >-
         A representation that the losses are not limited, or that no ownership change has occurred, is
         tax.rep.attribute_availability.
+      - >-
+        A statement that a Tax Benefit Preservation Plan or other rights plan has been amended, or does
+        not apply, so that the deal does not trigger it is ma.takeover.rights_plan. This concept takes such
+        a plan only when the clause is about protecting the losses under Section 382, such as a duty to
+        keep the plan in effect.
     crosswalk:
       tax_v1:
         - id: tax.8.1.2

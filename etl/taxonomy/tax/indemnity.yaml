@@ -66,14 +66,23 @@ concepts:
     tier: label
     description: >-
       Indemnified taxes of the target for periods that end on or before closing, and the pre-closing part
-      of a straddle period.
+      of a straddle period. A definition of Pre-Closing Taxes also takes this concept.
     canonical_terms:
       - Pre-Closing Taxes
       - Taxes of the Company for any Pre-Closing Tax Period
-      - Indemnified Taxes
+      - portion of any Straddle Period ending on the Closing Date
     example_phrases:
       - >-
-        Seller shall indemnify Buyer against all Taxes of the Company for all Pre-Closing Tax Periods.
+        (a) all Taxes of the Company for any Pre-Closing Tax Period and for the portion of any Straddle
+        Period ending on the Closing Date;
+      - >-
+        "Pre-Closing Taxes" means any Taxes of the Company for any Pre-Closing Tax Period.
+    exclusion_cues:
+      - >-
+        The promise to indemnify and its lead-in are tax.indemnity.obligation, or ma.indemn.obligation
+        in the general indemnity. This concept takes the listed item only, in either place.
+      - The rule that splits the tax of a straddle period is under tax.nav.indemnity.straddle.
+      - The definition of Pre-Closing Tax Period is tax.def.tax_period.
     crosswalk:
       tax_v1:
         - id: tax.5.1.1
@@ -92,8 +101,14 @@ concepts:
       - former member
     example_phrases:
       - >-
-        Indemnified Taxes include all Taxes of any Subsidiary or predecessor of the Company for any Pre-Closing
-        Tax Period.
+        (b) all Taxes of any Subsidiary or predecessor of the Company for any Pre-Closing Tax Period;
+    exclusion_cues:
+      - >-
+        The promise to indemnify and its lead-in are tax.indemnity.obligation, or ma.indemn.obligation
+        in the general indemnity. This concept takes the listed item only, in either place.
+      - >-
+        Taxes of another member of a consolidated or combined group, or of a person whose taxes pass to
+        the target as transferee or successor, are tax.indemnity.group_liability.
     crosswalk:
       tax_v1:
         - id: tax.5.1.2
@@ -115,9 +130,15 @@ concepts:
       - affiliated, consolidated, combined or unitary group
     example_phrases:
       - >-
-        Indemnified Taxes include Taxes of any member of an affiliated group of which the Company was
-        a member before the Closing, including under Treasury Regulations Section 1.1502-6.
+        (c) all Taxes of any member of an affiliated, consolidated, combined or unitary group of which
+        the Company was a member before the Closing, including under Treasury Regulations Section 1.1502-6;
+      - >-
+        (d) all Taxes of any Person imposed on the Company as a transferee or successor, by contract or
+        otherwise, that relate to an event or transaction occurring before the Closing;
     exclusion_cues:
+      - >-
+        The promise to indemnify and its lead-in are tax.indemnity.obligation, or ma.indemn.obligation
+        in the general indemnity. This concept takes the listed item only, in either place.
       - The matching representation is tax.rep.tax_sharing_group.
     crosswalk:
       tax_v1:
@@ -136,8 +157,11 @@ concepts:
       - Restructuring Taxes
     example_phrases:
       - >-
-        Seller shall indemnify Buyer against all Taxes arising out of the Pre-Closing Reorganization.
+        (e) all Taxes arising out of or resulting from the Pre-Closing Reorganization;
     exclusion_cues:
+      - >-
+        The promise to indemnify and its lead-in are tax.indemnity.obligation, or ma.indemn.obligation
+        in the general indemnity. This concept takes the listed item only, in either place.
       - The restructuring covenant itself is tax.restructuring.pre_closing.
     crosswalk:
       tax_v1:
@@ -151,14 +175,22 @@ concepts:
     nav_parent: tax.nav.indemnity.indemnified_taxes
     tier: label
     description: >-
-      Indemnified taxes and losses that arise from a breach of a tax representation or tax covenant.
+      Indemnified taxes and losses that arise from a breach of a tax representation.
     canonical_terms:
       - breach of any representation or warranty in Section [•] (Taxes)
-      - breach of any Tax covenant
+      - inaccuracy in the representations set forth in Section [•]
     example_phrases:
       - >-
-        Seller shall indemnify Buyer against all Losses arising from any breach of the representations
-        and warranties set forth in Section [•] (Taxes).
+        (f) all Losses arising out of any breach of or inaccuracy in the representations and warranties
+        set forth in Section [•] (Taxes);
+    exclusion_cues:
+      - >-
+        The promise to indemnify and its lead-in are tax.indemnity.obligation, or ma.indemn.obligation
+        in the general indemnity. This concept takes the listed item only, in either place.
+      - >-
+        A listed item for a breach of a tax covenant has no concept of its own. It takes the group tax.nav.indemnity.indemnified_taxes.
+      - >-
+        A listed item for a breach of representations in general, with no tax section named, is ma.indemn.obligation.
     crosswalk:
       tax_v1:
         - id: tax.5.1.5
@@ -235,8 +267,12 @@ concepts:
     also_listed_under:
       - ma.nav.indemnification.scope
     tier: label
+    attributes:
+      party: indemnitor
     description: >-
       The operative tax indemnity: the promise to indemnify the other party for the indemnified taxes.
+      This concept takes the promise and its lead-in. Each listed category of taxes takes its own concept
+      under Indemnified Taxes, even when the list has one item.
     canonical_terms:
       - shall indemnify and hold harmless
       - Tax indemnification
@@ -245,8 +281,16 @@ concepts:
       - >-
         From and after the Closing, Seller shall indemnify and hold harmless the Buyer Indemnified Parties
         from and against all Indemnified Taxes.
+      - >-
+        Seller shall indemnify Buyer from and against, without duplication, the following:
     exclusion_cues:
       - General indemnification for breaches of non-tax representations is ma.indemn.obligation.
+      - >-
+        Each listed category of taxes takes its own concept under tax.nav.indemnity.indemnified_taxes,
+        such as tax.indemnity.pre_closing_taxes or tax.indemnity.rep_breach.
+      - >-
+        The promise of the general indemnity is ma.indemn.obligation, even when its list includes taxes.
+        Its tax items take the concepts under tax.nav.indemnity.indemnified_taxes.
     crosswalk:
       tax_v1:
         - id: tax.5.3.1
@@ -278,18 +322,24 @@ concepts:
     nav_parent: tax.nav.indemnity.mechanics
     tier: label
     description: >-
-      A reduction of a tax indemnity claim for tax benefits, insurance proceeds, or amounts already counted
-      in the price.
+      A reduction of a tax indemnity claim for tax benefits or insurance proceeds that the indemnified
+      party receives.
     canonical_terms:
       - net of any Tax benefit
       - insurance proceeds
-      - to the extent taken into account in Closing Working Capital
+      - Tax benefit actually realized
     example_phrases:
       - >-
-        Seller shall not be liable for any Tax to the extent it was taken into account as a liability
-        in the calculation of Closing Working Capital.
+        The amount of any indemnity payment under this Article shall be reduced by any insurance proceeds
+        and any Tax benefit actually realized by the Buyer Indemnified Parties as a result of the matter
+        giving rise to the claim.
     exclusion_cues:
       - The same offset in the general indemnity is ma.indemn.recovery_offsets.
+      - >-
+        An exclusion of taxes already counted in the price, such as a tax liability in Closing Working
+        Capital, is tax.indemnity.limitations.
+      - >-
+        An adjustment of a payment for the tax cost or tax benefit of receiving it is tax.grossup.benefit_detriment.
     crosswalk:
       tax_v1:
         - id: tax.5.3.3
@@ -301,16 +351,26 @@ concepts:
     kind: provision
     nav_parent: tax.nav.indemnity.mechanics
     tier: label
-    description: Whether the cap, basket and other limits of the general indemnity apply to tax claims.
+    description: >-
+      Limits on the tax indemnity: a cap or threshold for tax claims, an exclusion of certain taxes from
+      the indemnity, and whether the cap, basket and other limits of the general indemnity apply to tax
+      claims.
     canonical_terms:
       - shall not be subject to the Cap or the Deductible
       - limitations set forth in Article [•]
+      - Seller shall not be liable for any Taxes to the extent
+      - to the extent taken into account in Closing Working Capital
     example_phrases:
       - >-
         The limitations set forth in Section [•] shall not apply to any claim for indemnification under
         this Section.
+      - >-
+        Seller shall not be liable for any Tax to the extent it was taken into account as a liability
+        in the calculation of Closing Working Capital.
     exclusion_cues:
       - The cap and basket themselves are ma.indemn.cap and ma.indemn.basket.
+      - A reduction of a claim for tax benefits or insurance proceeds is tax.indemnity.benefit_offset.
+      - The time limit for tax claims is tax.indemnity.survival.
     crosswalk:
       tax_v1:
         - id: tax.5.3.4

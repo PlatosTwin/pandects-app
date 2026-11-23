@@ -82,6 +82,9 @@ concepts:
         50% by Buyer and 50% by Seller.
     exclusion_cues:
       - The general rule that each party pays its own expenses is ma.expenses.
+      - >-
+        A stand-alone definition of "Transfer Taxes", such as one in the definitions article, is tax.nav.transfer_withholding.transfer.
+        A term defined inside the allocation sentence stays with this concept.
     crosswalk:
       tax_v1:
         - id: tax.3.1.1

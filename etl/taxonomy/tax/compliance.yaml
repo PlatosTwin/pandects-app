@@ -167,7 +167,8 @@ concepts:
         except as otherwise required by applicable Law.
     exclusion_cues:
       - >-
-        The interim covenant to follow past practice before closing is tax.interim.maintain_elections.
+        The interim covenant to keep existing elections and methods, and to prepare returns in line with
+        past practice, before closing is tax.interim.maintain_elections.
     crosswalk:
       tax_v1:
         - id: tax.4.1.4
@@ -188,6 +189,13 @@ concepts:
       - >-
         Seller shall have the right to control, at its own expense, any Tax Contest relating to a Pre-Closing
         Tax Period.
+    exclusion_cues:
+      - >-
+        The general procedure for indemnity claims and third-party claims is ma.indemn.claims_procedure.
+        A clause on the control of an audit or other tax proceeding takes this concept, also when it sits
+        in the indemnification article.
+      - >-
+        A statement that the tax section, not the general claims procedure, governs tax contests is tax.indemnity.exclusive_remedy.
     crosswalk:
       tax_v1:
         - id: tax.4.2.1
@@ -210,6 +218,11 @@ concepts:
       - >-
         Buyer shall control any Tax Contest relating to a Straddle Period, and Seller may participate
         at its own expense.
+    exclusion_cues:
+      - >-
+        The general procedure for indemnity claims and third-party claims is ma.indemn.claims_procedure.
+        A clause on the control of an audit or other tax proceeding takes this concept, also when it sits
+        in the indemnification article.
     crosswalk:
       tax_v1:
         - id: tax.4.2.2
@@ -235,6 +248,10 @@ concepts:
     exclusion_cues:
       - >-
         The interim covenant not to settle tax claims before closing is tax.interim.no_settlement.
+      - >-
+        Notice, defense and settlement rules for indemnity claims in general, including third-party claims,
+        are ma.indemn.claims_procedure. Notice, participation and settlement rights in an audit or other
+        tax proceeding take this concept, also when they sit in the indemnification article.
     crosswalk:
       tax_v1:
         - id: tax.4.2.3
@@ -332,17 +349,20 @@ concepts:
     kind: provision
     nav_parent: tax.nav.compliance.pre_closing_cooperation
     tier: label
-    description: Access to tax records, tax returns and workpapers.
+    description: Access before closing to tax records, tax returns and workpapers.
     canonical_terms:
       - access to Tax records
       - workpapers
       - Tax Returns and related documents
     example_phrases:
       - >-
-        The Company shall provide Parent with reasonable access to its Tax Returns, Tax records and related
-        workpapers.
+        Prior to the Closing, the Company shall provide Parent with reasonable access to its Tax Returns,
+        Tax records and related workpapers.
     exclusion_cues:
-      - General access to information is ma.access.information.
+      - General access to information before closing is ma.access.information.
+      - Access after closing to the books and records of the business is ma.records_access.
+      - >-
+        Access after closing to tax information for a tax filing or audit is tax.cooperation.filing_information.
     crosswalk:
       tax_v1:
         - id: tax.4.4.2
@@ -385,6 +405,10 @@ concepts:
         the expiration of the applicable statute of limitations.
     exclusion_cues:
       - Retention of general business records is ma.records_access.
+      - >-
+        A standard cooperation clause that names the retention of records as one form of cooperation
+        is tax.cooperation.post_closing. This concept takes a clause that is specifically about keeping
+        tax records, such as one that sets the retention period.
     crosswalk:
       tax_v1:
         - id: tax.4.5.1
@@ -396,14 +420,26 @@ concepts:
     kind: provision
     nav_parent: tax.nav.compliance.post_closing_cooperation
     tier: label
-    description: Mutual cooperation on tax matters after closing.
+    description: >-
+      Mutual cooperation on tax matters after closing. The standard cooperation clause takes this concept
+      as a whole, also when it names the retention and provision of records and information, or making
+      employees available, as forms of cooperation.
     canonical_terms:
       - cooperate fully in connection with the filing of Tax Returns
       - any audit, litigation or other proceeding with respect to Taxes
+      - such cooperation shall include the retention and provision of records and information
+      - making employees available on a mutually convenient basis
     example_phrases:
       - >-
         Buyer and Seller shall cooperate fully, as and to the extent reasonably requested by the other,
         in connection with the filing of Tax Returns and any Tax proceeding.
+    exclusion_cues:
+      - >-
+        A clause that is specifically about giving information for a tax filing or audit is tax.cooperation.filing_information.
+      - >-
+        A clause that is specifically about keeping tax records, such as one that sets the retention period,
+        is tax.cooperation.record_retention.
+      - Cooperation on tax matters before closing is tax.cooperation.interim.
     crosswalk:
       tax_v1:
         - id: tax.4.5.2
@@ -419,12 +455,18 @@ concepts:
       A duty to give the other party information it needs for tax filings and audits after closing.
     canonical_terms:
       - furnish such information
-      - make employees available
-      - reasonably relevant to any such Tax Return or proceeding
+      - information reasonably necessary for the filing of any Tax Return
+      - information reasonably requested in connection with any Tax audit
     example_phrases:
       - >-
         Each party shall furnish to the other such information relating to the Company as is reasonably
         necessary for the filing of any Tax Return.
+    exclusion_cues:
+      - >-
+        A standard cooperation clause that names the provision of information as one form of cooperation
+        is tax.cooperation.post_closing. This concept takes a clause that is specifically about information
+        for tax filings and audits.
+      - Access before closing to tax records is tax.cooperation.records_access.
     crosswalk:
       tax_v1:
         - id: tax.4.5.3

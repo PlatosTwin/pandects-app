@@ -432,6 +432,9 @@ concepts:
     exclusion_cues:
       - >-
         Indemnity for taxes that the restructuring triggers is tax.indemnity.restructuring_taxes.
+      - >-
+        A SPAC's change of its jurisdiction of incorporation before closing, the Domestication, is ma.spac.domestication.
+        The statement that the Domestication is intended to qualify as a reorganization is tax.treatment.reorganization.
     crosswalk:
       tax_v1:
         - id: tax.1.5.1
