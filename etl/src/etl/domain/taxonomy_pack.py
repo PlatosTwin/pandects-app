@@ -172,10 +172,29 @@ def _cycle_errors(nodes: dict[str, Node], field: str) -> Iterable[str]:
             current = nxt if isinstance(nxt, str) else None
 
 
+def groups_with_wave_two_content(taxonomy: Taxonomy) -> set[str]:
+    """
+    Ids of the M&A groups that hold a wave 2 provision or definition.
+
+    A part (component or modifier) does not count: its text sits inside the text of its parent concept,
+    and the parent carries the label.
+    """
+    return {
+        node.nav_parent
+        for node in taxonomy.nodes.values()
+        if node.pack == "ma"
+        and node.is_concept
+        and node.nav_parent is not None
+        and node.data.get("wave") == 2
+        and node.data.get("parent") is None
+    }
+
+
 def validate(taxonomy: Taxonomy) -> list[str]:
     """Return every problem found. An empty list means the packs are valid."""
     nodes = taxonomy.nodes
     errors = list(taxonomy.load_errors)
+    wave_two_groups = groups_with_wave_two_content(taxonomy)
 
     for node in nodes.values():
         data = node.data
@@ -225,6 +244,18 @@ def validate(taxonomy: Taxonomy) -> list[str]:
             for field in ("parent", "tier", "wave", "value_schema", "attributes"):
                 if field in data:
                     errors.append(f"{node.id}: a navigation node cannot have {field}")
+            assignable = data.get("assignable")
+            if assignable is not None and not isinstance(assignable, bool):
+                errors.append(f"{node.id}: assignable must be true or false")
+            elif node.pack == "ma":
+                # In wave 1, a section that holds only wave 2 concepts gets its group as the label.
+                if node.kind == "branch":
+                    if assignable:
+                        errors.append(f"{node.id}: an M&A branch is not assignable")
+                elif node.id in wave_two_groups and not assignable:
+                    errors.append(f"{node.id}: a group that holds a wave 2 provision or definition needs assignable: true")
+                elif node.id not in wave_two_groups and assignable:
+                    errors.append(f"{node.id}: assignable is for a group that holds a wave 2 provision or definition")
         else:
             # Concept parent (part-of), separate from navigation.
             concept_parent = data.get("parent")
@@ -348,6 +379,8 @@ def summary(taxonomy: Taxonomy) -> dict[str, Counter[str]]:
                 bucket["value_concepts"] += 1
             if node.data.get("wave") in WAVES:
                 bucket[f"wave_{node.data['wave']}"] += 1
+        elif node.data.get("assignable") is True:
+            bucket[f"assignable_{node.kind}"] += 1
         if node.data.get("new_in_redesign"):
             bucket["new_in_redesign"] += 1
     return counts

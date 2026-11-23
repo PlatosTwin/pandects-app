@@ -25,6 +25,7 @@ groups:
     label: Key Defined Terms
     kind: group
     nav_parent: ma.nav.definitions
+    assignable: true
     description: >-
       Definitions that carry much of the deal's risk allocation. Tax definitions are listed here from
       the tax pack.

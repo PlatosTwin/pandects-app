@@ -131,10 +131,25 @@ class ShippedPacksTest(unittest.TestCase):
             matched.add(exact[0])
         self.assertEqual(matched, set(legacy))
 
-    def test_tax_navigation_is_assignable_and_ma_navigation_is_not(self) -> None:
+    def test_tax_navigation_is_assignable(self) -> None:
         for node in self.taxonomy.nodes.values():
-            if node.is_nav:
-                self.assertEqual(bool(node.data.get("assignable")), node.pack == "tax", node.id)
+            if node.is_nav and node.pack == "tax":
+                self.assertIs(node.data.get("assignable"), True, node.id)
+
+    def test_ma_groups_with_wave_two_content_are_assignable(self) -> None:
+        """
+        In wave 1, a section that holds only wave 2 concepts gets its group as the label
+        (maintainer, 2026-11-23). No other M&A navigation node is assignable.
+        """
+        nodes = self.taxonomy.nodes
+        assignable = {node.id for node in nodes.values() if node.pack == "ma" and node.data.get("assignable")}
+        self.assertEqual(assignable, taxonomy_pack.groups_with_wave_two_content(self.taxonomy))
+        self.assertEqual(len(assignable), 16)
+        self.assertEqual({nodes[node_id].kind for node_id in assignable}, {"group"})
+        self.assertIn("ma.nav.termination.rights", assignable)
+        # Only wave 1 concepts, or wave 2 parts of wave 1 concepts: the section gets those concepts.
+        self.assertNotIn("ma.nav.remedies.law_forum", assignable)
+        self.assertNotIn("ma.nav.financing.covenants", assignable)
 
     def test_seam_concepts_have_one_owner(self) -> None:
         """A seam concept lives in one pack and is listed under a navigation node of the other pack."""
@@ -276,6 +291,18 @@ class ValidatorCatchesProblemsTest(unittest.TestCase):
     def test_wave_on_navigation_node(self) -> None:
         self._edit(lambda doc: doc["groups"][0].update(wave=1))
         self._assert_reported("a navigation node cannot have wave")
+
+    def test_group_with_wave_two_content_not_assignable(self) -> None:
+        self._edit(lambda doc: doc["groups"][0].pop("assignable"), "ma/termination.yaml")
+        self._assert_reported("ma.nav.termination.rights: a group that holds a wave 2 provision or definition needs assignable")
+
+    def test_assignable_group_without_wave_two_content(self) -> None:
+        self._edit(lambda doc: doc["groups"][0].update(assignable=True))
+        self._assert_reported("ma.nav.remedies.law_forum: assignable is for a group that holds a wave 2 provision")
+
+    def test_assignable_ma_branch(self) -> None:
+        self._edit(lambda doc: doc["branch"].update(assignable=True))
+        self._assert_reported("ma.nav.remedies: an M&A branch is not assignable")
 
     def test_exclusion_cue_with_unknown_id(self) -> None:
         self._edit(lambda doc: _concept(doc, "ma.governing_law")["exclusion_cues"].append("See ma.no_such_concept."))

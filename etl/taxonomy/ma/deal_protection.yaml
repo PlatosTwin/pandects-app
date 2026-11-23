@@ -18,6 +18,7 @@ groups:
     label: No-Shop and Go-Shop
     kind: group
     nav_parent: ma.nav.deal_protection
+    assignable: true
     description: Limits on soliciting and negotiating competing proposals.
     introduced_in: '2026.1'
 
@@ -25,6 +26,7 @@ groups:
     label: Board Recommendation and Fiduciary Out
     kind: group
     nav_parent: ma.nav.deal_protection
+    assignable: true
     description: The board's recommendation, when it may change, and the buyer's right to match.
     introduced_in: '2026.1'
 

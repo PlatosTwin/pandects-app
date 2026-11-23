@@ -25,6 +25,7 @@ groups:
     label: Antitrust
     kind: group
     nav_parent: ma.nav.regulatory
+    assignable: true
     description: Antitrust filings, remedies, litigation and control of strategy.
     introduced_in: '2026.1'
 

@@ -18,6 +18,7 @@ groups:
     label: Price and Form of Consideration
     kind: group
     nav_parent: ma.nav.consideration
+    assignable: true
     description: The amount and kind of consideration.
     introduced_in: '2026.1'
 
@@ -39,6 +40,7 @@ groups:
     label: Purchase Price Adjustment
     kind: group
     nav_parent: ma.nav.consideration
+    assignable: true
     description: The estimate at closing, the post-closing true-up and its disputes.
     introduced_in: '2026.1'
 concepts:

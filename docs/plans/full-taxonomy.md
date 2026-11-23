@@ -6,10 +6,10 @@ This document belongs to the span taxonomy plan (`docs/plans/span-taxonomy.md`, 
 
 ## 1. Summary
 
-- **What exists now.** Two sets of taxonomy files, called packs, are in `etl/taxonomy/`. The M&A pack (`ma`) has 15 branches, 54 groups and 261 concepts. The tax pack (`tax`) has 10 branches, 35 groups and 112 concepts. A validator and 30 tests check them without network or database access.
+- **What exists now.** Two sets of taxonomy files, called packs, are in `etl/taxonomy/`. The M&A pack (`ma`) has 15 branches, 54 groups and 261 concepts. The tax pack (`tax`) has 10 branches, 35 groups and 112 concepts. A validator and 34 tests check them without network or database access.
 - **A concept is one thing a researcher filters on.** `ma.governing_law` answers "which law governs this agreement". It does not also hold the forum clause or the jury waiver. Each of those has its own concept.
 - **Groups are the default filter level.** A researcher browses and filters by the 54 M&A groups first. A label on a concept also counts for its group and its branch. A filter on one concept is the finer choice.
-- **Two labeling waves.** Each M&A concept states its wave. Wave 1 has the 186 section-level topics and catch-alls. Wave 2 has the 75 clause-level provisions, parts and definitions. Section 4.4 gives the rule.
+- **Two labeling waves.** Each M&A concept states its wave. Wave 1 has the 186 section-level topics and catch-alls. Wave 2 has the 75 clause-level provisions, parts and definitions. Section 4.4 gives the rule. In wave 1, a section that holds only wave 2 concepts gets its group as the label.
 - **The tax tree keeps its structure.** All 150 nodes of the tax clause tree are present with the same labels and the same parents. This design proposes 7 additions and no removals, renames or merges. Section 8 lists each addition with its reason, so that the maintainer can veto it.
 - **Party is an attribute.** "Organization" as a representation is one concept. Each labeled instance records who made it. The older trees held a target copy and a buyer copy of each representation.
 - **Coverage by section title.** Of 1,138,095 titled sections in the corpus, 85.3% map to one specific concept and a further 8.2% map to a group that holds several concepts by design. 4.2% map to nothing. A sample of those shows that most are other wordings of provisions the tree already has, or headings that say too little to place.
@@ -26,7 +26,7 @@ This document belongs to the span taxonomy plan (`docs/plans/span-taxonomy.md`, 
 | `etl/taxonomy/crosswalk/dealos.yaml` | 130 links from concepts to DealOS knowledge graph ids. |
 | `etl/taxonomy/README.md` | Field reference and the rules for changes. |
 | `etl/src/etl/domain/taxonomy_pack.py` | Loader and validator. Run `etl/.venv/bin/python -m etl.domain.taxonomy_pack`. |
-| `etl/tests/test_taxonomy_pack.py` | 30 tests. Run from `etl/` with `.venv/bin/python -m unittest tests.test_taxonomy_pack`. |
+| `etl/tests/test_taxonomy_pack.py` | 34 tests. Run from `etl/` with `.venv/bin/python -m unittest tests.test_taxonomy_pack`. |
 | `docs/plans/full-taxonomy/tree.md` | Every node, generated from the packs. |
 | `docs/plans/full-taxonomy/crosswalk.md` | Every older leaf and the nodes it maps to, generated from the packs. |
 | `docs/plans/full-taxonomy/title_coverage.py` | The coverage measurement in section 6. |
@@ -83,6 +83,15 @@ The reasons:
 Each large family has an explicit catch-all: `ma.rep.other`, `ma.covenant.other`, `ma.condition.other`, `ma.termination.right.other`, `ma.misc.other`, `ma.other.reserved` (for "[Reserved]" and "Intentionally Omitted") and `ma.other.unclassified`. A catch-all makes the unassigned share measurable. When a topic grows inside a catch-all, a later release can give it its own concept.
 
 The tax pack follows the present tax labeler instead. That labeler may assign a clause to a level 1 or level 2 node when no leaf fits. The tax navigation nodes are therefore marked `assignable: true`, and the tax pack keeps its three existing "Other" leaves.
+
+16 of the 54 M&A groups are also marked `assignable: true` (decided 2026-11-23). The purpose differs from the tax pack. In wave 1, a section whose content is only wave 2 concepts gets its group as the label, so that group filters work from the first wave. A section titled "Termination" gets `ma.nav.termination.rights`.
+
+- **The rule.** A group is assignable when it holds a wave 2 provision or definition. The validator checks the rule in both directions.
+- **Parts do not count.** Three groups hold a wave 2 part of a wave 1 concept and no other wave 2 concept. The text of a part sits inside the text of its parent, and the parent carries the label in wave 1.
+- **The other 38 groups** hold wave 1 concepts only, or the parts above. A section there gets its concepts in wave 1.
+- **No M&A branch is assignable.** A section that holds content of two groups gets two group labels.
+- **Mixed sections.** A "Termination" section normally also holds the mutual consent clause, which is a wave 1 concept. That clause gets its concept, and the group label covers the rest of the section. This reading goes one step past the words "only wave 2 concepts".
+- **A group label does not replace a catch-all.** Content that fits no concept of any wave goes to the catch-all concept.
 
 ### 3.6 The seam between the packs
 
@@ -221,6 +230,7 @@ The group "Condition Mechanics" held only the frustration concept. It is removed
 - `ma.employee.comp_benefits_continuation` is in wave 1 after the merge, because the "Employee Matters" section is its heading.
 - Wave 2 holds 8 of the 10 pilot value concepts: 6 provisions, the Material Adverse Effect definition and its carve-outs. The value pass of the span taxonomy plan covers those.
 - The tax pack has no waves. One tax pass labels it (step 5 in 9.2).
+- In wave 1, a section whose content is only wave 2 concepts gets its group as the label (decided 2026-11-23). 16 groups are marked `assignable: true` for this. Section 3.5 gives the rule, and `tree.md` marks the groups.
 
 **Default filter level.** The 54 groups are the default level for browsing and filtering. A label on a concept counts for its group and its branch, so a filter on a group returns every section that carries one of the group's concepts. An error between two concepts of one group does not change a filter on the group. The groups cannot be the only level: "Governing Law and Forum" as one topic cannot answer "which law governs" or "which deals have no jury waiver".
 
@@ -446,7 +456,7 @@ No labeling ran for this work. This section is a plan.
 4. **Party.** Simple rules set the party from the article heading ("Representations and Warranties of the Company") and check the model's answer. A conflict sends the section to step 6.
 5. **Tax pass.** A section or clause that receives a tax node goes to a second pass with the tax pack only. That pass assigns the tax leaf, as the tax module does today. The M&A pass does not need the tax leaves, which keeps its short lists small.
 6. **Second read.** A stronger model reads the sections that fail a check: low confidence, a conflict between the title hint and the label, a party conflict, or a representation concept outside a representations article.
-7. **Wave 2.** The first run of steps 2 to 6 uses the wave 1 concepts only. Wave 2 adds the clause-level provisions, the parts and the definitions (the `wave` field, section 4.4). The short list for a section then includes the clause-level provisions of the groups that the section's heading and its wave 1 labels point to. A component is labeled only inside sections that already carry the parent concept. Definition concepts come mostly from the defined-term graph: the term string identifies them, so most need no model.
+7. **Wave 2.** The first run of steps 2 to 6 uses the wave 1 concepts and the 16 assignable groups (section 3.5). The card of a group lists the labels of its wave 2 concepts. When a section holds content of such a group that no wave 1 concept covers, the model returns the group. Wave 2 then reads the sections that carry a group label. It assigns the clause-level provisions, the parts and the definitions (the `wave` field, section 4.4), and those concept labels replace the group label. A section where wave 2 finds no concept of the group goes to the second read. A component is labeled only inside sections that already carry the parent concept. Definition concepts come mostly from the defined-term graph: the term string identifies them, so most need no model.
 8. **Gold and bars.** A stratified gold set of 150 to 300 agreements (by deal type, target type and year) with per-concept precision and recall bars, as the plan sets for value concepts. The older labels serve as a second comparison through the crosswalk.
 9. **Monitors.** Expected rates per concept catch drift. A governing law concept found in under 95% of agreements is an alarm.
 10. **Serving.** New labels are served next to the old ones until they meet the bar. The crosswalk keeps old filters working.
@@ -486,7 +496,7 @@ What can move the estimate: the share of sections that need a second read, how w
 
 1. **Tax additions.** Decided 2026-11-22: all 7 nodes in 8.3 are accepted.
 2. **Sections 280G and 409A.** Decided 2026-11-22: the M&A pack owns them, and the tax tree lists the 280G concept for navigation.
-3. **Umbrella labels.** The tax pack lets a label point to a branch or group. The M&A pack uses catch-all concepts. Is the difference acceptable, or should both packs use one way?
+3. **Umbrella labels.** Partly decided 2026-11-23 (see 16). The tax pack lets a label point to any branch or group. The M&A pack lets a label point to 16 groups, in wave 1, and uses catch-all concepts for content that fits no concept. Still open: should the tax pack keep the wider rule?
 4. **Industry topics.** The M&A pack has 4 industry representation concepts. Industry titles are most of the real gaps in 6.3. Is a later industry pack (banking, healthcare, energy, insurance) wanted, or is `ma.rep.other` enough?
 5. **SPAC concepts.** 5 SPAC concepts sit in the M&A pack. Keep them there, or plan a separate pack?
 6. **Foreign-law provisions.** Locked box, squeeze-out and similar UK or Australian provisions have no concept, in line with the US focus. Confirm.
@@ -499,7 +509,7 @@ What can move the estimate: the share of sections that need a second read, how w
 13. **Id freeze.** After approval the ids are frozen. Any id the maintainer wants changed must change before the first labeling run.
 14. **Budget and models.** Decided 2026-11-22: the billed 50-agreement trial waits until the maintainer has reviewed the tree. The setup and ceiling are decided then.
 15. **Granularity.** Decided 2026-11-22: trim the M&A pack to 261 concepts with 20 merges, label in two waves, and use the groups as the default filter level. See 4.4.
-16. **Sections that hold only wave 2 concepts.** A section titled "Termination" or "Conditions to the Obligations of Parent" holds clause-level concepts only. In wave 1 such a section gets no concept. Should wave 1 record its group, as the tax pack does with `assignable: true`, so that group filters work from the first wave? Today the M&A groups are not assignable, and a test checks that.
+16. **Sections that hold only wave 2 concepts.** Decided 2026-11-23: yes. In wave 1 such a section gets its group as the label. 16 groups are marked `assignable: true` (section 3.5). No M&A branch is assignable.
 17. **The merge list.** The 20 merges in 4.4 rest on one reader's judgment and on co-occurrence counts. Should a person who knows the literature confirm them before the ids are frozen?
 
 ## 11. Independent review

@@ -25,6 +25,7 @@ groups:
     label: Conditions for One Party
     kind: group
     nav_parent: ma.nav.conditions
+    assignable: true
     description: Conditions to the obligations of the buyer only or of the target or seller only.
     introduced_in: '2026.1'
 concepts:

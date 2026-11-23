@@ -33,6 +33,7 @@ groups:
     label: Post-Closing and Separation
     kind: group
     nav_parent: ma.nav.covenants
+    assignable: true
     description: Covenants that run after closing, found mostly in private deals and carve-outs.
     introduced_in: '2026.1'
 

@@ -32,6 +32,7 @@ groups:
     label: Tender Offer
     kind: group
     nav_parent: ma.nav.structure
+    assignable: true
     description: Terms of a tender or exchange offer and the merger that follows it.
     introduced_in: '2026.1'
 
@@ -46,6 +47,7 @@ groups:
     label: SPAC Transactions
     kind: group
     nav_parent: ma.nav.structure
+    assignable: true
     description: Terms found only in business combinations with a special purpose acquisition company.
     introduced_in: '2026.1'
 concepts:

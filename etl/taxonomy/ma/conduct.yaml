@@ -18,6 +18,7 @@ groups:
     label: Interim Operations
     kind: group
     nav_parent: ma.nav.conduct
+    assignable: true
     description: >-
       The ordinary course covenant and the list of restricted actions. Tax interim covenants are listed
       here from the tax pack.

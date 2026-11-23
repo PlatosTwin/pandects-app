@@ -36,7 +36,7 @@ A concept's id never states where the concept sits in the tree. The tree can cha
 | `nav_parent` | groups, concepts | The navigation node that holds this node. It must be in the same pack. |
 | `parent` | concepts | The concept that this concept is a part of. Required for `component` and `modifier`. |
 | `also_listed_under` | all | Navigation nodes, in any pack, where the node also appears. This is how a concept on the seam between the packs shows up in both trees with one owner. |
-| `assignable` | navigation nodes | `true` when a label may point to the navigation node itself. The tax pack uses this, as the tax labeler does today. The M&A pack uses catch-all concepts instead (`ma.rep.other`, `ma.misc.other`). |
+| `assignable` | navigation nodes | `true` when a label may point to the navigation node itself. Every tax navigation node is assignable, as the tax labeler assigns a level 1 or level 2 node today. An M&A group is assignable when it holds a wave 2 provision or definition. See "Waves and filter levels". No M&A branch is assignable. |
 | `tier` | concepts | `value` when the concept has a piloted value schema. Otherwise `label`. |
 | `wave` | M&A concepts | `1` or `2`: the labeling wave. See "Waves and filter levels". The tax pack has no waves. |
 | `attributes.party` | concepts | The role of the party that a label instance must record: `maker` (of a representation), `obligor`, `tested_party`, `holder` (of a right), `indemnitor` or `subject`. The party is stored on the instance. There is no separate subtree per party. |
@@ -60,6 +60,8 @@ Labeling of the M&A pack runs in two waves (decided 2026-11-22). Each M&A concep
 | `wave: 2` | Clause-level provisions, parts and definitions | A provision that sits inside a larger section, such as a termination trigger or the indemnity cap. Every `component`, `modifier` and `definition`. The catch-all for termination rights, because its siblings are in wave 2. |
 
 A new M&A concept gets its wave by the same rule. The validator rejects an M&A concept with no wave, and a part or a definition in wave 1.
+
+**Group labels in wave 1** (decided 2026-11-23). In wave 1, a section whose content is only wave 2 concepts gets its group as the label. A "Termination" section gets `ma.nav.termination.rights`. A group is therefore marked `assignable: true` when it holds a wave 2 provision or definition. That is 16 of the 54 groups. A part does not count, because its text sits inside the text of its parent concept, and the parent carries the label. The validator rejects a group that breaks this rule in either direction, and it rejects an assignable M&A branch. A group label does not replace a catch-all: content that fits no concept of any wave goes to the catch-all concept.
 
 The tax pack has no waves. One tax pass labels it after wave 1 has found the tax sections.
 
@@ -118,4 +120,5 @@ The validator checks that:
 - each node of the legacy tax tree has exactly one `exact` match;
 - a concept is `tier: value` only when its value schema is piloted;
 - each M&A concept has `wave: 1` or `wave: 2`, and a part or a definition is in wave 2;
+- an M&A group is `assignable` exactly when it holds a wave 2 provision or definition, and no M&A branch is assignable;
 - each id that an exclusion cue names exists.

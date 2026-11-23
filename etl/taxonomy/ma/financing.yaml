@@ -16,6 +16,7 @@ groups:
     label: Financing Arrangements
     kind: group
     nav_parent: ma.nav.financing
+    assignable: true
     description: The financing structure, the commitment letters and guarantees.
     introduced_in: '2026.1'
 

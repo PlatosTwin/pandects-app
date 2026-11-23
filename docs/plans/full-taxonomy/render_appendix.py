@@ -64,6 +64,9 @@ def render_tree(taxonomy: taxonomy_pack.Taxonomy) -> str:
     lines.append("Marks: the kind when it is not `provision`; `wave 2` for an M&A concept that the second labeling")
     lines.append("wave covers (every other M&A concept is in wave 1); `value` for a piloted value schema;")
     lines.append("`value stub` for an untested sketch of fields; the party role that an instance records.")
+    lines.append("")
+    lines.append("In the M&A pack, † after a group name means that the group can be the label of a section in wave 1")
+    lines.append("(`assignable: true`): the group holds wave 2 concepts. Every tax navigation node is assignable.")
     for pack in taxonomy_pack.PACKS:
         lines += ["", f"## {PACK_TITLES[pack]}"]
         branches = [node for node in taxonomy.nodes.values() if node.pack == pack and node.kind == "branch"]
@@ -76,10 +79,11 @@ def render_tree(taxonomy: taxonomy_pack.Taxonomy) -> str:
                 lines.append(f"| (branch) | `{concept.id}` | {concept.label} | {_marks(concept)} |")
             for group in [node for node in children[branch.id] if node.kind == "group"]:
                 concepts = children[group.id]
+                name = group.label + (" †" if pack == "ma" and group.data.get("assignable") else "")
                 if not concepts:
-                    lines.append(f"| {group.label} | `{group.id}` | (no concepts) | |")
+                    lines.append(f"| {name} | `{group.id}` | (no concepts) | |")
                 for concept in concepts:
-                    lines.append(f"| {group.label} | `{concept.id}` | {concept.label} | {_marks(concept)} |")
+                    lines.append(f"| {name} | `{concept.id}` | {concept.label} | {_marks(concept)} |")
 
     lines += ["", "## Seam between the packs", ""]
     lines.append("Each node below has one owner pack and is also listed under a navigation node of the other pack.")

@@ -27,6 +27,7 @@ groups:
     label: Limits on Recovery
     kind: group
     nav_parent: ma.nav.indemnification
+    assignable: true
     description: Caps, baskets and other limits on what an indemnified party can recover.
     introduced_in: '2026.1'
 
