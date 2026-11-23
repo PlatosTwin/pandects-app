@@ -20,7 +20,7 @@ from collections.abc import Callable
 from typing import Any, Literal, TypeVar, cast
 
 from flask import current_app
-from sqlalchemy import and_, distinct, func, not_, select, union_all
+from sqlalchemy import Select, and_, distinct, func, not_, select, union_all
 
 from backend.extensions import db
 from backend.filtering import agreement_is_public_eligible_expr
@@ -229,7 +229,7 @@ def standard_id_labels(
 # ---------------------------------------------------------------------------
 
 
-def _section_counts_query(*, agreement_uuids: list[str] | None = None) -> Any:
+def _section_counts_query(*, agreement_uuids: list[str] | None = None) -> Select[Any, int]:
     """Distinct latest sections per node; L1/L2 nodes count their descendants too."""
     assignments = LatestSectionsSearchStandardId
     # (assigned standard_id, node it counts toward): itself plus every ancestor.
@@ -261,9 +261,9 @@ def _ineligible_agreements_with_sections() -> list[str]:
         not_(agreement_is_public_eligible_expr(cast(Any, Agreements)))
     )
     rows = db.session.execute(
-        select(distinct(assignments.agreement_uuid)).where(
-            assignments.agreement_uuid.in_(ineligible)
-        )
+        select(assignments.agreement_uuid)
+        .where(assignments.agreement_uuid.in_(ineligible))
+        .distinct()
     ).all()
     return [value for (value,) in rows if isinstance(value, str)]
 

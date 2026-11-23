@@ -16,9 +16,13 @@ _ = load_dotenv()
 
 def _normalize_database_uri(uri: str) -> str:
     normalized = uri.strip()
-    if normalized.startswith("postgres://"):
-        normalized = f"postgresql://{normalized[len('postgres://'):]}"
-    if normalized.startswith("postgresql://") and "connect_timeout=" not in normalized:
+    # SQLAlchemy 2.1 maps a bare postgresql:// URI to psycopg 3, which is not
+    # installed; pin the installed psycopg2 driver.
+    for bare_prefix in ("postgres://", "postgresql://"):
+        if normalized.startswith(bare_prefix):
+            normalized = f"postgresql+psycopg2://{normalized[len(bare_prefix):]}"
+            break
+    if normalized.startswith("postgresql+psycopg2://") and "connect_timeout=" not in normalized:
         joiner = "?" if "?" not in normalized else ("" if normalized.endswith("?") else "&")
         normalized = f"{normalized}{joiner}connect_timeout=5"
     return normalized
