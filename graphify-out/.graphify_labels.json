@@ -17,7 +17,6 @@
   "101": "generate-llms-docs.js",
   "109": "scripts",
   "110": "LiveMcpHttpClientHarness",
-  "120": "sidebars.ts",
   "123": "XMLGenerationTests",
   "129": "components.json",
   "134": "Optuna Best Hyperparameter Config",
