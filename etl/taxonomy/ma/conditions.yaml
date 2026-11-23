@@ -307,7 +307,10 @@ concepts:
     tier: label
     wave: 2
     description: >-
-      Closing depends on the buyer receiving its financing. It is rare in public deals.
+      Closing depends on the buyer receiving the proceeds of its financing. It is rare in public deals.
+      The condition must turn on the funding itself. A condition that a party deliver evidence of funds
+      or a budget is ma.condition.other. A condition that the target receive the proceeds of the buyer's
+      debt commitment letters, as in a recapitalization, is this concept too.
     canonical_terms:
       - financing condition
       - Buyer shall have received the proceeds of the Financing

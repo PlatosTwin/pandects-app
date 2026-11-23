@@ -153,7 +153,9 @@ concepts:
     description: >-
       An indemnity for a named matter, such as a pending lawsuit, an environmental condition, excluded
       liabilities or pre-closing indebtedness. It usually sits outside the cap and basket, and an
-      environmental indemnity often has its own cap, period and procedure.
+      environmental indemnity often has its own cap, period and procedure. The clause must be stated as
+      an indemnity ("indemnify", "hold harmless", "Losses arising out of") for the named matter. A plain
+      covenant that the seller "shall pay" or "shall reimburse" a cost is not a specific indemnity.
     canonical_terms:
       - special indemnity
       - Specified Matters
@@ -168,6 +170,10 @@ concepts:
     exclusion_cues:
       - The general indemnity for breaches is ma.indemn.obligation.
       - A covenant to do, control or pay for an environmental clean-up is ma.environmental.remediation.
+      - >-
+        A covenant to pay or reimburse excluded liabilities, or a shortfall that a third party fails to
+        pay, without indemnity words is not this concept. In an asset deal it is part of
+        ma.asset.excluded_liabilities.
     introduced_in: '2026.1'
 
   - id: ma.indemn.cap

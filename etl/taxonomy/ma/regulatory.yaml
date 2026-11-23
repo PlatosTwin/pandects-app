@@ -65,6 +65,12 @@ concepts:
         ma.nav.regulatory.antitrust).
       - Extra documents and acts after closing are ma.further_assurances.
       - Efforts to obtain consents under contracts are ma.efforts.third_party_consents.
+      - >-
+        Who pays the HSR Act and other regulatory filing fees is ma.regulatory.filing_fee_allocation (in
+        wave 1, label its group ma.nav.regulatory.antitrust).
+      - >-
+        A promise not to acquire another business if that would delay a regulatory approval is
+        ma.regulatory.no_interfering_acquisitions (in wave 1, label its group ma.nav.regulatory.antitrust).
     value_schema:
       status: stub
       fields:
@@ -212,17 +218,23 @@ concepts:
       party: obligor
     description: >-
       Whether a party must contest, through litigation and appeal, a governmental action that would block
-      the deal.
+      the deal. A clause that says a party is not required to litigate, or has the right but not the
+      duty to contest, is this concept too: it gives the value "not required". Such a clause often sits
+      in the same proviso as the divestiture limit of ma.regulatory.remedies, and then the text takes both.
     canonical_terms:
       - contest and resist any Action
       - litigation on the merits
       - vacated, lifted, reversed or overturned
       - defend through litigation
+      - shall not be required to contest or litigate
+      - the right (but not the obligation) to contest
     example_phrases:
       - >-
         Each party shall use its reasonable best efforts to contest and resist any Action that seeks to
         restrain or prohibit the consummation of the Merger, and to have vacated or overturned any Order
         that is in effect.
+    exclusion_cues:
+      - Which party decides whether to litigate and directs it is ma.regulatory.strategy_control.
     value_schema:
       status: stub
       fields:
@@ -247,11 +259,17 @@ concepts:
       party: obligor
     description: >-
       Which party directs the regulatory strategy, and limits on withdrawing a filing or agreeing to a
-      timing agreement.
+      timing agreement. Joint control is a value of this concept: a duty to coordinate the strategy, with
+      or without a tie-break, and a rule that neither party may extend a waiting period, withdraw a filing
+      or enter a timing agreement without the other's consent. Record the party that holds final say;
+      when control is joint, record both parties.
     canonical_terms:
       - control and direct the strategy
       - pull and refile
       - timing agreement
+      - shall not extend any waiting period without the consent of
+      - coordinate with the other Party regarding the strategy
+      - final discretion and authority
     example_phrases:
       - >-
         Parent shall, after consulting with the Company, control and direct the strategy for obtaining

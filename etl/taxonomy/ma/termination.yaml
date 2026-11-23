@@ -311,8 +311,11 @@ concepts:
     attributes:
       party: holder
     description: >-
-      A termination right that fits no other concept, such as a due diligence out or a right tied to a
-      specific event.
+      A termination right that fits no other concept, such as a due diligence out, a right for a material
+      adverse effect, a right when conditions become incapable of fulfillment, the expiry of a tender
+      offer, or a right tied to a specific event. Give one instance for each distinct trigger, so one
+      party may hold more than one. Watch the material adverse effect trigger: if the corpus run finds
+      it in many agreements, it may get a concept of its own.
     exclusion_cues:
       - A walk-away right tied to the buyer's stock price is ma.consideration.exchange_ratio.
     crosswalk:

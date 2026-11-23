@@ -82,12 +82,17 @@ concepts:
     description: >-
       The definition of Material Adverse Effect or Material Adverse Change: what it covers, the forward-looking
       standard, and the list of excluded events. The party it applies to is an attribute of the instance.
+      It also covers a "deemed MAE" proviso: a clause, in the definition or elsewhere, that states an
+      event, such as a revenue shortfall or a change in a government program, shall be deemed a Material
+      Adverse Effect.
     canonical_terms:
       - '"Material Adverse Effect" means'
       - Company Material Adverse Effect
       - Material Adverse Change
       - has had or would reasonably be expected to have
       - business, financial condition or results of operations
+      - shall be deemed a Material Adverse Effect
+      - shall be deemed to have had a Material Adverse Effect
     example_phrases:
       - >-
         "Company Material Adverse Effect" means any change, event or effect that, individually or in the
@@ -97,6 +102,9 @@ concepts:
     exclusion_cues:
       - The closing condition is ma.condition.no_mae.
       - One excluded event is ma.mae.carveout.
+      - >-
+        A "Lender MAC" or "Market MAC" that excuses the buyer's financing is not this concept. It is part
+        of the financing concept that it qualifies, such as ma.financing.buyer_covenant or ma.condition.financing.
     value_schema:
       status: piloted
       version: '2.16'
@@ -261,7 +269,9 @@ concepts:
     wave: 2
     description: >-
       The definition of a new event, not a competing proposal, that may justify a change of recommendation,
-      with its exclusions.
+      with its exclusions. The definition must be the deal term that this card describes: the same words
+      defined for another purpose, such as a new event that requires an update of the disclosure schedules,
+      are not this concept.
     canonical_terms:
       - '"Intervening Event" means'
       - not known to or reasonably foreseeable by the Company Board
@@ -272,6 +282,8 @@ concepts:
         "Intervening Event" means any material event or development that was not known to or reasonably
         foreseeable by the Company Board as of the date of this Agreement, other than the receipt of an
         Acquisition Proposal.
+    exclusion_cues:
+      - The board's right to change its recommendation for such an event is ma.recommendation.change_intervening_event.
     introduced_in: '2026.1'
 
   - id: ma.def.willful_breach
@@ -282,17 +294,29 @@ concepts:
       - ma.nav.termination.effect
     tier: label
     wave: 2
-    description: The definition of the kind of breach for which liability survives termination.
+    description: >-
+      The definition of the kind of breach for which liability survives termination, under any name. It
+      also covers a clause that sets the meaning without "means": one that deems a breach to be a Willful
+      Breach (for example any breach of the no-shop), or one that says a breach in good faith shall not
+      be deemed an intentional breach.
     canonical_terms:
       - '"Willful Breach" means'
       - Willful and Material Breach
       - Intentional Breach
+      - Willful Misconduct
+      - intentional breach
+      - knowing and intentional breach
+      - shall be deemed a Willful Breach
+      - shall not be deemed to be an intentional breach
       - with actual knowledge that the taking of such act would constitute a breach
     example_phrases:
       - >-
         "Willful Breach" means a material breach that is a consequence of an act or failure to act undertaken
         by the breaching party with actual knowledge that such act or failure to act would result in a
         breach of this Agreement.
+    exclusion_cues:
+      - The clause that keeps liability for such a breach after termination is ma.termination.willful_breach_liability.
+      - A definition of fraud is ma.def.fraud.
     value_schema:
       status: stub
       fields:
@@ -312,9 +336,14 @@ concepts:
     wave: 2
     description: >-
       The definition of fraud that limits the fraud exception to the caps and the exclusive remedy clause,
-      for example to intentional common law fraud in the making of the representations.
+      for example to intentional common law fraud in the making of the representations. It covers the
+      term under other names, such as "Intentional Misrepresentation" or "Actual Fraud".
     canonical_terms:
       - '"Fraud" means'
+      - Actual Fraud
+      - Intentional Fraud
+      - Intentional Misrepresentation
+      - willful and intentional misrepresentation
       - actual and intentional fraud
       - common law fraud under Delaware law
       - in the making of the representations and warranties
@@ -324,6 +353,8 @@ concepts:
         "Fraud" means actual and intentional common law fraud under Delaware law in the making of the
         representations and warranties set forth in this Agreement, and shall not include constructive
         fraud or negligent misrepresentation.
+    exclusion_cues:
+      - A cap or a survival period for fraud claims is part of ma.indemn.cap or the other limit concepts.
     value_schema:
       status: stub
       fields:
@@ -341,17 +372,32 @@ concepts:
       - ma.nav.regulatory.antitrust
     tier: label
     wave: 2
-    description: The definition of a regulatory remedy that the buyer need not accept.
+    description: >-
+      The defined threshold term for a regulatory remedy that the buyer need not accept, under any name.
+      It is often defined inline, inside the divestiture limit of ma.regulatory.remedies: "(any such
+      action, a 'Burdensome Condition')". Give it only where the text names the term and states what
+      it covers. A limit on remedies that names no term is ma.regulatory.remedies alone.
     canonical_terms:
       - '"Burdensome Condition" means'
       - Materially Burdensome Regulatory Condition
       - Regulatory Material Adverse Effect
       - Detriment Limit
+      - Burdensome Action
+      - Non-Required Remedy
+      - Divestiture Action
+      - (any such action, a "Burdensome Condition")
     example_phrases:
       - >-
         "Burdensome Condition" means any requirement to divest or hold separate any business or assets
         that would reasonably be expected to have a material adverse effect on Parent and its Subsidiaries,
         taken as a whole.
+    exclusion_cues:
+      - >-
+        The covenant on what a party must do or give up to win clearance is ma.regulatory.remedies. When
+        the term is defined inline in that covenant, give both concepts: this one for the defined term
+        and its scope, and the remedies concept for the duty and its limit.
+      - >-
+        A remedy that the covenant mentions without naming a defined term is ma.regulatory.remedies alone.
     introduced_in: '2026.1'
 
   - id: ma.def.marketing_period
@@ -455,7 +501,9 @@ concepts:
     wave: 2
     description: >-
       The definitions of working capital, the working capital target and the accounting principles used
-      to measure them.
+      to measure them. The definition must be the deal term that this card describes: a computation of
+      a shortfall or a final amount inside the adjustment procedure, or a use of the term, is not this
+      concept.
     canonical_terms:
       - '"Net Working Capital" means'
       - '"Target Working Capital" means'
@@ -465,6 +513,8 @@ concepts:
       - >-
         "Net Working Capital" means the current assets of the Company minus the current liabilities of
         the Company, in each case determined in accordance with the Accounting Principles.
+    exclusion_cues:
+      - The procedure that measures and pays the adjustment is ma.price_adjustment.mechanism.
     introduced_in: '2026.1'
 
   - id: ma.def.transaction_expenses
@@ -477,7 +527,9 @@ concepts:
     wave: 2
     description: >-
       Fees and expenses incurred in connection with the transactions and unpaid at closing, which the
-      price formula deducts, such as advisor fees and change of control payments.
+      price formula deducts, such as advisor fees and change of control payments. The definition must
+      be the deal term that this card describes and must state what the expenses include: an inline use
+      or a short label such as "(the 'Seller Transaction Expenses')" is not this concept.
     canonical_terms:
       - '"Transaction Expenses" means'
       - Company Transaction Expenses

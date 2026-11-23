@@ -277,6 +277,24 @@ class ShippedPacksTest(unittest.TestCase):
         self.assertTrue(any("ma.spac.public_filings" in cue for cue in catch_all["exclusion_cues"]))
         self.assertIn("no trading", catch_all["canonical_terms"])
 
+    def test_wave_two_trial_changes(self) -> None:
+        """Wave 2 trial (2026-11-23): the general fiduciary out has a concept, and the efforts cue reaches two list gaps."""
+        nodes = self.taxonomy.nodes
+        node = nodes["ma.recommendation.change_general_fiduciary"]
+        self.assertEqual(
+            (node.kind, node.data["wave"], node.nav_parent),
+            ("provision", 2, "ma.nav.deal_protection.recommendation"),
+        )
+        self.assertEqual(node.data["attributes"], {"party": "holder"})
+        cues = " ".join(node.data["exclusion_cues"])
+        self.assertIn("ma.recommendation.change_superior_proposal", cues)
+        self.assertIn("ma.recommendation.change_intervening_event", cues)
+        efforts_cues = " ".join(nodes["ma.efforts.general"].data["exclusion_cues"])
+        self.assertIn("ma.regulatory.filing_fee_allocation", efforts_cues)
+        self.assertIn("ma.regulatory.no_interfering_acquisitions", efforts_cues)
+        # The maintainer kept the defined threshold term as its own concept.
+        self.assertIn("ma.def.burdensome_condition", nodes)
+
     def test_tax_additions_are_flagged(self) -> None:
         """Each node that the legacy tax tree does not have is flagged, and no other node is."""
         flagged = {node.id for node in self.taxonomy.nodes.values() if node.data.get("new_in_redesign")}

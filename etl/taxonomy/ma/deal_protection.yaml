@@ -254,7 +254,8 @@ concepts:
         Change").
     exclusion_cues:
       - >-
-        The exceptions are ma.recommendation.change_superior_proposal and ma.recommendation.change_intervening_event.
+        The exceptions are ma.recommendation.change_superior_proposal, ma.recommendation.change_intervening_event
+        and ma.recommendation.change_general_fiduciary.
     crosswalk:
       section_v1:
         - id: 3b7a157321c3876f
@@ -286,6 +287,9 @@ concepts:
       - The termination right itself is ma.termination.right.superior_proposal.
       - The buyer's matching right is ma.recommendation.match_right.
       - The definition is ma.def.superior_proposal.
+      - >-
+        A right to change the recommendation for any reason that the board's fiduciary duties require,
+        with no superior proposal named as the ground, is ma.recommendation.change_general_fiduciary.
     value_schema:
       status: stub
       fields:
@@ -321,6 +325,12 @@ concepts:
         so would be inconsistent with its fiduciary duties.
     exclusion_cues:
       - The definition is ma.def.intervening_event.
+      - >-
+        A right to change the recommendation for any reason that the board's fiduciary duties require,
+        with no new event named as the ground, is ma.recommendation.change_general_fiduciary. "Other than
+        in connection with a Competing Proposal" alone does not make the out an intervening-event out:
+        give this concept only when the clause names an Intervening Event or a new event or circumstance
+        as the ground.
     value_schema:
       status: stub
       fields:
@@ -328,6 +338,48 @@ concepts:
           type: boolean
         - name: notice_period
           type: Duration
+    crosswalk:
+      section_v1:
+        - id: 3b7a157321c3876f
+          relation: narrower
+      section_v2:
+        - id: 4eae406295a1787b
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.recommendation.change_general_fiduciary
+    label: General Fiduciary Out
+    kind: provision
+    nav_parent: ma.nav.deal_protection.recommendation
+    tier: label
+    wave: 2
+    attributes:
+      party: holder
+    description: >-
+      The board's right to change its recommendation whenever it finds that its fiduciary duties require
+      it, for any reason. The clause names no superior proposal and no intervening event as the ground.
+      Whether a target has this unrestricted out is the variable.
+    canonical_terms:
+      - fiduciary out
+      - if the Board has determined in good faith
+      - failure to take such action would be inconsistent with its fiduciary duties
+      - Adverse Recommendation Change
+      - for any reason
+    example_phrases:
+      - >-
+        Notwithstanding anything to the contrary in this Agreement, prior to obtaining the Company Stockholder
+        Approval, the Company Board may effect an Adverse Recommendation Change if it determines in good
+        faith, after consultation with outside counsel, that the failure to do so would be inconsistent
+        with its fiduciary duties under applicable Law.
+    exclusion_cues:
+      - >-
+        A change in response to a Superior Proposal is ma.recommendation.change_superior_proposal. Give
+        this concept as well only when a separate sentence lets the board change for any other reason.
+      - >-
+        A change because of an Intervening Event or another new event that is not a competing proposal
+        is ma.recommendation.change_intervening_event.
+      - The ban on changing the recommendation is ma.recommendation.board_recommendation.
+      - The buyer's notice and negotiation period before the change is ma.recommendation.match_right.
     crosswalk:
       section_v1:
         - id: 3b7a157321c3876f
@@ -368,7 +420,7 @@ concepts:
         - name: unlimited_rounds
           type: boolean
         - name: applies_to
-          type: 'set: superior_proposal | intervening_event'
+          type: 'set: superior_proposal | intervening_event | general_fiduciary'
     crosswalk:
       section_v1:
         - id: 3b7a157321c3876f
@@ -457,9 +509,12 @@ concepts:
     wave: 2
     description: >-
       The duty to submit the deal to a stockholder vote even if the board has changed its recommendation.
+      The clause must keep the meeting or the vote in place after a change of recommendation. It may sit
+      in the no-shop or recommendation section as well as in the meeting covenant.
     canonical_terms:
       - force the vote
       - notwithstanding any Adverse Recommendation Change
+      - shall not be relieved of its obligations to call and hold the Meeting
       - shall submit this Agreement to its stockholders
       - Section 146 of the DGCL
     example_phrases:
@@ -467,6 +522,10 @@ concepts:
         Unless this Agreement is terminated, the Company shall submit this Agreement to its stockholders
         at the Company Stockholders Meeting even if the Company Board has effected an Adverse Recommendation
         Change.
+    exclusion_cues:
+      - >-
+        A meeting duty that is "not affected by" the receipt or announcement of a competing proposal, with
+        no word on a change of recommendation, is not this concept. It is part of ma.approval.stockholder_meeting.
     value_schema:
       status: stub
       fields:

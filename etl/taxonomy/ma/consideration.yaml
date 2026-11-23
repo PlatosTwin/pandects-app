@@ -256,10 +256,13 @@ concepts:
     wave: 2
     description: >-
       A part of the price that the buyer pays later under a promissory note to the sellers, or as a fixed
-      deferred payment. It covers the amount, the term, interest, security and subordination.
+      deferred payment. It covers the amount, the term, interest, security and subordination. The note
+      or payment must be part of the price for this deal: a deferral of interest or principal on existing
+      debt, such as PIK interest under a credit agreement, is not this concept.
     canonical_terms:
       - Seller Note
       - promissory note
+      - the Note in the principal amount of
       - Deferred Purchase Price
       - Deferred Payment
       - subordinated to the Senior Debt
@@ -271,6 +274,10 @@ concepts:
     exclusion_cues:
       - A payment that depends on future results or events is ma.consideration.earnout.
       - Buyer stock issued as consideration is ma.consideration.buyer_securities.
+      - >-
+        Part of the price kept to secure a price adjustment or indemnity claims is ma.price_adjustment.escrow
+        or ma.indemn.escrow.
+      - Indebtedness of the target that the price formula deducts is ma.def.indebtedness.
     value_schema:
       status: stub
       fields:
@@ -785,17 +792,34 @@ concepts:
     nav_parent: ma.nav.consideration.adjustment
     tier: label
     wave: 2
-    description: An escrow or holdback that secures the seller's duty to pay a downward price adjustment.
+    description: >-
+      An escrow or holdback that secures the seller's duty to pay a downward price adjustment. A holdback
+      counts when the buyer keeps part of the price to cover the adjustment, such as an "Adjustment Holdback"
+      that a shortfall reduces. When one escrow holds a separate adjustment amount and a separate indemnity
+      amount, give both this concept and ma.indemn.escrow.
     canonical_terms:
       - Adjustment Escrow Amount
       - Adjustment Escrow Fund
+      - Purchase Price Adjustment Escrow Fund
       - Working Capital Escrow
+      - Adjustment Holdback
     example_phrases:
       - >-
         Any amount owed by Sellers under this Section shall be paid first from the Adjustment Escrow Fund.
+      - >-
+        At the Closing, Buyer shall deposit the Adjustment Escrow Amount and the Indemnity Escrow Amount
+        with the Escrow Agent.
     exclusion_cues:
       - The escrow that secures indemnity claims is ma.indemn.escrow.
-      - One escrow that secures both the price adjustment and indemnity claims is ma.indemn.escrow.
+      - >-
+        One undivided escrow that secures both the price adjustment and indemnity claims, with no separate
+        adjustment amount, is ma.indemn.escrow.
+      - >-
+        A fixed part of the price that the buyer pays later is ma.consideration.seller_note, even when a
+        working capital shortfall reduces it.
+      - >-
+        An escrow of cash or shares that secures an earnout or a revenue target, or that the buyer gets
+        back if a target is missed, is ma.consideration.earnout.
     value_schema:
       status: stub
       fields:
