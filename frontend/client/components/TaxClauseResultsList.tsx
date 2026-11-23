@@ -81,11 +81,11 @@ export function TaxClauseResultsList({
               }
               title={
                 <h3
-                  className={cn("text-base font-semibold leading-snug", density === "compact" && "text-sm")}
+                  className={cn("text-base font-semibold leading-snug", density === "compact" && "text-sm/5")}
                 >
                   <Link
                     to={href}
-                    className="text-foreground hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="text-foreground hover:text-primary hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {title}
                   </Link>

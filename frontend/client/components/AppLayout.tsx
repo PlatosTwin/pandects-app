@@ -51,7 +51,7 @@ function FallbackBody({ shell }: { shell: Exclude<RouteShell, "none"> }) {
     case "landing":
       return (
         <div className="px-4 py-8 sm:py-12 lg:py-16">
-          <div className="mx-auto h-[36rem] w-full max-w-[960px] animate-pulse rounded-xl bg-muted/40" />
+          <div className="mx-auto h-144 w-full max-w-[960px] animate-pulse rounded-xl bg-muted/40" />
         </div>
       );
     case "status":
@@ -199,7 +199,7 @@ export function AppLayout() {
     <div className="min-h-screen bg-cream flex flex-col">
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 z-[60] rounded-md bg-background px-3 py-2 text-sm font-medium text-foreground shadow-overlay focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 z-60 rounded-md bg-background px-3 py-2 text-sm font-medium text-foreground shadow-overlay focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         Skip to content
       </a>
@@ -211,7 +211,7 @@ export function AppLayout() {
         // At least a viewport tall (minus the h-16 nav), so the footer starts
         // below the fold whether the route fallback or the page is showing and
         // never jumps when a lazy page arrives (it was most of each route's CLS).
-        className="min-h-[calc(100svh-4rem)] flex-1 outline-none print:min-h-0"
+        className="min-h-[calc(100svh-4rem)] flex-1 outline-hidden print:min-h-0"
       >
         <ErrorBoundary
           key={location.pathname}

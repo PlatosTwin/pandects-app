@@ -36,7 +36,7 @@ import {
 // Every sheet item carries the same 2px left border so labels line up; the
 // active item colors it.
 const itemBase =
-  "flex items-center gap-2 rounded-md border-l-2 px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+  "flex items-center gap-2 rounded-md border-l-2 px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 const itemActive = "border-primary bg-primary/10 text-primary";
 const itemIdle =
   "border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground";
@@ -181,7 +181,7 @@ function NavigationMobileMenuComponent() {
                     <SheetClose asChild>
                       <Link
                         to={link.to}
-                        className="rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="rounded-sm hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         {link.label}
                       </Link>

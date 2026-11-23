@@ -145,7 +145,7 @@ export function SearchEmptyState({
               <li key={starter.key}>
                 <Link
                   to={starter.href}
-                  className="flex h-full items-start gap-3 rounded-lg border border-border bg-card shadow-raised px-3 py-2.5 surface-interactive hover:border-primary/40 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex h-full items-start gap-3 rounded-lg border border-border bg-card shadow-raised px-3 py-2.5 surface-interactive hover:border-primary/40 hover:bg-accent/40 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <SearchIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                   <span className="min-w-0">
@@ -169,7 +169,7 @@ export function SearchEmptyState({
               <li key={entry.search}>
                 <Link
                   to={`/search?${entry.search}`}
-                  className="flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                  className="flex items-center gap-3 px-3 py-2.5 text-sm text-foreground hover:bg-accent/40 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                 >
                   <History className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                   <span className="min-w-0 truncate">{entry.label}</span>

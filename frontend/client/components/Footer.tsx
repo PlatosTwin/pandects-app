@@ -10,7 +10,7 @@ import {
 import { NavItemLink, useShowLock } from "@/components/NavLinkParts";
 
 const focusRing =
-  "rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+  "rounded-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
 
 function FooterComponent() {
   // Same signal as the header menus: a lock on pages that need sign-in.

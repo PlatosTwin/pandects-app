@@ -477,7 +477,7 @@ export default function Account() {
                 <dl className="grid min-w-0 gap-4 text-sm sm:grid-flow-col sm:gap-10">
                   <div className="min-w-0">
                     <dt className={eyebrowClassName}>Email</dt>
-                    <dd className="mt-1 break-words text-foreground">{user.email}</dd>
+                    <dd className="mt-1 wrap-break-word text-foreground">{user.email}</dd>
                   </div>
                 </dl>
                 <Button variant="outline" onClick={logout} className="w-full sm:w-auto">
@@ -807,7 +807,7 @@ export default function Account() {
               </div>
 
               <Alert className="border-border bg-muted/20 text-muted-foreground">
-                <AlertTitle as="h3" className="text-sm font-semibold text-foreground/80">
+                <AlertTitle as="h3" className="text-sm/5 font-semibold text-foreground/80">
                   MCP uses account login, not API keys
                 </AlertTitle>
                 <AlertDescription className="prose-copy">

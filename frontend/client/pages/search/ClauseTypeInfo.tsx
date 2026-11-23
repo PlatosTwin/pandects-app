@@ -53,7 +53,7 @@ export function ClauseTypeInfo({ kind, standardId, label }: ClauseTypeInfoProps)
   const trigger = (
     <button
       type="button"
-      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
       aria-label={`About ${label}`}
       title={`About ${label}`}
       onClick={isMobile ? () => onOpenChange(true) : undefined}
@@ -85,7 +85,7 @@ export function ClauseTypeInfo({ kind, standardId, label }: ClauseTypeInfoProps)
       <PopoverContent
         align="end"
         aria-labelledby={titleId}
-        className="max-h-[min(36rem,var(--radix-popover-content-available-height))] w-[26rem] max-w-[calc(100vw-2rem)] overflow-y-auto p-4"
+        className="max-h-[min(36rem,var(--radix-popover-content-available-height))] w-104 max-w-[calc(100vw-2rem)] overflow-y-auto p-4"
       >
         {panel}
       </PopoverContent>

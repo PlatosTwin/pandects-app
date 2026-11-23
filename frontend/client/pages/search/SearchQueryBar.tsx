@@ -126,7 +126,7 @@ export const SearchQueryBar = forwardRef<HTMLDivElement, SearchQueryBarProps>(fu
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : undefined}
         className={cn(
-          "h-10 w-full rounded-md border border-input bg-background pl-9 pr-8 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm [&::-webkit-search-cancel-button]:hidden",
+          "h-10 w-full rounded-md border border-input bg-background pl-9 pr-8 text-base text-foreground placeholder:text-muted-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm [&::-webkit-search-cancel-button]:hidden",
           error && "border-destructive",
         )}
       />
@@ -138,7 +138,7 @@ export const SearchQueryBar = forwardRef<HTMLDivElement, SearchQueryBarProps>(fu
             setError(null);
             if (keyword) onSubmit("", draftMatch);
           }}
-          className="absolute right-1.5 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="absolute right-1.5 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Clear keyword"
         >
           <X className="h-4 w-4" aria-hidden="true" />
@@ -150,7 +150,7 @@ export const SearchQueryBar = forwardRef<HTMLDivElement, SearchQueryBarProps>(fu
   return (
     <div
       ref={ref}
-      className="z-20 border-b border-border bg-background/95 py-3 supports-[backdrop-filter]:bg-background/80 supports-[backdrop-filter]:backdrop-blur lg:sticky lg:top-16"
+      className="z-20 border-b border-border bg-background/95 py-3 supports-backdrop-filter:bg-background/80 supports-backdrop-filter:backdrop-blur-sm lg:sticky lg:top-16"
     >
       <div className="app-frame-bleed">
         <h1 className="sr-only" id="search-page-title">
@@ -166,7 +166,7 @@ export const SearchQueryBar = forwardRef<HTMLDivElement, SearchQueryBarProps>(fu
             aria-label="Search mode"
             value={mode}
             onValueChange={onModeChange}
-            className="w-full shrink-0 md:w-auto [&>*]:flex-1 md:[&>*]:flex-none"
+            className="w-full shrink-0 md:w-auto *:flex-1 md:*:flex-none"
             options={MODE_ORDER.map((value) => ({ value, label: MODE_NOUNS[value].title }))}
           />
           <div className="flex min-w-0 items-center gap-1 md:w-64 lg:w-56 xl:w-72">
@@ -219,7 +219,7 @@ export const SearchQueryBar = forwardRef<HTMLDivElement, SearchQueryBarProps>(fu
                   if (keyword || draft.trim()) submit(next);
                 }}
               >
-                <SelectTrigger className="h-10 flex-1 text-sm sm:w-[8.5rem] sm:flex-none sm:shrink-0" aria-label="Keyword match">
+                <SelectTrigger className="h-10 flex-1 text-sm sm:w-34 sm:flex-none sm:shrink-0" aria-label="Keyword match">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

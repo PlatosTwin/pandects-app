@@ -21,7 +21,7 @@ type RecentAgreement = ReturnType<
 
 const ALL_DEALS_PATH = "/search?mode=transactions";
 
-const ROW = "flex min-h-[3.75rem] items-center gap-3 px-4 py-2.5";
+const ROW = "flex min-h-15 items-center gap-3 px-4 py-2.5";
 
 /**
  * The most recently filed agreements as a short list of rows (target,
@@ -64,7 +64,7 @@ export function FeaturedAgreements({
         </h2>
         <Link
           to={ALL_DEALS_PATH}
-          className="inline-flex min-h-11 items-center rounded-md text-sm font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-0"
+          className="inline-flex min-h-11 items-center rounded-md text-sm font-medium text-primary hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-0"
           onClick={() =>
             trackEvent("landing_featured_agreements_view_all", {
               to_path: ALL_DEALS_PATH,
@@ -124,7 +124,7 @@ function FeaturedAgreementRow({
       }
       className={cn(
         ROW,
-        "group transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+        "group transition-colors hover:bg-accent/60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
       )}
     >
       <div className="min-w-0 flex-1">
@@ -139,7 +139,7 @@ function FeaturedAgreementRow({
         </span>
       ) : null}
       <ArrowRight
-        className="h-4 w-4 shrink-0 text-muted-foreground transition-[color,transform] duration-150 group-hover:text-foreground motion-safe:group-hover:translate-x-0.5"
+        className="h-4 w-4 shrink-0 text-muted-foreground transition-[color,translate] duration-150 group-hover:text-foreground motion-safe:group-hover:translate-x-0.5"
         aria-hidden="true"
       />
     </Link>

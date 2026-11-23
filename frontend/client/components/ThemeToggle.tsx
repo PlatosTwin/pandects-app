@@ -125,7 +125,7 @@ function ThemeToggleInlineComponent({ className }: { className?: string }) {
             title={label}
             onClick={() => setThemePreference(value)}
             className={cn(
-              "inline-flex h-8 w-9 items-center justify-center rounded-[5px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "inline-flex h-8 w-9 items-center justify-center rounded-[5px] transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
               selected
                 ? "bg-background text-foreground shadow-raised"
                 : "text-muted-foreground hover:text-foreground",

@@ -45,7 +45,7 @@ export function splitFindSegments(text: string, regex: RegExp | null): TextSegme
 }
 
 export const findHitClassName =
-  "rounded-sm bg-warning/20 px-px text-foreground ring-1 ring-warning/30 data-[find-current]:bg-warning data-[find-current]:text-warning-foreground data-[find-current]:ring-warning";
+  "rounded-sm bg-warning/20 px-px text-foreground ring-1 ring-warning/30 data-find-current:bg-warning data-find-current:text-warning-foreground data-find-current:ring-warning";
 
 /** Renders `text` with every hit wrapped in `<mark data-find-hit>`. */
 export function renderFindHighlights(text: string, regex: RegExp | null): ReactNode {

@@ -163,7 +163,7 @@ export function NestedCheckboxTree({
               <button
                 type="button"
                 onClick={() => setExpanded((prev) => ({ ...prev, [expandKey]: !prev[expandKey] }))}
-                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                 aria-expanded={isOpen}
                 aria-label={isOpen ? `Collapse ${key}` : `Expand ${key}`}
               >
@@ -209,7 +209,7 @@ export function NestedCheckboxTree({
           aria-label={`Search ${noun}`}
           aria-controls={listId}
           placeholder={`Search ${noun}…`}
-          className="block h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-base placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm"
+          className="block h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-base placeholder:text-muted-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring sm:text-sm"
         />
       </div>
 
@@ -231,7 +231,7 @@ export function NestedCheckboxTree({
                       onClick={() => onToggle(match.id)}
                       onMouseEnter={() => setHighlighted(index)}
                       className={cn(
-                        "flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        "flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
                         index === highlighted && "bg-accent",
                       )}
                     >
@@ -240,9 +240,9 @@ export function NestedCheckboxTree({
                         aria-hidden="true"
                       />
                       <span className="flex min-w-0 flex-col">
-                        <span className="break-words text-foreground">{match.key}</span>
+                        <span className="wrap-break-word text-foreground">{match.key}</span>
                         {match.path.length > 0 ? (
-                          <span className="break-words text-xs text-muted-foreground">
+                          <span className="wrap-break-word text-xs text-muted-foreground">
                             {match.path.join(" › ")}
                           </span>
                         ) : null}
@@ -268,7 +268,7 @@ export function NestedCheckboxTree({
               <button
                 type="button"
                 onClick={onClear}
-                className="text-xs font-medium text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="text-xs font-medium text-primary hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
               >
                 Clear
               </button>
@@ -282,7 +282,7 @@ export function NestedCheckboxTree({
                   key={value}
                   type="button"
                   onClick={() => onToggle(value)}
-                  className="inline-flex max-w-full items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-xs text-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="inline-flex max-w-full items-center gap-1 rounded-md border border-border bg-muted/40 px-2 py-1 text-xs text-foreground hover:bg-accent focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                   aria-label={`Remove ${label}`}
                 >
                   <span className="truncate">{label}</span>
@@ -337,7 +337,7 @@ export function NestedCheckboxFilter({
             aria-label={`${label}: ${summary}`}
             className={cn(
               "flex h-10 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-left text-sm text-foreground transition-colors",
-              "hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50",
+              "hover:bg-accent/40 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50",
               selectedValues.length === 0 && "text-muted-foreground",
               triggerClassName,
             )}

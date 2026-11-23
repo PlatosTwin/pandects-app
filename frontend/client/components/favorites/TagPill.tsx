@@ -100,7 +100,7 @@ export function TagPill({
             onRemove();
           }}
           aria-label={`Remove tag ${name}`}
-          className="ml-0.5 inline-flex h-11 w-11 items-center justify-center rounded-full hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-5 sm:w-5 dark:hover:bg-white/10"
+          className="ml-0.5 inline-flex h-11 w-11 items-center justify-center rounded-full hover:bg-black/5 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring sm:h-5 sm:w-5 dark:hover:bg-white/10"
         >
           <X className="h-3 w-3" />
         </button>

@@ -82,7 +82,7 @@ export function DocsTableOfContents({
               aria-current={isActive ? "location" : undefined}
               onClick={onNavigate}
               className={cn(
-                "-ml-px block border-l-2 py-1.5 pr-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "-ml-px block border-l-2 py-1.5 pr-2 text-sm transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
                 item.level === 1 ? "pl-6" : "pl-3",
                 isActive
                   ? "border-primary font-medium text-foreground"
@@ -108,7 +108,7 @@ export function DocsTableOfContents({
           type="button"
           aria-expanded={open}
           onClick={() => setOpen((value) => !value)}
-          className="flex h-11 w-full items-center justify-between px-4 text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex h-11 w-full items-center justify-between px-4 text-sm font-medium text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
         >
           {title}
           <ChevronDown

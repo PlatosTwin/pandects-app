@@ -168,7 +168,7 @@ export function SectionActions(props: SectionActionsProps) {
         className={cn(
           "flex items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover/heading:opacity-100",
           // Keep the cluster visible while one of its dialogs/popovers is open.
-          "has-[[data-state=open]]:opacity-100",
+          "has-data-[state=open]:opacity-100",
         )}
       >
         <ActionButtons {...props} showStar={armed && !starred} showFlag={armed} />

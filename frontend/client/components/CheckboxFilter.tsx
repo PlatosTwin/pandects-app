@@ -144,7 +144,7 @@ export function CheckboxFilter({
             disabled={disabled}
             className={cn(
               "flex h-10 w-full items-center justify-between gap-3 rounded-md border border-input bg-background px-3 py-2 text-left text-sm text-foreground transition-colors",
-              "hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              "hover:bg-accent/40 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
               "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-background",
             )}
           >
@@ -162,7 +162,7 @@ export function CheckboxFilter({
           align="start"
           // Radix popovers render role="dialog"; name it after the filter.
           aria-labelledby={labelId}
-          className="w-[--radix-popover-trigger-width] p-0"
+          className="w-(--radix-popover-trigger-width) p-0"
 >
           <Command shouldFilter={!hideSearch && !asyncSearch}>
             {!hideSearch && (

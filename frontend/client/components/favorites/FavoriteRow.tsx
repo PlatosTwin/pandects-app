@@ -317,7 +317,7 @@ export function FavoriteRow({
               type="button"
               onClick={() => setEditingNote(true)}
               aria-label="Edit note"
-              className="block min-h-11 max-w-full whitespace-pre-wrap break-words text-left text-sm text-muted-foreground hover:text-foreground sm:min-h-0"
+              className="block min-h-11 max-w-full whitespace-pre-wrap wrap-break-word text-left text-sm text-muted-foreground hover:text-foreground sm:min-h-0"
             >
               {fav.note ?? "Add a note…"}
             </button>

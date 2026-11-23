@@ -265,7 +265,7 @@ export function FlagAsInaccurateButton({
           className="max-w-sm overflow-visible"
           sideOffset={8}
         >
-          <p className="whitespace-normal break-words text-left">
+          <p className="whitespace-normal wrap-break-word text-left">
             <strong>Report an issue.</strong>
             {TOOLTIP_REST}
           </p>

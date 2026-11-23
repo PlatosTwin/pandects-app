@@ -242,7 +242,7 @@ function renderAgreementTableOfContents(
           >
             <span
               className={cn(
-                "min-w-0 flex-1 break-words [overflow-wrap:anywhere]",
+                "min-w-0 flex-1 wrap-break-word wrap-anywhere",
                 isArticle && "font-medium tracking-[0.02em]",
               )}
             >
@@ -259,7 +259,7 @@ function renderAgreementTableOfContents(
               )}
             </span>
             {row.pageNumber ? (
-              <span className="w-10 flex-shrink-0 text-right tabular-nums text-muted-foreground">
+              <span className="w-10 shrink-0 text-right tabular-nums text-muted-foreground">
                 {row.pageNumber}
               </span>
             ) : null}
@@ -299,8 +299,8 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
       <span
         className={cn(
           isMobile
-            ? "whitespace-pre-line break-words [overflow-wrap:anywhere]"
-            : "whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+            ? "whitespace-pre-line wrap-break-word wrap-anywhere"
+            : "whitespace-pre-wrap wrap-break-word wrap-anywhere",
         )}
       >
         {renderFindHighlights(normalizedContent, findRegex)}
@@ -356,12 +356,12 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
       return (
         <div className="my-1">
           <div className="flex items-start">
-            <div className="w-4 flex-shrink-0">
+            <div className="w-4 shrink-0">
               <button
                 type="button"
                 onClick={() => onToggleCollapse(tagId)}
                 data-collapse-toggle="true"
-                className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-0 sm:min-w-0"
+                className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-0 sm:min-w-0"
                 aria-expanded={!isCollapsed}
                 aria-label={isCollapsed ? "Expand section" : "Collapse section"}
               >
@@ -395,8 +395,8 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
             <span
               className={
                 isMobile
-                  ? "whitespace-pre-line break-words [overflow-wrap:anywhere]"
-                  : "whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
+                  ? "whitespace-pre-line wrap-break-word wrap-anywhere"
+                  : "whitespace-pre-wrap wrap-break-word wrap-anywhere"
               }
             >
               {renderOverlayText(anchorText(first.content), ranges, overlay!, termMode)}
@@ -515,7 +515,7 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
                 type="button"
                 onClick={() => onToggleCollapse(tagId)}
                 data-collapse-toggle="true"
-                className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-0 sm:min-w-0"
+                className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-0 sm:min-w-0"
                 aria-expanded={!isCollapsed}
                 aria-label={isCollapsed ? "Expand section" : "Collapse section"}
               >
@@ -527,7 +527,7 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
               </button>
             )}
 
-            <HeadingTag className={cn(headerLevel, "min-w-0 flex-1 break-words text-foreground [overflow-wrap:anywhere]")}>
+            <HeadingTag className={cn(headerLevel, "min-w-0 flex-1 wrap-break-word text-foreground wrap-anywhere")}>
               {renderFindHighlights(title, findRegex)}
             </HeadingTag>
             {headingExtras}
@@ -545,13 +545,13 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
     return (
       <div {...containerProps}>
         <div className="flex items-start gap-1.5">
-          <div className="flex-shrink-0">
+          <div className="shrink-0">
             {isCollapsible && (
               <button
                 type="button"
                 onClick={() => onToggleCollapse(tagId)}
                 data-collapse-toggle="true"
-                className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-0 sm:min-w-0"
+                className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-0 sm:min-w-0"
                 aria-expanded={!isCollapsed}
                 aria-label={isCollapsed ? "Expand section" : "Collapse section"}
               >
@@ -569,7 +569,7 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
               className="group/heading mb-2 flex items-start gap-2"
               data-section-heading=""
             >
-              <HeadingTag className={cn(headerLevel, "min-w-0 flex-1 break-words text-foreground [overflow-wrap:anywhere]")}>
+              <HeadingTag className={cn(headerLevel, "min-w-0 flex-1 wrap-break-word text-foreground wrap-anywhere")}>
                 {renderFindHighlights(title, findRegex)}
               </HeadingTag>
               {headingExtras}
@@ -598,13 +598,13 @@ function XMLNodeViewInner(props: XMLNodeViewProps): ReactNode {
   return (
     <div className="my-1 scroll-mt-3" {...dataAttributes}>
       <div className="flex items-start gap-1">
-        <div className="flex-shrink-0">
+        <div className="shrink-0">
           {isCollapsible && (
             <button
               type="button"
               onClick={() => onToggleCollapse(tagId)}
               data-collapse-toggle="true"
-              className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-0 sm:min-w-0"
+              className="inline-flex min-h-8 min-w-8 items-center justify-center rounded-md p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-0 sm:min-w-0"
               aria-expanded={!isCollapsed}
               aria-label={isCollapsed ? "Expand section" : "Collapse section"}
             >

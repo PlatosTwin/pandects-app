@@ -84,7 +84,7 @@ function FacetGroup({
     <Collapsible open={open} onOpenChange={onOpenChange} className="border-b border-border last:border-b-0">
       <div className="flex items-center gap-2 py-1">
         <CollapsibleTrigger
-          className="flex min-h-10 flex-1 items-center gap-2 rounded-md px-1 text-left text-sm font-semibold text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-h-10 flex-1 items-center gap-2 rounded-md px-1 text-left text-sm font-semibold text-foreground hover:text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
           aria-controls={`facet-group-${id}`}
         >
           <ChevronDown
@@ -103,7 +103,7 @@ function FacetGroup({
           <button
             type="button"
             onClick={onReset}
-            className="rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="rounded-md px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-accent/60 hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
             aria-label={`Reset ${title} filters`}
           >
             Reset

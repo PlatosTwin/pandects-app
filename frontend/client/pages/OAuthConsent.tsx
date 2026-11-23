@@ -267,7 +267,7 @@ function ConsentDetails({
             <dt className="text-muted-foreground">
               Name the application gave itself
             </dt>
-            <dd className="mt-0.5 break-words text-foreground">{clientName}</dd>
+            <dd className="mt-0.5 wrap-break-word text-foreground">{clientName}</dd>
           </div>
         ) : null}
       </dl>

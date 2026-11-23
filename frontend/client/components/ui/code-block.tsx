@@ -55,7 +55,7 @@ export function CodeBlock({
           role={wrap ? undefined : "region"}
           aria-label={wrap ? undefined : regionLabel}
           className={cn(
-            "min-w-0 flex-1 overflow-x-auto rounded-md px-3 py-2.5 font-mono text-[13px] leading-relaxed text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+            "min-w-0 flex-1 overflow-x-auto rounded-md px-3 py-2.5 font-mono text-[13px] leading-relaxed text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
             wrap && "whitespace-pre-wrap break-all",
           )}
         >

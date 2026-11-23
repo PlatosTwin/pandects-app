@@ -166,7 +166,7 @@ and status dots.
 ## Page frame
 
 Every page renders inside `PageShell` (`components/PageShell.tsx`). The outer
-frame is the `app-frame` class (`global.css`: `max-w-screen-2xl` plus the
+frame is the `app-frame` class (`global.css`: `max-w-[1536px]` plus the
 `px-4 sm:px-6 lg:px-8` gutter), the same class the navigation bar, footer
 and the reader use, so the title always lines up with the logo. Change
 the width there only; `lib/design-system.spec.ts` fails on a copied

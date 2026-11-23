@@ -58,7 +58,7 @@ export function LandingStats({ className }: { className?: string }) {
       aria-label="Dataset facts"
       aria-busy={loading || undefined}
       className={cn(
-        "flex min-h-[3.5rem] flex-wrap content-start items-center gap-2 md:min-h-6",
+        "flex min-h-14 flex-wrap content-start items-center gap-2 md:min-h-6",
         className,
       )}
     >
