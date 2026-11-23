@@ -1,20 +1,20 @@
 # Full taxonomy for M&A and tax provisions: design
 
-Status: draft for the maintainer's review, 2026-11-22. The M&A pack was trimmed the same day, after the maintainer's first review. An independent review of the trim on 2026-11-23 split five concepts back out (section 4.4). An adversarial review of the whole PR on the same day led to the fixes in section 11.3. Nothing in this document is live. No paid model call was made for this work, and no row in any database was changed.
+Status: draft for the maintainer's review, 2026-11-22. The M&A pack was trimmed the same day, after the maintainer's first review. An independent review of the trim on 2026-11-23 split five concepts back out (section 4.4). An adversarial review of the whole PR on the same day led to the fixes in section 11.3. A labeling trial on 50 agreements, also on 2026-11-23, led to the changes in section 11.4. Nothing in this document is live. No paid model call was made for this work, and no row in any database was changed.
 
 This document belongs to the span taxonomy plan (draft PR 317, https://github.com/PlatosTwin/pandects-app/pull/317, not yet on main). That plan tested ten value concepts in depth. This document gives the breadth step: the full list of provisions, for both subject areas, before any paid labeling run.
 
 ## 1. Summary
 
-- **What exists now.** Two sets of taxonomy files, called packs, are in `etl/taxonomy/`. The M&A pack (`ma`) has 15 branches, 54 groups and 266 concepts. The tax pack (`tax`) has 10 branches, 35 groups and 112 concepts. A validator and 66 tests check them without network or database access.
+- **What exists now.** Two sets of taxonomy files, called packs, are in `etl/taxonomy/`. The M&A pack (`ma`) has 15 branches, 54 groups and 272 concepts. The tax pack (`tax`) has 10 branches, 35 groups and 115 concepts. A validator and 80 tests check them without network or database access.
 - **A concept is one thing a researcher filters on.** `ma.governing_law` answers "which law governs this agreement". It does not also hold the forum clause or the jury waiver. Each of those has its own concept.
 - **Groups are the default filter level.** A researcher browses and filters by the 54 M&A groups first. A label on a concept also counts for its group and its branch. A filter on one concept is the finer choice.
-- **Two labeling waves.** Each M&A concept states its wave. Wave 1 has the 194 section-level topics and catch-alls. Wave 2 has the 72 clause-level provisions, parts and definitions. Section 4.4 gives the rule. In wave 1, a section that holds only wave 2 concepts gets its group as the label.
-- **The tax tree keeps its structure.** All 150 nodes of the tax clause tree are present with the same labels and the same parents. This design proposes 7 additions and no removals, renames or merges. Section 8 lists each addition with its reason, so that the maintainer can veto it.
+- **Two labeling waves.** Each M&A concept states its wave. Wave 1 has the 199 section-level topics and catch-alls. Wave 2 has the 73 clause-level provisions, parts and definitions. Section 4.4 gives the rule. In wave 1, a section that holds only wave 2 concepts gets its group as the label.
+- **The tax tree keeps its structure.** All 150 nodes of the tax clause tree are present with the same labels and the same parents. This design has 10 additions and no removals, renames or merges. Section 8 lists each addition with its reason. The maintainer accepted 7 on 2026-11-22 and 3 on 2026-11-23.
 - **Party is an attribute.** "Organization" as a representation is one concept. Each labeled instance records who made it. The older trees held a target copy and a buyer copy of each representation.
 - **Coverage by section title.** Of 1,138,095 titled sections in the corpus, 85.7% map to one specific concept and a further 8.0% map to a group that holds several concepts by design. 4.2% map to nothing. A sample of those shows that most are other wordings of provisions the tree already has, or headings that say too little to place.
 - **Old filters keep working.** Each of the 99 leaves of the live tree, each of the 140 leaves of the unreleased redesign and each of the 150 tax nodes maps to at least one new node.
-- **Labels must come from body text.** 149 of the 378 concepts never appear as a section title. Section 9 describes the labeling run and gives a cost estimate: roughly $350 to $800 for a first full pass, with a small model for the first read and a stronger model for the hard cases. That figure is an estimate from list prices. A billed trial on 50 agreements must replace it before any full run.
+- **Labels must come from body text.** 153 of the 387 concepts never appear as a section title. Section 9 describes the labeling run and gives a cost estimate: roughly $350 to $800 for a first full pass, with a small model for the first read and a stronger model for the hard cases. That figure is an estimate from list prices. A billed trial on 50 agreements must replace it before any full run.
 
 ## 2. Files
 
@@ -25,12 +25,12 @@ This document belongs to the span taxonomy plan (draft PR 317, https://github.co
 | `etl/taxonomy/legacy/*.yaml` | Read-only snapshots of the ids of the three older trees. The validator checks crosswalks against them. |
 | `etl/taxonomy/README.md` | Field reference and the rules for changes. |
 | `etl/src/etl/domain/taxonomy_pack.py` | Loader and validator. Run `etl/.venv/bin/python -m etl.domain.taxonomy_pack`. |
-| `etl/tests/test_taxonomy_pack.py` | 66 tests. Run from `etl/` with `.venv/bin/python -m unittest tests.test_taxonomy_pack`. |
+| `etl/tests/test_taxonomy_pack.py` | 80 tests. Run from `etl/` with `.venv/bin/python -m unittest tests.test_taxonomy_pack`. |
 | `docs/plans/full-taxonomy/tree.md` | Every node, generated from the packs. |
 | `docs/plans/full-taxonomy/crosswalk.md` | Every older leaf and the nodes it maps to, generated from the packs. |
 | `docs/plans/full-taxonomy/title_coverage.py` | The coverage measurement in section 6. |
 | `docs/plans/full-taxonomy/prevalence.py` | The prevalence measurement in section 4.4. It reads two read-only exports from the database. |
-| `docs/plans/full-taxonomy/prevalence_patterns.tsv` | The 154 text patterns that `prevalence.py` uses. |
+| `docs/plans/full-taxonomy/prevalence_patterns.tsv` | The 159 text patterns that `prevalence.py` uses. |
 | `docs/plans/full-taxonomy/render_appendix.py` | Writes `tree.md` and `crosswalk.md`. |
 
 ## 3. Design
@@ -50,7 +50,7 @@ A concept can also appear under other navigation nodes (`also_listed_under`). Th
 
 | Kind | Meaning | M&A | Tax |
 |---|---|---|---|
-| `provision` | A provision that answers one research question. | 226 | 109 |
+| `provision` | A provision that answers one research question. | 232 | 112 |
 | `component` | A part of a provision that researchers study by itself. It names its parent concept. | 21 | 0 |
 | `definition` | A defined term whose content is a research object. | 16 | 3 |
 | `modifier` | A clause that changes how another concept applies. It names its parent concept. | 3 | 0 |
@@ -69,7 +69,7 @@ Examples: `ma.conduct.negative_covenants` is a provision, and `ma.conduct.restri
 
 The live tree has "Organization (Company rep)" and "Organization (Buyer rep)" as two leaves. This design has one concept, `ma.rep.organization`, with `attributes: {party: maker}`. The labeled instance stores who the maker is.
 
-The role names are `maker` (of a representation), `obligor` (of a covenant), `tested_party` (of a condition), `holder` (of a right), `indemnitor` and `subject` (of a definition). 98 M&A concepts and 32 tax concepts carry a role.
+The role names are `maker` (of a representation), `obligor` (of a covenant), `tested_party` (of a condition), `holder` (of a right), `indemnitor` and `subject` (of a definition). 104 M&A concepts and 35 tax concepts carry a role.
 
 The reasons:
 
@@ -79,7 +79,7 @@ The reasons:
 
 ### 3.5 Catch-all concepts
 
-Each large family has an explicit catch-all: `ma.rep.other`, `ma.covenant.other`, `ma.condition.other`, `ma.termination.right.other`, `ma.misc.other`, `ma.other.reserved` (for "[Reserved]" and "Intentionally Omitted") and `ma.other.unclassified`. A catch-all makes the unassigned share measurable. When a topic grows inside a catch-all, a later release can give it its own concept.
+Each large family has an explicit catch-all: `ma.rep.other`, `ma.covenant.other`, `ma.condition.other`, `ma.termination.right.other`, `ma.misc.other`, `ma.other.reserved` (for "[Reserved]" and "Intentionally Omitted") and `ma.other.unclassified`. A catch-all makes the unassigned share measurable. When a topic grows inside a catch-all, a later release can give it its own concept. `ma.other.lead_in` (added after the trial, section 11.4) is counted with them. It marks the opening words of an article, such as "The Company represents and warrants as follows", when they stand as a section of their own and state no term.
 
 The tax pack follows the present tax labeler instead. That labeler may assign a clause to a level 1 or level 2 node when no leaf fits. The tax navigation nodes are therefore marked `assignable: true`, and the tax pack keeps its three existing "Other" leaves.
 
@@ -92,6 +92,7 @@ The tax pack follows the present tax labeler instead. That labeler may assign a 
 - **No M&A branch is assignable.** A section that holds content of two groups gets two group labels.
 - **Mixed sections.** A "Termination" section normally also holds the mutual consent clause, which is a wave 1 concept. That clause gets its concept, and the group label covers the rest of the section. This reading goes one step past the words "only wave 2 concepts".
 - **A group label does not replace a catch-all.** Content that fits no concept of any wave goes to the catch-all concept.
+- **Wave notes in cues.** A wave 1 reader has the wave 1 concepts and the 14 groups only. A cue of a wave 1 concept that names a wave 2 concept therefore also names the wave 1 label of that concept: its parent for a part, its group otherwise. A wave 1 concept also names its own parts and says that they keep its label in wave 1. The validator checks both rules (section 11.4).
 
 ### 3.6 The seam between the packs
 
@@ -137,14 +138,14 @@ Each node carries `introduced_in: '2026.1'`. The packs are a draft until the mai
 | No-shop and fiduciary out | "Superior Proposal" appears in 37.1% of agreements and "Intervening Event" in 19.0%. | Separate concepts for the non-solicitation covenant, the go-shop, the exception for unsolicited proposals, notice of proposals, and each ground for a change of recommendation. |
 | Negative covenants before closing | The restricted actions (dividends, new debt, capital spending and others) are studied one by one. | One provision with 10 components. |
 | Defined terms | The content of a few definitions drives the deal terms. | 16 definition concepts, such as Knowledge, Willful Breach, Fraud, Indebtedness and Working Capital. All other defined terms fall under `ma.definitions.general`. |
-| Representations | 48 topics, each with a party role. | 48 concepts in place of two copies of each. |
+| Representations | 49 topics, each with a party role. | 49 concepts in place of two copies of each. |
 | Collar and walk-away right | The title "collar" occurs once. "Walk away" appears in 0.6% of agreements. | Value fields of `ma.consideration.exchange_ratio`. |
 | Debt and equity commitments | The agreement describes them inside the buyer's financing representation. | Two components of `ma.rep.financing`. |
 | Release of seller guarantees | 601 sections in 536 agreements carry it as a title. | Its own concept, `ma.credit_support_release`. |
 | Locked box | About 1% of agreements, in UK-style deals, and the term collides with "lockbox" bank accounts. | No concept. US agreements are the focus. |
 | SPAC deals | "Trust Account" appears in 9.8% of agreements, a minimum cash term in 3.5%, a PIPE in 3.0%. | 7 concepts in their own group: trust account, redemption, PIPE, sponsor support, minimum cash, extension of the deadline and domestication. |
 | Asset deals | Asset purchases hold about 11% of titled sections. | 8 concepts for purchased and excluded assets, assumed and excluded liabilities and related mechanics. |
-| Industry representations | Banking, healthcare, insurance and energy deals carry long representations with no general equivalent. | 4 industry concepts and `ma.rep.other`. See open question 4. |
+| Industry representations | Banking, healthcare, insurance, energy and communications deals carry long representations with no general equivalent. | 5 industry concepts and `ma.rep.other`. The communications concept was added after the trial (11.4). See open question 4. |
 
 Four concepts were added because the title data showed a gap in the first draft: `ma.rule_145_affiliates` (titles in 981 agreements), `ma.asset.title_and_survey` (594), `ma.conduct.integration_planning` (483) and `ma.spac.domestication` (172). A fifth, for SPAC business activities (520), is now part of `ma.rep.merger_sub` (see 4.4).
 
@@ -156,8 +157,8 @@ Four topics were left to catch-alls because they are rare: the SPAC "no trading"
 |---|---|---|
 | Live section tree | 99 | Many leaves join several provisions, and representations are doubled by party. |
 | Unreleased redesign | 140 | Finer, still doubled by party. |
-| This design, M&A pack | 266 | 226 provisions, 24 parts and 16 definitions. The first draft had 281. |
-| This design, tax pack | 112 | 106 existing nodes and 6 new concepts (accepted 2026-11-22). |
+| This design, M&A pack | 272 | 232 provisions, 24 parts and 16 definitions. The first draft had 281. |
+| This design, tax pack | 115 | 106 existing nodes and 9 new concepts (6 accepted on 2026-11-22, 3 on 2026-11-23). |
 
 Accuracy falls as the number of classes in one decision grows. This design is finer than the older trees, so the labeling run in section 9 never shows a model the full list. It shows a short list for the section at hand.
 
@@ -170,23 +171,23 @@ The maintainer asked whether 281 M&A concepts and 112 tax concepts are finer tha
 - The **heading** count: the concept is the heading of a section of its own, by the title rules of section 6. This is a lower bound, because it misses a clause inside a larger section.
 - The **text** count: a hand-written pattern for the concept matches the body of a section. Nobody checked samples of the matches, and several patterns match too much.
 
-The best estimate is the larger of the two counts. The corpus has 12,198 agreements, so 1% is 122 agreements. The 7 catch-alls are left out. The table counts concepts.
+The best estimate is the larger of the two counts. The corpus has 12,198 agreements, so 1% is 122 agreements. The catch-alls are left out: 7 in the first draft, and 8 now with the lead-in concept. The table counts concepts. The "current packs" columns were measured again on 2026-11-23, after the trial fixes.
 
 | Share of agreements | First draft: heading | First draft: best estimate | Current packs: heading | Current packs: best estimate |
 |---|---|---|---|---|
 | 50% or more | 56 | 92 | 54 | 89 |
 | 10% to 50% | 69 | 150 | 66 | 142 |
-| 1% to 10% | 78 | 31 | 76 | 27 |
-| Under 1% | 18 | 1 | 19 | 1 |
+| 1% to 10% | 78 | 31 | 80 | 32 |
+| Under 1% | 18 | 1 | 20 | 1 |
 | Never a heading | 53 | 0 | 44 | 0 |
-| Concepts measured | 274 | 274 | 259 | 259 |
+| Concepts measured | 274 | 274 | 264 | 264 |
 
 What the numbers show:
 
 - **Rare concepts are not the problem.** By the best estimate, one concept is under 1% of agreements: the appraisal-rights closing condition (`ma.condition.dissenting_shares`, 82 agreements). It stays as a known research variable (rule 7 in 4.1).
 - **The first draft mixed three grains.** Of its 234 provisions (catch-alls left out), 196 were the heading of a section of their own in at least 1% of agreements, and 124 in at least 10%. The other 38 were clauses inside larger sections: termination fees and triggers, the outside date, the cap and the basket, the fiduciary out. The remaining 40 concepts were parts and definitions.
 - **Size against the older trees.** With the party copies merged, the live tree has 80 topics and the 140-leaf redesign has 115. The growth comes from splitting joined titles and from the clause-level concepts.
-- **The tax pack is inherited.** 106 of its 112 concepts are nodes of the tree built with the tax professor. It was not trimmed.
+- **The tax pack is inherited.** 106 of its 115 concepts are nodes of the tree built with the tax professor. It was not trimmed.
 
 **Splits that stay.** A filter on each concept returns different agreements.
 
@@ -202,7 +203,7 @@ What the numbers show:
 
 **Decision.** On 2026-11-22 the maintainer chose to trim the M&A pack to 261 concepts and to label it in two waves. The tax pack stays as it is. The 10 pilot value ids and their 3 sibling ids are unchanged.
 
-**Independent review of the merges (2026-11-23).** One reviewer agent (Opus) checked each of the 20 merges, with heading counts from its own read-only queries on `latest_sections_search`. It confirmed 13 merges. It asked for 5 concepts to be split back out and for 2 to move to another neighbor. All 7 changes are applied. No merge into a catch-all remains. The M&A pack now has 266 concepts.
+**Independent review of the merges (2026-11-23).** One reviewer agent (Opus) checked each of the 20 merges, with heading counts from its own read-only queries on `latest_sections_search`. It confirmed 13 merges. It asked for 5 concepts to be split back out and for 2 to move to another neighbor. All 7 changes are applied. No merge into a catch-all remains. The M&A pack then had 266 concepts. The trial fixes of the same day added 6 more (section 11.4).
 
 Merges into a neighbor that stay (15 concepts):
 
@@ -264,8 +265,8 @@ Three results of the audit need a note:
 
 | Wave | Contents | M&A concepts |
 |---|---|---|
-| 1 | Section-level topics: a provision that is the heading of a section of its own in at least 1% of agreements. Also the catch-alls. | 194 (188 topics and 6 catch-alls) |
-| 2 | Clause-level provisions, parts (components and modifiers) and definitions. | 72 (32 provisions, 24 parts, 16 definitions) |
+| 1 | Section-level topics: a provision that is the heading of a section of its own in at least 1% of agreements. Also the catch-alls and the lead-in concept. | 199 (192 topics, 6 catch-alls and `ma.other.lead_in`) |
+| 2 | Clause-level provisions, parts (components and modifiers) and definitions. | 73 (33 provisions, 24 parts, 16 definitions) |
 
 - The catch-all for termination rights, `ma.termination.right.other`, is in wave 2 with its siblings. All other termination triggers except mutual consent are clause-level.
 - `ma.employee.comp_benefits_continuation` is in wave 1 after the merge, because the "Employee Matters" section is its heading.
@@ -289,27 +290,27 @@ Three results of the audit need a note:
 |---|---|
 | Branches | 15 |
 | Groups | 54 |
-| Concepts directly under a group | 242 (226 provisions, 16 definitions) |
+| Concepts directly under a group | 248 (232 provisions, 16 definitions) |
 | Parts of a concept | 24 (21 components, 3 modifiers) |
-| All concepts | 266 |
+| All concepts | 272 |
 
 | Branch | Groups | Concepts | Groups (concepts in each) |
 |---|---|---|---|
 | Deal Structure and Closing | 5 | 27 | The Transaction (4); Asset Deal Scope (8); Tender Offer (5); Closing (3); SPAC Transactions (7) |
 | Consideration and Payment Mechanics | 4 | 21 | Price and Form of Consideration (11); Equity Awards and Other Securities (3); Exchange and Payment Procedures (3); Purchase Price Adjustment (4) |
-| Representations and Warranties | 10 | 48 | Fundamental (7); Financial (7); Legal and Compliance (4); Commercial (6); Assets, IP and Environmental (5); Employees (2); Transaction-Specific (4); Buyer-Specific (6); Disclaimers (2); Industry-Specific (5) |
+| Representations and Warranties | 10 | 49 | Fundamental (7); Financial (7); Legal and Compliance (4); Commercial (6); Assets, IP and Environmental (5); Employees (2); Transaction-Specific (4); Buyer-Specific (6); Disclaimers (2); Industry-Specific (6) |
 | Conduct of Business and Access | 2 | 20 | Interim Operations (15); Information, Confidentiality and Publicity (5) |
 | Deal Protection and Stockholder Approval | 4 | 17 | No-Shop and Go-Shop (5); Board Recommendation and Fiduciary Out (5); Stockholder Approval Process (5); Takeover Statutes and Rights Plans (2) |
-| Efforts and Regulatory Approvals | 3 | 10 | Efforts to Close (2); Antitrust (6); Other Regulatory Approvals (2) |
+| Efforts and Regulatory Approvals | 3 | 11 | Efforts to Close (2); Antitrust (6); Other Regulatory Approvals (3) |
 | Financing | 3 | 9 | Financing Arrangements (4); Financing Covenants (4); Financing Source Protections (1) |
 | Employees and Benefits | 2 | 6 | Continuing Employees (2); Transaction-Related Employee Matters (4) |
-| Other Covenants | 4 | 21 | Directors, Officers and Governance (5); Securities, Listing and Deal Litigation (4); Post-Closing and Separation (12); Tax Matters (lists tax pack nodes only) |
+| Other Covenants | 4 | 24 | Directors, Officers and Governance (5); Securities, Listing and Deal Litigation (4); Post-Closing and Separation (15); Tax Matters (lists tax pack nodes only) |
 | Conditions to Closing | 2 | 13 | Mutual Conditions (5); Conditions for One Party (8) |
 | Termination | 3 | 16 | Termination Rights (9); Effect of Termination (2); Termination Fees and Expenses (5) |
 | Indemnification and Risk Allocation | 4 | 16 | Survival and Scope (3); Limits on Recovery (7); Claims and Sources of Recovery (5); R&W Insurance (1) |
 | Dispute Resolution and Remedies | 2 | 8 | Governing Law and Forum (4); Remedies and Enforcement (4) |
 | Definitions and Interpretation | 3 | 22 | Defined Terms (1); Key Defined Terms (18); Interpretation (3) |
-| General Provisions | 3 | 12 | The Agreement (6); Costs and Parties (3); Other (3) |
+| General Provisions | 3 | 13 | The Agreement (6); Costs and Parties (3); Other (4) |
 
 ### 5.2 Tax pack
 
@@ -317,9 +318,9 @@ Three results of the audit need a note:
 |---|---|---|
 | Level 1 | 9 | 10 branches (9 existing, 1 new) |
 | Level 2 | 45 | 35 groups and 10 concepts. The 10 are existing level 2 nodes that have no children. |
-| Level 3 | 96 | 96 existing concepts and 3 new |
+| Level 3 | 96 | 96 existing concepts and 6 new |
 | Under the new branch | 0 | 3 new definition concepts |
-| All concepts | 106 leaves | 112 |
+| All concepts | 106 leaves | 115 |
 
 | Branch | Groups | Concepts |
 |---|---|---|
@@ -329,7 +330,7 @@ Three results of the audit need a note:
 | Tax Cooperation, Returns, Contests, and Refunds | 5 | 18 (2 new) |
 | Tax Allocation and Indemnity | 3 | 15 |
 | Special Regimes | 3 | 12 (1 new) |
-| Tax Representations | 9 | 22 |
+| Tax Representations | 9 | 25 (3 new) |
 | Tax Attributes | 5 | 7 |
 | Other / Unclassified | 1 | 1 |
 | Tax Definitions (new) | 0 | 3 (all new) |
@@ -342,7 +343,7 @@ The question: what share of the sections in the corpus map cleanly to a leaf?
 
 The corpus is the table `latest_sections_search`: 12,198 agreements and 1,196,581 sections, read on 2026-11-22 with one read-only query. 58,486 sections (4.9%) have no title. The rest carry 133,055 distinct titles after normalization.
 
-`docs/plans/full-taxonomy/title_coverage.py` holds 393 rules. A rule is a pattern for a title, sometimes limited to an article type. "Insurance" under a representations article maps to `ma.rep.insurance`, and "Insurance" under a covenants article maps to the directors' and officers' insurance covenant. Each rule names one target: a concept, or a navigation node when a section with that title normally holds several concepts.
+`docs/plans/full-taxonomy/title_coverage.py` holds 403 rules. A rule is a pattern for a title, sometimes limited to an article type. "Insurance" under a representations article maps to `ma.rep.insurance`, and "Insurance" under a covenants article maps to the directors' and officers' insurance covenant. Each rule names one target: a concept, or a navigation node when a section with that title normally holds several concepts.
 
 The script splits a title on ";" and maps each part. It then puts the section in one class:
 
@@ -361,21 +362,22 @@ This is a measurement of the tree. It is not a labeler. Section 9 explains why l
 
 | Class | Sections | Share of all | Share of titled |
 |---|---|---|---|
-| leaf | 975,481 | 81.5% | 85.7% |
-| group | 90,587 | 7.6% | 8.0% |
-| partial | 8,557 | 0.7% | 0.8% |
-| catch-all | 15,554 | 1.3% | 1.4% |
+| leaf | 975,410 | 81.5% | 85.7% |
+| group | 90,583 | 7.6% | 8.0% |
+| partial | 8,509 | 0.7% | 0.7% |
+| catch-all | 15,982 | 1.3% | 1.4% |
 | untitled | 58,486 | 4.9% | |
-| unmapped | 47,916 | 4.0% | 4.2% |
+| unmapped | 47,611 | 4.0% | 4.2% |
 
 **85.7% of titled sections map cleanly to a leaf.** With the group class, 93.7% of titled sections have a home in the tree.
 
-Four changes after the first draft moved these figures:
+Five changes after the first draft moved these figures:
 
 - **The trim (2026-11-22).** About 12,900 "Employee Matters" sections moved from the group class to the leaf class, because that heading now belongs to the one merged employee concept.
 - **The review (2026-11-23).** The SPAC extension, SPAC domestication and frustration concepts are back. About 1,100 sections that the trim had sent to the catch-all class are in the leaf class again.
 - **A rule-order fix (2026-11-23).** About 2,750 sections on frustration of conditions and on performance of obligations moved from the group class to the leaf class. See 4.4.
 - **The title-rule audit (2026-11-23).** About 500 sections moved from the group class to the leaf class: headings that name one fee, the cap or the basket. Other headings moved from one concept to another, which does not change the classes. See 4.4.
+- **The trial fixes (2026-11-23).** Ten rules were added for the new concepts and for headings that had gone to the wrong concept (11.4). About 300 sections left the unmapped class. About 430 sections moved to the catch-all class: headings on relief-program loans and government grants that the banking rule had taken, and "SPAC Public Filings" covenants that the public announcements rule had taken.
 
 In the first draft, the leaf share was 84.3% and the leaf or group share was 93.7%.
 
@@ -394,19 +396,19 @@ Coverage holds across deal types. The share of titled sections in the leaf or gr
 | Deal type | Target | Sections | Leaf or group |
 |---|---|---|---|
 | Merger | public | 321,972 | 96.3% |
-| Merger | private | 299,289 | 94.1% |
+| Merger | private | 299,289 | 94.0% |
 | Tender offer | public | 64,357 | 97.2% |
 | Stock acquisition | private | 198,668 | 91.0% |
 | Stock acquisition | public | 14,678 | 86.6% |
-| Asset acquisition | private | 117,547 | 90.1% |
-| Asset acquisition | public | 9,452 | 89.9% |
+| Asset acquisition | private | 117,547 | 90.2% |
+| Asset acquisition | public | 9,452 | 91.1% |
 | Membership interest purchase | private | 111,267 | 92.8% |
 
 Private stock and asset deals score 5 to 6 points lower than public mergers. Their titles vary more, and they carry more deal-specific sections.
 
 ### 6.3 What is in the unmapped 4.2%
 
-The unmapped and partial sections carry 27,981 distinct titles. The most frequent one occurs 160 times, so the group is a long tail and has no large missing topic.
+The unmapped and partial sections carry 27,822 distinct titles. The most frequent one occurs 160 times, so the group is a long tail and has no large missing topic.
 
 The script draws a random sample with a fixed seed (`--unmapped 150`). One reader sorted the 150 titles by eye, with no second review. The sample was drawn before the later rule changes, which moved about 300 sections out of the unmapped class.
 
@@ -424,12 +426,12 @@ What the sample shows:
 - 44% of the sampled sections fit an existing concept under another wording. A labeler that reads the body will place them.
 - 25% can be placed only from the body.
 - 31% belong in a catch-all: deal-specific, industry, foreign-law and uncovered general topics.
-- Industry topics and uncovered general topics are the real gaps. They are 10% of the sample. The sample comes from the unmapped and partial classes, which are 5.0% of titled sections, so the real gaps are about 0.5% of titled sections.
+- Industry topics and uncovered general topics are the real gaps. They are 10% of the sample. The sample comes from the unmapped and partial classes, which were 5.0% of titled sections when it was drawn, so the real gaps are about 0.5% of titled sections.
 
 ### 6.4 Limits of this measurement
 
 - A title is a weak signal. A section titled "Governing Law" can also hold the forum clause. The measurement shows that the tree has a place for the section, and it does not show that a label would be right.
-- 229 of the 378 concepts are the target of at least one title rule. The other 149 never appear as a title: components, definitions, clauses inside a larger section, and most tax leaves. Title coverage says nothing about them.
+- 234 of the 387 concepts are the target of at least one title rule. The other 153 never appear as a title: components, definitions, clauses inside a larger section, and most tax leaves. Title coverage says nothing about them.
 - The rules were tuned on this corpus. The figures describe fit to this corpus and are not a forecast for new filings.
 - Agreements under UK or Australian law are in the corpus and were not removed. They lower the figures slightly.
 
@@ -446,7 +448,7 @@ What the sample shows:
 - **Party copies.** A target leaf and a buyer leaf of the same representation both map to one concept as `exact`, each with `party: target` or `party: buyer`. The merge of the two copies is not counted as "broader", because the party survives on the instance.
 - **Splits.** A split leaf maps to 2 to 8 concepts in the live tree and to 2 to 12 in the redesign. The widest split is the conduct of business leaf, which maps to the ordinary course covenant, the negative covenants and their 10 components.
 - **Merges.** 4 live leaves and 9 redesign leaves map to one broader concept. Two live leaves on protections for lenders map to `ma.financing.source_protections`. The leaves for specific performance map to `ma.specific_performance`, which also holds the remedies cumulative clause. The "(non-indemnity)" leaves for the damages waiver map to `ma.damages_waiver`, which also covers the clause in the indemnification article. The redesign's leaves for amendment and waiver, for severability and counterparts, and for exchange procedures map to the merged concepts of 4.4. Its two fee leaves map to the fee concepts, which also hold the fee triggers.
-- **New concepts.** 91 M&A concepts have no older leaf. They include the 7 SPAC concepts, most of the definitions, covenants after closing such as the non-compete and the release, and 19 representations. `crosswalk.md` lists them.
+- **New concepts.** 97 M&A concepts have no older leaf. They include the 7 SPAC concepts, most of the definitions, covenants after closing such as the non-compete and the release, 20 representations and the 6 concepts added after the trial. `crosswalk.md` lists them.
 - **How to use it.** An old filter on a live leaf becomes a filter on the set of new concepts that the leaf maps to. A new label on a narrower concept can also be shown under its old leaf while the old tree is still served.
 
 ## 8. Tax changes
@@ -488,17 +490,37 @@ The evidence comes from the 243 agreements that have tax clause labels today, an
 | 6 | `tax.cooperation.post_closing_actions`, "Restrictions on Post-Closing Tax Actions" | Cooperation, Returns, Contests, and Refunds; Post-Closing Cooperation and Records | The covenant that the buyer will not amend returns or make elections for pre-closing periods. It appears in 44 labeled agreements and is now forced into the interim covenant nodes, which cover the period before closing, or into return preparation. 173 sections carry it as a title. |
 | 7 | `tax.cooperation.tax_sharing_termination`, "Termination of Tax Sharing Agreements" | Same group as 6 | The covenant that tax sharing agreements end at closing. 624 sections in 621 agreements carry it as a title. The labeled set shows it in 30 agreements, where it is mostly labeled as the tax sharing representation (`tax.7.3.2`), which is a different statement. The evidence is weaker than for 5 and 6. |
 
-### 8.4 A change of scope outside the tree
+### 8.4 Additions after the labeling trial (accepted 2026-11-23)
+
+The tax pass of the labeling trial (section 11.4) read 300 tax sections in 50 agreements. A blind second read covered 75 of them. Both reads marked the topics below as having no leaf. The maintainer accepted three new leaves on 2026-11-23. Each is marked `new_in_redesign: true`.
+
+| # | Node | Where | Reason and evidence |
+|---|---|---|---|
+| 8 | `tax.rep.returns_made_available`, "Tax Returns and Audit Reports Made Available" | Tax Representations, Returns and Payments | The representation that the company gave the buyer copies of its returns, examination reports and deficiency notices. Seen in 5 of the 50 agreements. It is a different statement from "returns filed and taxes paid". |
+| 9 | `tax.rep.no_power_of_attorney`, "No Tax Power of Attorney" | Tax Representations, Audits and Proceedings | The representation that no power of attorney for taxes is in force or stays in force after closing. Seen in 3 agreements. |
+| 10 | `tax.rep.section_6662_disclosure`, "Disclosure of Positions Under Section 6662" | Tax Representations, Returns and Payments | The representation that every position that could draw a substantial understatement penalty was disclosed on the returns. Seen in 3 agreements. |
+
+Three other topics got no leaf. Each was seen in 2 agreements. A cue on an existing leaf says where the text goes:
+
+| Topic | Cue on | The text takes |
+|---|---|---|
+| Section 965 transition tax | `tax.international.cfc` | That concept. |
+| Who owns an escrow fund or an exchange fund for tax purposes, and who reports its income | `tax.adjustment.price_adjustments` and `tax.adjustment.earnouts` | The group `tax.nav.deal.adjustment_treatment`. |
+| Tax clearance certificates | `tax.cooperation.interim` | That concept. |
+
+No other tax node changed.
+
+### 8.5 A change of scope outside the tree
 
 466 clauses in 178 of the labeled agreements concern Section 409A or Section 280G. The tax module picks them up today. This design assigns them to the M&A pack (see 3.6) and lists the 280G concept under `tax.nav.other`. This changes which pack labels them and changes no tax node. The maintainer confirmed this on 2026-11-22.
 
 ## 9. How labeling would run
 
-No labeling ran for this work. This section is a plan.
+This section is a plan. No full labeling ran. A trial of steps 1 to 6 on 50 agreements ran on 2026-11-23, with model subagents and no billed API call. Section 11.4 gives its results.
 
 ### 9.1 Why body text
 
-- 149 of the 378 concepts never appear as a title.
+- 153 of the 387 concepts never appear as a title.
 - 4.9% of sections have no title, and about 1 in 10 titled sections sits in the group class and holds several concepts.
 - A title names the main topic and misses the rest. The governing law section often holds the jury waiver.
 - The title rules of section 6 serve only as a starting hint and as a check on the result.
@@ -507,7 +529,7 @@ No labeling ran for this work. This section is a plan.
 
 1. **Unit.** The unit is the section, cut into paragraphs with character offsets, as in the text layer of the span taxonomy plan. A label instance is one concept on one span of text, with the party, a confidence and the model's evidence quote. A section can carry several instances.
 2. **Short list (no model cost).** For each section, build a short list of 15 to 30 candidate concepts from the article heading, the title hint, the canonical terms found in the body and the defined terms the section uses. Embeddings can be added. The goal is near-complete recall with a short list.
-3. **Classification on body text.** A small model reads the section and the cards of its candidates (label, description, terms, exclusion cues). It returns the concepts present, the span for each, and the party. "None of these" is allowed and becomes a catch-all. The model never sees the full list of 378, because accuracy falls as the class count grows.
+3. **Classification on body text.** A small model reads the section and the cards of its candidates (label, description, terms, exclusion cues). It returns the concepts present, the span for each, and the party. "None of these" is allowed and becomes a catch-all. The model never sees the full list of 387, because accuracy falls as the class count grows.
 4. **Party.** Simple rules set the party from the article heading ("Representations and Warranties of the Company") and check the model's answer. A conflict sends the section to step 6.
 5. **Tax pass.** A section or clause that receives a tax node goes to a second pass with the tax pack only. That pass assigns the tax leaf, as the tax module does today. The M&A pass does not need the tax leaves, which keeps its short lists small.
 6. **Second read.** A stronger model reads the sections that fail a check: low confidence, a conflict between the title hint and the label, a party conflict, or a representation concept outside a representations article.
@@ -549,13 +571,13 @@ What can move the estimate: the share of sections that need a second read, how w
 
 ## 10. Open questions for the maintainer
 
-1. **Tax additions.** Decided 2026-11-22: all 7 nodes in 8.3 are accepted.
+1. **Tax additions.** Decided 2026-11-22: all 7 nodes in 8.3 are accepted. Decided 2026-11-23: the 3 leaves in 8.4 are accepted, and 3 other topics get a cue only.
 2. **Sections 280G and 409A.** Decided 2026-11-22: the M&A pack owns them, and the tax tree lists the 280G concept for navigation.
 3. **Umbrella labels.** Partly decided 2026-11-23 (see 16). The tax pack lets a label point to any branch or group. The M&A pack lets a label point to 14 groups, in wave 1, and uses catch-all concepts for content that fits no concept. Still open: should the tax pack keep the wider rule?
-4. **Industry topics.** The M&A pack has 4 industry representation concepts. Industry titles are most of the real gaps in 6.3. Is a later industry pack (banking, healthcare, energy, insurance) wanted, or is `ma.rep.other` enough?
+4. **Industry topics.** The M&A pack has 5 industry representation concepts. Industry titles are most of the real gaps in 6.3. Is a later industry pack (banking, healthcare, energy, insurance) wanted, or is `ma.rep.other` enough?
 5. **SPAC concepts.** 7 SPAC concepts sit in the M&A pack. Keep them there, or plan a separate pack?
 6. **Foreign-law provisions.** Locked box, squeeze-out and similar UK or Australian provisions have no concept, in line with the US focus. Confirm.
-7. **Waves.** Decided 2026-11-22: provisions first, then parts and definitions. The trim in 4.4 refined this the same day. After the reviews of 2026-11-23, wave 1 has 194 M&A concepts (188 section-level topics and 6 catch-alls). Wave 2 has the other 72: 32 clause-level provisions, 24 parts and 16 definitions. The tax pack (112 concepts) has no waves.
+7. **Waves.** Decided 2026-11-22: provisions first, then parts and definitions. The trim in 4.4 refined this the same day. After the reviews and the trial fixes of 2026-11-23, wave 1 has 199 M&A concepts (192 section-level topics, 6 catch-alls and the lead-in concept). Wave 2 has the other 73: 33 clause-level provisions, 24 parts and 16 definitions. The tax pack (115 concepts) has no waves.
 8. **Defined terms.** Are the 16 M&A definition concepts the right set? Which should get value schemas first?
 9. **Value schema stubs.** 76 M&A concepts carry an untested sketch of fields. Keep the stubs in the pack as candidates, or remove them until each is piloted?
 10. Withdrawn on 2026-11-23. The other questions keep their numbers.
@@ -563,9 +585,10 @@ What can move the estimate: the share of sections that need a second read, how w
 12. **The unreleased 140-leaf redesign.** This design replaces it. Can the redesign file be retired after approval, with its crosswalk kept?
 13. **Id freeze.** After approval the ids are frozen. Any id the maintainer wants changed must change before the first labeling run.
 14. **Budget and models.** Decided 2026-11-22: the billed 50-agreement trial waits until the maintainer has reviewed the tree. The setup and ceiling are decided then.
-15. **Granularity.** Decided 2026-11-22: trim the M&A pack to 261 concepts with 20 merges, label in two waves, and use the groups as the default filter level. The review of 2026-11-23 restored 5 concepts, so the pack has 266 concepts and 15 merges. See 4.4.
+15. **Granularity.** Decided 2026-11-22: trim the M&A pack to 261 concepts with 20 merges, label in two waves, and use the groups as the default filter level. The review of 2026-11-23 restored 5 concepts, so the pack had 266 concepts and 15 merges. See 4.4. The trial fixes added 6 concepts, so the pack has 272. See 11.4.
 16. **Sections that hold only wave 2 concepts.** Decided 2026-11-23: yes. In wave 1 such a section gets its group as the label. 14 groups are marked `assignable: true` (section 3.5). No M&A branch is assignable.
 17. **The merge list.** Reviewed on 2026-11-23 by an independent model reviewer: 13 merges confirmed, 5 concepts restored, 2 moved (section 4.4). Still open: should a person who knows the literature confirm the 15 merges that stay before the ids are frozen?
+18. **Topics above the 1% heading bar that have no concept.** The trial fixes measured five: representations on government grants and subsidies (headings in 155 agreements), representations on relief-program loans (166), the SPAC "no trading" covenant (315), the SPAC covenant to keep SEC reports current (402) and the officer's certificate condition (310). Each stays in a catch-all, and the card of the catch-all names it (11.4). Should any of them get a concept?
 
 ## 11. Independent review
 
@@ -603,7 +626,7 @@ These suggestions change scope or ownership, so they are not applied.
 | Split non-disparagement out of `ma.restrictive.non_solicit`. | No corpus count yet. |
 | Split `ma.rep.no_conflict` into contract conflicts and governmental consents. | Many agreements give them separate sections. Both older trees keep them as one leaf. |
 | Mark `ma.financing.structure` as derived from other concepts' spans. | It is a pilot value concept. The pilot plan owns that choice. |
-| Add concepts for the buyer's access to the seller's insurance after closing, and for prorations of rents and utilities in asset deals. | Not measured in the corpus yet. |
+| Add concepts for the buyer's access to the seller's insurance after closing, and for prorations of rents and utilities in asset deals. | The insurance concept was added after the trial: `ma.separation.insurance_access` (11.4). Prorations are not measured in the corpus yet. |
 | Add exclusion cues among the three tax nodes that mention the partnership representative. | Small. It needs the tax professor's view on where the push-out election belongs. |
 
 ### 11.3 Adversarial review of the whole PR (2026-11-23)
@@ -642,10 +665,85 @@ Not done, with the reason:
 | A role on `tax.opinion.closing_condition` | The condition tests no party's conduct. The party that matters receives the opinion. `tested_party` would then mean something else than in the M&A pack. |
 | A split of "Company Board Recommendation" and "Confidentiality" headings | A title cannot settle either one (4.4). |
 
+### 11.4 Labeling trial and the fixes it led to (2026-11-23)
+
+**The trial.** Steps 1 to 6 of section 9.2 ran on 50 agreements under US law, drawn by deal type, target type and year (4,879 sections). All model work ran in subagents. No billed API call was made, and the database was read only. The report and the outputs of the trial are kept outside this repo.
+
+| Measure | Result |
+|---|---|
+| First read (small model, short list of about 15 labels) against a blind second read by a stronger model (731 sections) | precision 0.938, recall 0.837, F1 0.885 |
+| The same at group level | F1 0.895 |
+| Blind labels that were on the short list | 0.887 |
+| Party, on matched labels with a party role | 95.4% exact |
+| Sections flagged for a second read | 23.1% |
+| Tax pass against a blind tax re-read (75 sections) | F1 0.928 at node level |
+
+The first reader was precise. Most of its errors were labels that it did not give, and half of those were labels that the short list did not offer. Swaps between two concepts of one family were rare. The fixes to the short list and to the party rule belong to the labeling code and are not part of this document.
+
+**What the trial showed about the tree.**
+
+- A specific concept that the reader did not have ended in a catch-all: `ma.rep.other` (precision 0.47), `ma.covenant.other` or `ma.condition.other`.
+- Cues pointed to wave 2 concepts, which a wave 1 reader cannot give. Text of three parts was lost this way: the force-the-vote clause (5 agreements), the costs of financing cooperation (7) and the statement that employees get no rights (at least 9).
+- About 1% of sections are the opening words of an article and state no term. No label fitted, and readers split three ways.
+- Some recurring topics had no concept.
+
+**Changes to the M&A pack.** The numbers are those of the trial report.
+
+| # | Finding | Change |
+|---|---|---|
+| 1 | Article lead-ins: about 50 sections in 35 of the 50 agreements. | New concept `ma.other.lead_in`. A lead-in that states how the disclosure schedules or SEC filings qualify the statements also gets `ma.interpretation.disclosure_schedules`. |
+| 2 | A cue named a wave 2 part, and readers did not know that the part's text takes the label of its parent. | A new rule, which the validator checks. A cue of a wave 1 concept that names a wave 2 concept also names its wave 1 label: the parent for a part, the group otherwise. A wave 1 concept names each of its own parts and says that the part keeps its label in wave 1. 41 cues changed, and 8 wave 1 concepts now name their parts. |
+| 3 | A seller's confidentiality duty after closing was labeled as the confidentiality covenant before closing. | Covered by the rule of row 2: the cue now gives the group `ma.nav.covenants.post_closing`. |
+| 4 | `ma.rep.other` took statements that have a concept. | Its card now says when it applies, lists the industries that belong to it, and has cues for the statements it took: banking, litigation, full disclosure, real property and governmental consents. |
+| 5 | Industry representations with no concept. | Measured (table below). New concept `ma.rep.communications`. Gaming, education, franchise systems and transportation are below the 1% heading bar and are listed on the card of `ma.rep.other`. |
+| 6 | Closing conditions with no concept. | New concept `ma.bankruptcy.court_approval` for sales by a debtor in bankruptcy. The other items stay in `ma.condition.other`, and its card now names them: the officer's certificate, a limit on net debt, the SPAC net tangible assets floor, and court approval of a plan or scheme of arrangement under Canadian or UK-style law. A SPAC minimum cash condition is `ma.spac.minimum_cash`. |
+| 7 | Environmental clean-up covenants and special environmental indemnities (5 agreements). | New concept `ma.environmental.remediation` for the covenant. The indemnity stays with `ma.indemn.specific`, which now names it. |
+| 8 | Subrogation of the indemnifying party (2 agreements). | No new part. It is part of `ma.indemn.recovery_offsets`, which now says so and has the terms. The title rules already sent "Subrogation" headings (257 agreements) there. No study treats it as a variable of its own (rule 6 in 4.1). The insurer's waiver of subrogation stays with `ma.indemn.rwi`. |
+| 9 | Carve-out separation terms: shared contracts and assets, and access to the seller's insurance (3 to 4 agreements). | New concepts `ma.separation.shared_contracts` (wave 1) and `ma.separation.insurance_access` (wave 2). |
+| 10 | SPAC covenants: no trading in SPAC securities, and keeping SEC reports current. | No new concept. The card of `ma.covenant.other` names both. A SPAC's statement that it is an emerging growth company is part of `ma.rep.investment_company`, which now says so. |
+| 11 | Protections for the lenders sit inside other sections. Recall was 0 of 5. | A cue on `ma.governing_law`, `ma.forum_selection`, `ma.jury_waiver`, `ma.amendment`, `ma.third_party_beneficiaries` and `ma.non_recourse`: a lender clause inside the section also gets `ma.financing.source_protections`. |
+| 12 | `ma.rep.no_other_reps` and `ma.rep.non_reliance` were swapped. | Both cards state the speaker test, and that one section often holds both statements. |
+| 13 | Readers gave a party on 740 labels whose concept has no party role. | `obligor` on `ma.covenant.other`, `ma.efforts.general`, `ma.employee.comp_benefits_continuation` and `ma.financing.buyer_covenant`. |
+
+One proposal of the report was not applied to the packs: canonical terms of their own for the assignable groups. A navigation node has no terms in the packs. The labeling code builds the terms of a group from its wave 2 concepts, and that code is the place for the change.
+
+**Prevalence of the new concepts.** Agreements of 12,198, from `prevalence.py`. 1% is 122 agreements. The text patterns are unreviewed, as in 4.4.
+
+| Concept | Heading | Text | Wave |
+|---|---|---|---|
+| `ma.separation.shared_contracts` | 335 | 498 | 1 |
+| `ma.environmental.remediation` | 238 | 701 | 1 |
+| `ma.bankruptcy.court_approval` | 232 | 643 | 1 |
+| `ma.rep.communications` | 154 | 596 | 1 |
+| `ma.separation.insurance_access` | 57 | 604 | 2 |
+
+`ma.other.lead_in` has no heading and no text pattern. It is in wave 1 with the catch-alls.
+
+**Topics measured and not added.** Heading counts in agreements.
+
+| Topic | Heading | Where it goes | Reason |
+|---|---|---|---|
+| Gaming representations | 48 | `ma.rep.other` | Below the 1% bar. |
+| Education representations (Title IV, accreditation) | 17 | `ma.rep.other` | Below the bar. |
+| Franchise system representations | 86 | `ma.rep.other` | Below the bar. |
+| Transportation representations (aviation, vessels, motor carriers) | 119 | `ma.rep.other` | Below the bar. |
+| Government grants and subsidies representations | 155 | `ma.rep.other` | Above the bar, but the trial saw it in one agreement. See open question 18. |
+| Relief-program loans (PPP, CARES Act) representations | 166 | `ma.rep.other` | The same. |
+| SPAC "no trading" covenant | 315 | `ma.covenant.other` | Above the bar, but a standard clause that answers no research question. See open question 18. |
+| SPAC covenant to keep SEC reports current | 402 | `ma.covenant.other` | The same. |
+| Officer's certificate as a closing condition | 310 | `ma.condition.other` | The same. It is the proof of the bring-down and covenant conditions, which have their own concepts. |
+| Plan or scheme of arrangement: interim order, final order | 189 | `ma.covenant.other`, `ma.condition.other` | Canadian and UK-style law. The focus is US agreements (open question 6). |
+
+**Title rules.** Ten rules were added. Five of them fix headings that had gone to the wrong concept: "PPP Loan" to the banking representation, "Communications Regulatory Matters" to the healthcare representation, "Shared Contracts" to non-assignable assets, "SPAC Public Filings" to public announcements, and "Remediation" to public announcements (the pattern "media" matched it). Section 6.2 gives the new coverage figures.
+
+**Validator and tests.** `taxonomy_pack.wave_one_label` gives the label that a wave 1 reader uses for any M&A concept, and `taxonomy_pack.wave_two_parts` lists the parts of each wave 1 concept. The validator uses both for the rule of row 2. 80 tests (was 66).
+
+**Tax pack.** Three leaves were added and three topics got a cue. See 8.4.
+
 ## 12. What this work did not do
 
-- **No labeling and no model check of the tree.** The coverage figure rests on titles. How well a model can tell neighboring concepts apart on body text is unknown until the trial.
-- **No expert review by a person.** The tax professor has not seen the 7 additions (accepted by the maintainer) or the new descriptions. No M&A lawyer has reviewed the M&A pack. Three model reviews are recorded in sections 4.4 and 11.
+- **No full labeling.** The coverage figure rests on titles. The 50-agreement trial (11.4) is the only check on body text. Its reference is one blind read by a stronger model. It is not a gold set.
+- **No expert review by a person.** The tax professor has not seen the 10 additions (accepted by the maintainer) or the new descriptions. No M&A lawyer has reviewed the M&A pack. Three model reviews are recorded in sections 4.4 and 11.
 - **No second reader** for the sample in 6.3.
 - **No verified prevalence.** Section 4.4 gives a heading count and a text count for each M&A concept. The text patterns are hand-written and nobody checked samples of their matches. The tax pack was not measured.
 - **No database tables.** The plan's `taxonomy_concept` tables are not created. The YAML is the source of truth, and a loader into the database is a later step.

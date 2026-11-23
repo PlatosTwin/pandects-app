@@ -155,3 +155,9 @@ ma.restrictive.non_compete	non-?competition|covenant not to compete
 ma.spac.extension	extension (proposal|meeting|amendment)|extend the (deadline|date|time|period)[^.]{0,120}business combination
 ma.spac.domestication	domestication
 ma.condition.frustration	frustration of (closing )?conditions|may (not )?rely[^.]{0,80}failure of any condition
+# Concepts added after the labeling trial of 2026-11-23.
+ma.rep.communications	federal communications commission|fcc licen[sc]es|communications act of 1934|communications laws
+ma.separation.shared_contracts	shared contracts?|commingled contracts?|mixed.use contracts?|enterprise.wide contracts?
+ma.separation.insurance_access	occurrence.based (insurance )?polic|cease to be (insured|covered)[^.]{0,160}(seller|parent)|(seller|parent)[^.]{0,80}insurance polic[^.]{0,240}(prior to|before|pre-)[^.]{0,20}closing[^.]{0,240}(claims?|occurrences?)
+ma.environmental.remediation	industrial site recovery act|\bisra\b|connecticut transfer act|(seller|sellers|buyer|purchaser|company) shall[^.]{0,160}(remediat|remedial action)|remedial action (work )?plan|response action outcome|no further action letter
+ma.bankruptcy.court_approval	sale order|bidding procedures order|section 363 of the bankruptcy code|bankruptcy court shall have entered

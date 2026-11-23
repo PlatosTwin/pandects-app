@@ -126,6 +126,7 @@ In the M&A pack, † after a group name means that the group can be the label of
 | Industry-Specific | `ma.rep.healthcare_regulatory` | Healthcare and Life Sciences Regulatory Matters | party: maker |
 | Industry-Specific | `ma.rep.insurance_business` | Insurance Business Matters | party: maker |
 | Industry-Specific | `ma.rep.energy_natural_resources` | Energy and Natural Resources Matters | party: maker |
+| Industry-Specific | `ma.rep.communications` | Communications and Broadcast Regulatory Matters | party: maker |
 | Industry-Specific | `ma.rep.other` | Other Representation | party: maker |
 
 ### Conduct of Business and Access
@@ -185,7 +186,7 @@ In the M&A pack, † after a group name means that the group can be the label of
 
 | Group | Id | Label | Marks |
 |---|---|---|---|
-| Efforts to Close | `ma.efforts.general` | Efforts to Consummate | value stub |
+| Efforts to Close | `ma.efforts.general` | Efforts to Consummate | value stub; party: obligor |
 | Efforts to Close | `ma.efforts.third_party_consents` | Third-Party Consents |  |
 | Antitrust † | `ma.regulatory.antitrust_filings` | Antitrust Filings and Cooperation | value stub |
 | Antitrust † | `ma.regulatory.remedies` | Antitrust Remedies; Divestitures | wave 2; value stub; party: obligor |
@@ -195,6 +196,7 @@ In the M&A pack, † after a group name means that the group can be the label of
 | Antitrust † | `ma.regulatory.filing_fee_allocation` | Allocation of Regulatory Filing Fees | wave 2; also under `ma.nav.general.costs` |
 | Other Regulatory Approvals | `ma.regulatory.cfius` | CFIUS and Foreign Investment Review | value stub |
 | Other Regulatory Approvals | `ma.regulatory.industry_approvals` | Industry Regulatory Approvals |  |
+| Other Regulatory Approvals | `ma.bankruptcy.court_approval` | Bankruptcy Court Approval; Sale Order; Bidding Procedures |  |
 
 ### Financing
 
@@ -206,7 +208,7 @@ In the M&A pack, † after a group name means that the group can be the label of
 | Financing Arrangements | `ma.financing.debt_commitment` | Debt Financing; Commitment Letters | component; wave 2; part of `ma.rep.financing` |
 | Financing Arrangements | `ma.financing.equity_commitment` | Equity Financing; Equity Commitment Letters | component; wave 2; part of `ma.rep.financing` |
 | Financing Arrangements | `ma.financing.limited_guarantee` | Limited Guarantee; Parent Guarantee |  |
-| Financing Covenants | `ma.financing.buyer_covenant` | Buyer Financing Covenant | value stub |
+| Financing Covenants | `ma.financing.buyer_covenant` | Buyer Financing Covenant | value stub; party: obligor |
 | Financing Covenants | `ma.financing.cooperation` | Financing Cooperation |  |
 | Financing Covenants | `ma.financing.cooperation_costs` | Financing Cooperation Costs and Indemnity | component; wave 2; part of `ma.financing.cooperation` |
 | Financing Covenants | `ma.financing.payoff_letters` | Payoff Letters; Treatment of Existing Debt |  |
@@ -218,7 +220,7 @@ In the M&A pack, † after a group name means that the group can be the label of
 
 | Group | Id | Label | Marks |
 |---|---|---|---|
-| Continuing Employees | `ma.employee.comp_benefits_continuation` | Continuing Employees; Compensation, Benefits and Plan Transition | value stub |
+| Continuing Employees | `ma.employee.comp_benefits_continuation` | Continuing Employees; Compensation, Benefits and Plan Transition | value stub; party: obligor |
 | Continuing Employees | `ma.employee.no_third_party_rights` | No Employee Third-Party Rights | component; wave 2; part of `ma.employee.comp_benefits_continuation` |
 | Transaction-Related Employee Matters | `ma.employee.retention_severance` | Severance, Retention and Bonuses |  |
 | Transaction-Related Employee Matters | `ma.employee.warn` | WARN Act |  |
@@ -251,7 +253,10 @@ In the M&A pack, † after a group name means that the group can be the label of
 | Post-Closing and Separation † | `ma.transition_services` | Transition Services |  |
 | Post-Closing and Separation † | `ma.intercompany_termination` | Termination of Affiliate Agreements; Intercompany Accounts |  |
 | Post-Closing and Separation † | `ma.credit_support_release` | Release of Seller Guarantees and Credit Support | party: obligor |
-| Post-Closing and Separation † | `ma.covenant.other` | Other Covenant |  |
+| Post-Closing and Separation † | `ma.separation.shared_contracts` | Shared Contracts and Shared Assets |  |
+| Post-Closing and Separation † | `ma.separation.insurance_access` | Post-Closing Access to Seller Insurance | wave 2 |
+| Post-Closing and Separation † | `ma.environmental.remediation` | Environmental Remediation and Transfer Statutes | party: obligor |
+| Post-Closing and Separation † | `ma.covenant.other` | Other Covenant | party: obligor |
 | Tax Matters | `ma.nav.covenants.tax` | (no concepts) | |
 
 ### Conditions to Closing
@@ -380,6 +385,7 @@ In the M&A pack, † after a group name means that the group can be the label of
 | Costs and Parties | `ma.merger_sub_obligations` | Obligations of Merger Sub; Parent Undertaking |  |
 | Costs and Parties | `ma.legal_representation` | Legal Representation; Privilege |  |
 | Other | `ma.misc.other` | Other General Provision |  |
+| Other | `ma.other.lead_in` | Article or Section Lead-In |  |
 | Other | `ma.other.reserved` | Reserved; Intentionally Omitted |  |
 | Other | `ma.other.unclassified` | Other / Unclassified |  |
 
@@ -515,9 +521,12 @@ In the M&A pack, † after a group name means that the group can be the label of
 | Returns and Payments | `tax.rep.returns_filed` | Returns Filed and Taxes Paid | party: maker |
 | Returns and Payments | `tax.rep.accruals` | Adequate Accrual / Reserve for Taxes | party: maker |
 | Returns and Payments | `tax.rep.withholding_compliance` | Withholding Compliance | party: maker |
+| Returns and Payments | `tax.rep.returns_made_available` | Tax Returns and Audit Reports Made Available | party: maker; **new** |
+| Returns and Payments | `tax.rep.section_6662_disclosure` | Disclosure of Positions Under Section 6662 | party: maker; **new** |
 | Audits and Proceedings | `tax.rep.no_audit` | No Pending Audit / Examination / Claim | party: maker |
 | Audits and Proceedings | `tax.rep.no_limitations_waiver` | No Extension / Waiver of Limitations | party: maker |
 | Audits and Proceedings | `tax.rep.no_deficiency_lien` | No Deficiency / Lien / Closing Agreement / Ruling | party: maker |
+| Audits and Proceedings | `tax.rep.no_power_of_attorney` | No Tax Power of Attorney | party: maker; **new** |
 | Attributes and Status | `tax.rep.entity_status` | Entity Classification / Residency / Special Status | party: maker |
 | Attributes and Status | `tax.rep.tax_sharing_group` | Tax Sharing Agreement / Consolidated Group Membership | party: maker |
 | Attributes and Status | `tax.rep.attribute_availability` | Availability of Tax Attributes | party: maker |

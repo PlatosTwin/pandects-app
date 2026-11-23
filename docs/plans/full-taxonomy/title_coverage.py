@@ -84,6 +84,11 @@ RULES: list[tuple[str | None, str, str]] = [
     (None, r"accuracy of representations|representations (and warranties )?(true|accurate)", "ma.condition.reps_bringdown"),
     (None, r"schedule to$", "ma.tender.offer"),
     # ---- representations (context)
+    # Industry and relief-program headings (trial fixes of 2026-11-23). They come first: the broader rules below
+    # sent "fcc matters" to permits, "communications regulatory matters" to healthcare and "ppp loan" to banking.
+    ("REP", r"\bfcc\b|communications (licen[sc]es|laws|matters|regulatory|act|authori[sz]ations)|broadcast (licen|station)|station licen|cable (franchises?|systems?|television)\b|telecommunications (licen|compliance|matters|regulat|laws|and voip)|^telecommunications$|must.carry|\bmvpd\b", "ma.rep.communications"),
+    ("REP", r"\bgaming\b|educational? (regulatory|laws|approvals|matters|compliance|agenc)|title iv|ppp loan|paycheck protection|cares act|covid.{0,10}relief|(government(al)?|public|state) (grants|aid|subsid)|^grants|^(no )?subsidies|grants,? (and )?(incentives|subsidies)|subsidies and grants|incentives and subsidies", "ma.rep.other"),
+    ("REP", r"remediation|\bisra\b|industrial site recovery", "ma.rep.environmental"),
     ("REP", r"^(organization|incorporation|existence|qualification|good standing|due (organization|incorporation)|corporate (organization|existence|status)|organizational documents|governing documents|charter|certificate of incorporation|articles of incorporation|bylaws|standing|power)\b(?!.*authori[tz])", "ma.rep.organization"),
     ("REP", r"organi[sz]ation.*(standing|qualification|power|existence)|existence and (power|good standing)|qualification, organization", "ma.rep.organization"),
     ("REP", r"vote required|required vote|stockholder approval|shareholder approval|voting requirements|requisite (vote|approval)|vote/approval", "ma.rep.required_vote"),
@@ -170,6 +175,7 @@ RULES: list[tuple[str | None, str, str]] = [
     ("TERM", r"^termination( of (this |the )?agreement)?$|termination (rights|events|by|prior)|right(s)? (to|of) terminat|grounds|abandonment|^terminat", "ma.nav.termination.rights"),
     ("TERM", r"exclusive remed|sole remed|limitation(s)? on (liability|remedies)|liability cap|maximum liability", "ma.termination.fee.exclusive_remedy"),
     # ---- indemnification (context)
+    ("INDEM", r"remediation|remedial", "ma.indemn.specific"),
     ("INDEM", r"survival|non-?survival|expiration of|time limit|limitation period", "ma.indemn.survival"),
     ("INDEM", r"third.?party claims|defense|control of|assumption of defense", "ma.indemn.claims_procedure"),
     ("INDEM", r"procedure|notice of claims|claims|notification|method of asserting|direct claims|resolution of", "ma.indemn.claims_procedure"),
@@ -215,6 +221,13 @@ RULES: list[tuple[str | None, str, str]] = [
     ("DEF", r"disclosure (schedule|letter)|schedules", "ma.interpretation.disclosure_schedules"),
     ("DEF", r"interpret|construction|other definitional|headings|usage|references|rules of|certain (interpretations|matters of construction)|terms generally|accounting terms|gender|currency", "ma.interpretation.rules"),
     ("DEF", r"defin|certain terms|terms$|cross.?reference|index of|glossary|^[a-z].{0,60} (means|shall mean)\b|^person$|^affiliate$", "ma.definitions.general"),
+    # ---- concepts added after the labeling trial of 2026-11-23 (they come before the broader global rules)
+    (None, r"remediation|remedial action|\bisra\b|industrial site recovery|environmental (covenants?|clean.?up|response|work|obligations|responsibilities)|connecticut transfer act|^transfer act|corrective actions?$", "ma.environmental.remediation"),
+    ("COV", r"^(certain |other )?environmental (matters|issues|compliance)$", "ma.environmental.remediation"),
+    (None, r"shared (contracts?|agreements?|assets|equipment|real (estate|property)|facilit|ip$)|commingled contracts?|mixed.use contracts?|split contracts?|enterprise.wide contracts?", "ma.separation.shared_contracts"),
+    (None, r"post.closing insurance|access to (seller.?s? )?insurance|sellers?.? (group )?insurance|insurance (after|following) (the )?closing|occurrence.based", "ma.separation.insurance_access"),
+    (None, r"sale order|bankruptcy court|bidding procedures|stalking horse|overbid|back.?up bidder|cure (costs|amounts)|bankruptcy (matters|filings|approval|proceedings|actions|cases?)$|^chapter 11", "ma.bankruptcy.court_approval"),
+    (None, r"(spac|acquiror|purchaser|parent|buyer) public filings", "ma.covenant.other"),
     # ---- global rules: structure and closing
     (None, r"^the merger(s)?$|^merger$|^the (first|second|initial|subsequent|company|bank|parent|holdco|reincorporation|upstream) merger|mergers? and|^the (share )?exchange$|^the (transaction|combination|arrangement|amalgamation|scheme)s?$|bank merger|second merger|subsidiary merger|plan of merger|constituent|^the (business )?combination", "ma.structure.merger"),
     (None, r"purchase and sale|sale and purchase|sale of (the )?(shares|stock|interests|units|securities|membership|purchased|acquired|company)|purchase of (the )?(shares|stock|interests|units|securities|membership|company)|transfer of (the )?(shares|interests|units|stock)|agreement to (purchase|sell)|^(the )?(sale|purchase|acquisition|contribution)$|contribution and exchange|^sale and transfer", "ma.structure.purchase_and_sale"),
@@ -228,7 +241,7 @@ RULES: list[tuple[str | None, str, str]] = [
     (None, r"excluded assets|retained assets|assets not (being )?(transferred|acquired|sold)", "ma.asset.excluded_assets"),
     (None, r"excluded liabilit|retained liabilit|liabilities not assumed|no (other )?assumption|non-?assumed", "ma.asset.excluded_liabilities"),
     (None, r"assum(ed|ption of) (the )?(certain )?(liabilit|obligations)|^liabilities$|assumption$|liabilities (to be )?assumed", "ma.asset.assumed_liabilities"),
-    (None, r"non-?assignab|non-?transferab|assignment of (contracts|certain)|consents? to assign|nonassignable|unassigned|restricted (assets|contracts)|delayed (assets|transfer)|deferred (transfer|closing|assets)|shared contracts", "ma.asset.nonassignable_assets"),
+    (None, r"non-?assignab|non-?transferab|assignment of (contracts|certain)|consents? to assign|nonassignable|unassigned|restricted (assets|contracts)|delayed (assets|transfer)|deferred (transfer|closing|assets)", "ma.asset.nonassignable_assets"),
     (None, r"bulk (sales|transfer)", "ma.asset.bulk_sales"),
     (None, r"risk of loss|casualty|condemnation|damage or destruction|damage to", "ma.asset.risk_of_loss"),
     (None, r"^the offer$|^offer$|tender offer|exchange offer|terms of the offer|offer documents|conduct of the offer|commencement of the offer|expiration of the offer|the offer and", "ma.tender.offer"),
@@ -480,8 +493,8 @@ RULES: list[tuple[str | None, str, str]] = [
     (None, r"time (is )?of (the )?essence|currency|dollars|time$|performance$|force majeure|spousal|community property|waiver of (appraisal|rights|certain)|exhibits|interest$|business day|payments (in|by)|wire|manner of payment|relationship of (the )?parties|no partnership|no joint venture|non-business|specific disclosures|obligation to|facsimile|construction$|miscellaneous|general$|other provisions|^other$|standard|power of attorney|powers of attorney|electronic|english language|compliance with (laws|law)|effect$|consent$|consents and approvals$|approval$|certain (matters|understandings|agreements|acknowledgements?|provisions)|acknowledg|understanding|company (name|matters)|insurance$|insurance (matters|coverage|policies)|maintenance of insurance|operations|bankruptcy|court approval|sale order|bidding procedures|cure (costs|amounts)|bankruptcy court|plan of arrangement|interim order|final order|court order|^the arrangement|hearing|scheme", "ma.misc.other"),
 ]
 
-CATCH_ALL = {"ma.other.reserved", "ma.misc.other", "ma.rep.other", "ma.covenant.other", "ma.condition.other",
-             "ma.termination.right.other", "ma.other.unclassified", "tax.other.unclassified"}
+CATCH_ALL = {"ma.other.reserved", "ma.other.lead_in", "ma.misc.other", "ma.rep.other", "ma.covenant.other",
+             "ma.condition.other", "ma.termination.right.other", "ma.other.unclassified", "tax.other.unclassified"}
 
 _COMPILED = [(ctx, re.compile(pattern), target) for ctx, pattern, target in RULES]
 _CTX = {name: re.compile(pattern) for name, pattern in CONTEXTS.items()}

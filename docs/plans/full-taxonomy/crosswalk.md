@@ -409,7 +409,7 @@ The relation describes the new node compared with the older node.
 | `tax.8.5.1` | Other Tax Attributes | `tax.attribute.other` (exact) |
 | `tax.9.1.1` | Other / Unclassified Tax Provision | `tax.other.unclassified` (exact) |
 
-## M&A concepts with no older leaf (91)
+## M&A concepts with no older leaf (97)
 
 These concepts are new. No leaf of either older section tree has the same or a wider scope.
 
@@ -438,6 +438,9 @@ These concepts are new. No leaf of either older section tree has the same or a w
 - `ma.transition_services`: Transition Services
 - `ma.intercompany_termination`: Termination of Affiliate Agreements; Intercompany Accounts
 - `ma.credit_support_release`: Release of Seller Guarantees and Credit Support
+- `ma.separation.shared_contracts`: Shared Contracts and Shared Assets
+- `ma.separation.insurance_access`: Post-Closing Access to Seller Insurance
+- `ma.environmental.remediation`: Environmental Remediation and Transfer Statutes
 - `ma.covenant.other`: Other Covenant
 - `ma.noshop.standstill_waiver`: Standstill Waivers
 - `ma.recommendation.permitted_disclosure`: Permitted Disclosure; Stop, Look and Listen
@@ -466,11 +469,13 @@ These concepts are new. No leaf of either older section tree has the same or a w
 - `ma.financing.limited_guarantee`: Limited Guarantee; Parent Guarantee
 - `ma.merger_sub_obligations`: Obligations of Merger Sub; Parent Undertaking
 - `ma.legal_representation`: Legal Representation; Privilege
+- `ma.other.lead_in`: Article or Section Lead-In
 - `ma.other.reserved`: Reserved; Intentionally Omitted
 - `ma.indemn.specific`: Specific Indemnities
 - `ma.seller_representative`: Sellers' Representative
 - `ma.regulatory.no_interfering_acquisitions`: No Acquisitions That Delay Clearance
 - `ma.regulatory.filing_fee_allocation`: Allocation of Regulatory Filing Fees
+- `ma.bankruptcy.court_approval`: Bankruptcy Court Approval; Sale Order; Bidding Procedures
 - `ma.non_recourse`: Non-Recourse
 - `ma.attorneys_fees`: Attorneys' Fees
 - `ma.rep.title_to_shares`: Title to the Shares Being Sold
@@ -491,6 +496,7 @@ These concepts are new. No leaf of either older section tree has the same or a w
 - `ma.rep.healthcare_regulatory`: Healthcare and Life Sciences Regulatory Matters
 - `ma.rep.insurance_business`: Insurance Business Matters
 - `ma.rep.energy_natural_resources`: Energy and Natural Resources Matters
+- `ma.rep.communications`: Communications and Broadcast Regulatory Matters
 - `ma.rep.other`: Other Representation
 - `ma.structure.alternative_structure`: Alternative Structure; Change of Method
 - `ma.asset.nonassignable_assets`: Non-Assignable Assets and Contracts
