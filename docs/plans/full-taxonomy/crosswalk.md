@@ -27,23 +27,23 @@ The relation describes the new node compared with the older node.
 | `4c7da302bfebee05` | Compliance with Law; Permits | `ma.rep.compliance_permits` (exact, buyer) |
 | `585d491efa6b84bc` | Compliance with Law; Permits | `ma.rep.compliance_permits` (exact, target) |
 | `4703077b83eea31c` | Conduct of Business; Ordinary Course; Interim Restrictions | `ma.conduct.ordinary_course` (narrower); `ma.conduct.negative_covenants` (narrower) |
-| `1496473e2c8d9589` | Consequential / Punitive / Special Damages Waiver; Limitation of Liability (non-indemnity) | `ma.damages_waiver` (exact) |
+| `1496473e2c8d9589` | Consequential / Punitive / Special Damages Waiver; Limitation of Liability (non-indemnity) | `ma.damages_waiver` (broader) |
 | `91d9ddfe45872d7a` | D&O Indemnification; Advancement; Run-Off / Tail Insurance | `ma.dando.indemnification` (narrower); `ma.dando.tail_insurance` (narrower) |
 | `84bca32082127902` | Data Privacy; Cybersecurity; IT Systems (rep) | `ma.rep.privacy_cybersecurity` (exact, buyer) |
 | `e05efd4f67c59554` | Data Privacy; Cybersecurity; IT Systems (rep) | `ma.rep.privacy_cybersecurity` (exact, target) |
-| `6a2f9e016a48367a` | Debt / Equity Financing; Commitment Letters | `ma.financing.debt_commitment` (narrower); `ma.financing.equity_commitment` (narrower) |
+| `6a2f9e016a48367a` | Debt / Equity Financing; Commitment Letters | `ma.financing.debt_commitment` (narrower); `ma.financing.equity_commitment` (narrower); `ma.financing.buyer_covenant` (narrower) |
 | `e6b7de6f04a01f5b` | Defined Terms | `ma.definitions.general` (exact) |
 | `93dc2f35e87d9015` | Earn-Out / Contingent Consideration | `ma.consideration.earnout` (narrower); `ma.consideration.cvr` (narrower) |
 | `84826dbe2b6940b8` | Effect of Termination; Survival of Provisions | `ma.termination.effect` (related); `ma.termination.willful_breach_liability` (narrower) |
 | `92d4aee1b80c2134` | Effective Time; Merger Effects; Certificate of Merger / Surviving Charter & Bylaws | `ma.structure.effective_time` (exact) |
-| `fadbc4454a842009` | Efforts to Consummate; Cooperation (consummation) | `ma.efforts.general` (exact) |
+| `fadbc4454a842009` | Efforts to Consummate; Cooperation (consummation) | `ma.efforts.general` (narrower); `ma.efforts.third_party_consents` (narrower) |
 | `09cecc7b4c746f45` | Employee Benefit Plans / ERISA (rep) | `ma.rep.employee_benefits` (exact, target) |
 | `3ba3af3cb10af71a` | Employee Benefit Plans / ERISA (rep) | `ma.rep.employee_benefits` (exact, buyer) |
 | `079056f26925e599` | Employee Matters and Benefits (covenants) | `ma.employee.comp_benefits_continuation` (narrower); `ma.employee.no_third_party_rights` (narrower); `ma.employee.retention_severance` (narrower); `ma.employee.warn` (narrower) |
 | `e63ceec3215c234b` | Entire Agreement; Severability; Counterparts; Electronic Signatures; No Third-Party Beneficiaries (general) | `ma.entire_agreement` (narrower); `ma.third_party_beneficiaries` (narrower); `ma.severability` (narrower) |
 | `140ea12576e6e7f0` | Environmental Matters (rep) | `ma.rep.environmental` (exact, buyer) |
 | `d027088109f28e79` | Environmental Matters (rep) | `ma.rep.environmental` (exact, target) |
-| `f75af7009288819a` | Escrow / Holdback; Setoff / Recoupment | `ma.indemn.escrow` (narrower); `ma.indemn.setoff` (narrower) |
+| `f75af7009288819a` | Escrow / Holdback; Setoff / Recoupment | `ma.price_adjustment.escrow` (narrower); `ma.indemn.escrow` (narrower); `ma.indemn.setoff` (narrower) |
 | `c3edef551bf719ae` | Exclusive Remedy; Sandbagging / Anti-Sandbagging | `ma.indemn.materiality_scrape` (narrower); `ma.indemn.sandbagging` (narrower); `ma.indemn.exclusive_remedy` (narrower) |
 | `3b7a157321c3876f` | Fiduciary Out; Superior Proposal; Change of Recommendation | `ma.recommendation.board_recommendation` (narrower); `ma.recommendation.change_superior_proposal` (narrower); `ma.recommendation.change_intervening_event` (narrower); `ma.recommendation.match_right` (narrower) |
 | `0da9daafa2623ea4` | Financial Statements; Books and Records; Internal Controls | `ma.rep.financial_statements` (narrower, target); `ma.rep.internal_controls` (narrower, target); `ma.rep.books_records` (narrower, target) |
@@ -52,7 +52,7 @@ The relation describes the new node compared with the older node.
 | `c523ce22f3ead335` | Financing Cooperation Covenant | `ma.financing.cooperation` (exact); `ma.financing.cooperation_costs` (narrower) |
 | `38998387b6de4ce5` | Financing Funding Condition (if present) | `ma.condition.financing` (exact) |
 | `f758e6a8d32690bd` | Forum Selection / Venue; Submission to Jurisdiction | `ma.forum_selection` (exact) |
-| `fff743810be2e1d2` | Further Assurances; Post-Closing Cooperation | `ma.further_assurances` (exact) |
+| `fff743810be2e1d2` | Further Assurances; Post-Closing Cooperation | `ma.further_assurances` (narrower); `ma.records_access` (narrower) |
 | `5e59453aaa9255c4` | Governing Law | `ma.governing_law` (exact) |
 | `ef994612a273fa90` | Indemnification Scope; Covered Losses; Parties | `ma.indemn.obligation` (exact) |
 | `261083e783b5a952` | Insurance (rep) | `ma.rep.insurance` (exact, target) |
@@ -69,8 +69,8 @@ The relation describes the new node compared with the older node.
 | `d72c6fb8b8a7bef1` | Material Contracts (rep) | `ma.rep.material_contracts` (exact, buyer) |
 | `dd4d8822a65b2b6e` | Material Contracts (rep) | `ma.rep.material_contracts` (exact, target) |
 | `4030ad087c7df49e` | Merger Consideration; Exchange Ratio / Per Share Amount | `ma.consideration.merger_consideration` (narrower); `ma.consideration.exchange_ratio` (narrower) |
-| `c394b106699bd8fe` | No Brokers / No Finder's Fees (rep) | `ma.rep.brokers` (exact, target) |
-| `f0e1aa390dc4763c` | No Brokers / No Finder's Fees (rep) | `ma.rep.brokers` (exact, buyer) |
+| `c394b106699bd8fe` | No Brokers / No Finder’s Fees (rep) | `ma.rep.brokers` (exact, target) |
+| `f0e1aa390dc4763c` | No Brokers / No Finder’s Fees (rep) | `ma.rep.brokers` (exact, buyer) |
 | `1b47e9b79ea6c6b6` | No Conflicts; Consents; Approvals | `ma.rep.no_conflict` (exact, buyer) |
 | `7aa7be7c5d9555c2` | No Conflicts; Consents; Approvals | `ma.rep.no_conflict` (exact, target) |
 | `425a6dec0146defe` | No Injunction; Legality; Governmental Order | `ma.condition.no_legal_restraint` (exact) |
@@ -97,7 +97,7 @@ The relation describes the new node compared with the older node.
 | `4e18aa78e80883c1` | Superior Proposal / Fiduciary Out Termination | `ma.termination.right.superior_proposal` (exact) |
 | `1333a485313cb368` | Support / Voting Agreements; Tender Support; Force-the-Vote | `ma.approval.force_the_vote` (narrower); `ma.approval.voting_agreements` (narrower) |
 | `275322efa4672793` | Survival of Reps; Survival Periods | `ma.indemn.survival` (exact) |
-| `6d1ca58b2fed8a2d` | Takeover Statutes / Anti-Takeover | `ma.takeover.statutes` (exact) |
+| `6d1ca58b2fed8a2d` | Takeover Statutes / Anti-Takeover | `ma.takeover.statutes` (narrower); `ma.takeover.rights_plan` (narrower) |
 | `c232a01100673b01` | Tax Treatment of the Transaction; Tax Elections | `tax.nav.deal` (exact) |
 | `ad8a74d3130549ee` | Taxes (rep) | `tax.nav.reps` (exact, target) |
 | `dd38791fcfcd469e` | Taxes (rep) | `tax.nav.reps` (exact, buyer) |
@@ -142,7 +142,7 @@ The relation describes the new node compared with the older node.
 | `054fd370628538fb` | Closing Deliverables / Closing Documents | `ma.closing.deliverables` (exact) |
 | `e677bd0435f6818c` | Closing; Time and Place | `ma.closing.time_and_place` (exact) |
 | `13216c4a8e9545d4` | Company Financing Cooperation Covenant | `ma.financing.cooperation` (exact) |
-| `009b6ef7aa32ba1f` | Company Termination Fee | `ma.termination.fee.target` (exact) |
+| `009b6ef7aa32ba1f` | Company Termination Fee | `ma.termination.fee.target` (broader) |
 | `00ec75452264a1e4` | Compliance with Laws; Permits (Buyer rep) | `ma.rep.compliance_permits` (exact, buyer) |
 | `1a92f2fc1cd6d802` | Compliance with Laws; Permits (Company rep) | `ma.rep.compliance_permits` (exact, target) |
 | `5a6e23589cf6c269` | Conduct of Business; Ordinary Course; Interim Operating Restrictions | `ma.conduct.ordinary_course` (narrower); `ma.conduct.negative_covenants` (narrower); `ma.conduct.restriction.dividends` (narrower); `ma.conduct.restriction.equity_issuance` (narrower); `ma.conduct.restriction.indebtedness` (narrower); `ma.conduct.restriction.capex` (narrower); `ma.conduct.restriction.acquisitions_dispositions` (narrower); `ma.conduct.restriction.compensation` (narrower); `ma.conduct.restriction.organizational_documents` (narrower); `ma.conduct.restriction.contracts` (narrower); `ma.conduct.restriction.litigation_settlement` (narrower); `ma.conduct.restriction.accounting` (narrower) |
@@ -154,7 +154,7 @@ The relation describes the new node compared with the older node.
 | `dc39c0827248d3be` | D&O Tail / Run-Off Insurance | `ma.dando.tail_insurance` (exact) |
 | `5f6eeeea2f44caf3` | Data Privacy; Cybersecurity; IT Systems (Buyer rep) | `ma.rep.privacy_cybersecurity` (exact, buyer) |
 | `95ea8acdc60096b3` | Data Privacy; Cybersecurity; IT Systems (Company rep) | `ma.rep.privacy_cybersecurity` (exact, target) |
-| `9030f3aaa15165f0` | Debt Financing; Commitment Letters | `ma.financing.debt_commitment` (exact) |
+| `9030f3aaa15165f0` | Debt Financing; Commitment Letters | `ma.financing.debt_commitment` (narrower); `ma.rep.financing` (related) |
 | `c133ce37c9137ebe` | Defined Terms | `ma.definitions.general` (exact) |
 | `b130892037cd1d0e` | Disclosure Schedules / Disclosure Letter Conventions | `ma.interpretation.disclosure_schedules` (exact) |
 | `9ec8aa78fd03cf84` | Earn-Out / Contingent Consideration / Milestone Payments | `ma.consideration.earnout` (narrower); `ma.consideration.cvr` (narrower) |
@@ -168,10 +168,10 @@ The relation describes the new node compared with the older node.
 | `7b10978c7f55c2ac` | Environmental Matters (Buyer rep) | `ma.rep.environmental` (exact, buyer) |
 | `37685f0299f2d118` | Environmental Matters (Company rep) | `ma.rep.environmental` (exact, target) |
 | `75c250d924bc8087` | Equity Financing; Equity Commitment Letters; Rollover | `ma.consideration.rollover` (narrower); `ma.financing.equity_commitment` (narrower) |
-| `82441ff5092e1695` | Escrow / Holdback; Setoff; Source of Recovery; Insurance Offset | `ma.indemn.recovery_offsets` (narrower); `ma.indemn.escrow` (narrower); `ma.indemn.setoff` (narrower); `ma.indemn.order_of_recovery` (narrower) |
+| `82441ff5092e1695` | Escrow / Holdback; Setoff; Source of Recovery; Insurance Offset | `ma.price_adjustment.escrow` (narrower); `ma.indemn.recovery_offsets` (narrower); `ma.indemn.escrow` (narrower); `ma.indemn.setoff` (narrower); `ma.indemn.order_of_recovery` (narrower) |
 | `dffa35414901279b` | Exchange Procedures; Paying Agent; Letter of Transmittal | `ma.exchange.procedures` (broader) |
 | `3d843646fd60ebda` | Exclusive Remedy; Sandbagging / Anti-Sandbagging; Mitigation; Other Limitations | `ma.indemn.materiality_scrape` (narrower); `ma.indemn.sandbagging` (narrower); `ma.indemn.exclusive_remedy` (narrower); `ma.indemn.mitigation` (narrower) |
-| `f1bfd9033ca1155f` | Expense Reimbursement; Fee Triggers and Payment Mechanics | `ma.termination.expense_reimbursement` (narrower); `ma.termination.fee.exclusive_remedy` (narrower); `ma.termination.collection_costs` (narrower) |
+| `f1bfd9033ca1155f` | Expense Reimbursement; Fee Triggers and Payment Mechanics | `ma.termination.fee.target` (related); `ma.termination.fee.reverse` (related); `ma.termination.expense_reimbursement` (narrower); `ma.termination.fee.exclusive_remedy` (narrower); `ma.termination.collection_costs` (narrower) |
 | `4eae406295a1787b` | Fiduciary Out; Change of Recommendation; Superior Proposal (covenant) | `ma.noshop.unsolicited_proposal_exception` (narrower); `ma.recommendation.board_recommendation` (narrower); `ma.recommendation.change_superior_proposal` (narrower); `ma.recommendation.change_intervening_event` (narrower); `ma.recommendation.match_right` (narrower) |
 | `a1b0870d55465097` | Financial Statements; Books and Records (Buyer rep) | `ma.rep.financial_statements` (exact, buyer); `ma.rep.books_records` (narrower, buyer) |
 | `567a73db2348076c` | Financial Statements; Books and Records (Company rep) | `ma.rep.financial_statements` (exact, target); `ma.rep.books_records` (narrower, target) |
@@ -179,7 +179,7 @@ The relation describes the new node compared with the older node.
 | `097303d631a05a03` | Financing Source Protections; No Recourse; Limitations on Liability; Third-Party Beneficiary | `ma.financing.source_protections` (exact) |
 | `0f5f28a76cc128f0` | Financing; Sufficiency of Funds (Buyer rep) | `ma.rep.financing` (exact, buyer) |
 | `8df9b2d6098cf1d1` | Financing; Sufficiency of Funds (Company rep) | `ma.rep.financing` (exact, target) |
-| `d942732d2a73374a` | Further Assurances; Post-Closing Cooperation | `ma.further_assurances` (exact) |
+| `d942732d2a73374a` | Further Assurances; Post-Closing Cooperation | `ma.further_assurances` (narrower); `ma.records_access` (narrower) |
 | `9dd260f76c5039eb` | Governing Law | `ma.governing_law` (exact) |
 | `b268cb6c8e2ec84a` | Headings; Construction; Other Boilerplate | `ma.interpretation.rules` (related); `ma.misc.other` (narrower) |
 | `f3b4657e5baa4e27` | Indebtedness; Payoff Letters; Lien Releases | `ma.financing.payoff_letters` (exact) |
@@ -191,7 +191,7 @@ The relation describes the new node compared with the older node.
 | `a4a0275dfcfde50c` | Intellectual Property (Company rep) | `ma.rep.intellectual_property` (exact, target) |
 | `ff3875f08366a62d` | Labor and Employment (Buyer rep) | `ma.rep.labor_employment` (exact, buyer) |
 | `55bb0d0cba31fa54` | Labor and Employment (Company rep) | `ma.rep.labor_employment` (exact, target) |
-| `f9da722417abfd8c` | Limitation of Liability; Waiver of Consequential / Punitive / Special Damages (non-indemnity) | `ma.damages_waiver` (exact) |
+| `f9da722417abfd8c` | Limitation of Liability; Waiver of Consequential / Punitive / Special Damages (non-indemnity) | `ma.damages_waiver` (broader) |
 | `6fba0830a4d78518` | Litigation; Investigations; Governmental Orders (Buyer rep) | `ma.rep.litigation` (exact, buyer) |
 | `2bb96bb565ee8a0a` | Litigation; Investigations; Governmental Orders (Company rep) | `ma.rep.litigation` (exact, target) |
 | `73ff6b3bc4dedaff` | Material Contracts (Buyer rep) | `ma.rep.material_contracts` (exact, buyer) |
@@ -211,7 +211,7 @@ The relation describes the new node compared with the older node.
 | `d61c3de37ed27743` | Organization; Good Standing; Authority; Enforceability (Company rep) | `ma.rep.organization` (narrower, target); `ma.rep.authority` (narrower, target) |
 | `0d22dae73bc55b01` | Other / Unclassified | `ma.other.unclassified` (exact) |
 | `d6c13c12f0313084` | Other Buyer Closing Conditions (officer's cert; consents; no litigation; dissenters) | `ma.condition.dissenting_shares` (narrower); `ma.condition.third_party_consents` (narrower); `ma.condition.no_litigation` (narrower); `ma.condition.other` (narrower) |
-| `8e652eaa2ad91753` | Other Company Closing Conditions | `ma.condition.other` (exact) |
+| `8e652eaa2ad91753` | Other Company Closing Conditions | `ma.condition.third_party_consents` (narrower); `ma.condition.no_litigation` (narrower); `ma.condition.other` (narrower) |
 | `949c5df3928699f5` | Performance of Buyer/Parent Covenants (condition) | `ma.condition.covenant_performance` (exact, buyer) |
 | `452a003ee641f64b` | Performance of Company Covenants (condition) | `ma.condition.covenant_performance` (exact, target) |
 | `d1f7ad8b55c83632` | Proxy / Registration Statement; SEC Filings | `ma.approval.proxy_statement` (exact) |
@@ -220,11 +220,11 @@ The relation describes the new node compared with the older node.
 | `eb4322c2cf4f699e` | Purchased & Excluded Assets (asset deal) | `ma.asset.purchased_assets` (narrower); `ma.asset.excluded_assets` (narrower) |
 | `8e49a419b8373e64` | Real Property; Leases (Buyer rep) | `ma.rep.real_property` (exact, buyer) |
 | `8a1a3b6cfb2d5e33` | Real Property; Leases (Company rep) | `ma.rep.real_property` (exact, target) |
-| `22adf399e8cad6c0` | Reasonable Best Efforts to Consummate; Cooperation | `ma.efforts.general` (exact) |
+| `22adf399e8cad6c0` | Reasonable Best Efforts to Consummate; Cooperation | `ma.efforts.general` (narrower); `ma.efforts.third_party_consents` (narrower) |
 | `3be445493d6e135b` | Registration Statement Effectiveness / Listing (condition) | `ma.condition.registration_listing` (exact) |
 | `e2dd92cb9764f512` | Regulatory Approvals; HSR Waiting Periods (condition) | `ma.condition.regulatory_approval` (exact) |
 | `75301be761b8c91e` | Representation & Warranty Insurance (RWI) | `ma.indemn.rwi` (exact) |
-| `0a1400c3405b72a3` | Reverse / Parent Termination Fee | `ma.termination.fee.reverse` (exact) |
+| `0a1400c3405b72a3` | Reverse / Parent Termination Fee | `ma.termination.fee.reverse` (broader) |
 | `9340e04939885e21` | Rules of Construction / Interpretation | `ma.interpretation.rules` (exact) |
 | `a8793b071d8025d4` | SEC Reports; Sarbanes-Oxley; No Misstatement / 10b-5 (Buyer rep) | `ma.rep.sec_reports` (exact, buyer); `ma.rep.internal_controls` (narrower, buyer) |
 | `89adfe54f18848d5` | SEC Reports; Sarbanes-Oxley; No Misstatement / 10b-5 (Company rep) | `ma.rep.sec_reports` (exact, target); `ma.rep.internal_controls` (narrower, target) |
@@ -409,7 +409,7 @@ The relation describes the new node compared with the older node.
 | `tax.8.5.1` | Other Tax Attributes | `tax.attribute.other` (exact) |
 | `tax.9.1.1` | Other / Unclassified Tax Provision | `tax.other.unclassified` (exact) |
 
-## M&A concepts with no older leaf (94)
+## M&A concepts with no older leaf (91)
 
 These concepts are new. No leaf of either older section tree has the same or a wider scope.
 
@@ -425,7 +425,6 @@ These concepts are new. No leaf of either older section tree has the same or a w
 - `ma.consideration.anti_dilution`: Adjustments to Prevent Dilution
 - `ma.exchange.payment_schedule`: Allocation Schedule; Payment Spreadsheet
 - `ma.price_adjustment.dispute_resolution`: Independent Accountant Dispute Resolution
-- `ma.price_adjustment.escrow`: Adjustment Escrow
 - `ma.governance.post_closing`: Governance of the Combined Company
 - `ma.governance.resignations`: Resignations of Directors and Officers
 - `ma.dividend_coordination`: Coordination of Dividends
@@ -434,7 +433,6 @@ These concepts are new. No leaf of either older section tree has the same or a w
 - `ma.restrictive.non_solicit`: Non-Solicitation of Employees and Customers
 - `ma.restrictive.confidentiality`: Post-Closing Confidentiality of the Sellers
 - `ma.release`: Release of Claims
-- `ma.records_access`: Post-Closing Access to Records; Litigation Support
 - `ma.wrong_pockets`: Wrong Pockets; Misdirected Payments
 - `ma.use_of_name`: Use of Seller Names and Marks
 - `ma.transition_services`: Transition Services
@@ -471,7 +469,6 @@ These concepts are new. No leaf of either older section tree has the same or a w
 - `ma.other.reserved`: Reserved; Intentionally Omitted
 - `ma.indemn.specific`: Specific Indemnities
 - `ma.seller_representative`: Sellers' Representative
-- `ma.efforts.third_party_consents`: Third-Party Consents
 - `ma.regulatory.no_interfering_acquisitions`: No Acquisitions That Delay Clearance
 - `ma.regulatory.filing_fee_allocation`: Allocation of Regulatory Filing Fees
 - `ma.non_recourse`: Non-Recourse

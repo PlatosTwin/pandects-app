@@ -69,7 +69,7 @@ In the M&A pack, † after a group name means that the group can be the label of
 | Exchange and Payment Procedures | `ma.exchange.dissenting_shares` | Dissenting Shares; Appraisal Rights |  |
 | Exchange and Payment Procedures | `ma.exchange.payment_schedule` | Allocation Schedule; Payment Spreadsheet |  |
 | Purchase Price Adjustment † | `ma.price_adjustment.mechanism` | Purchase Price Adjustment | value stub |
-| Purchase Price Adjustment † | `ma.price_adjustment.closing_statement` | Closing Statement; Review and Objection | wave 2 |
+| Purchase Price Adjustment † | `ma.price_adjustment.closing_statement` | Closing Statement; Review and Objection |  |
 | Purchase Price Adjustment † | `ma.price_adjustment.dispute_resolution` | Independent Accountant Dispute Resolution | wave 2; value stub |
 | Purchase Price Adjustment † | `ma.price_adjustment.escrow` | Adjustment Escrow | wave 2; value stub |
 
@@ -134,21 +134,21 @@ In the M&A pack, † after a group name means that the group can be the label of
 
 | Group | Id | Label | Marks |
 |---|---|---|---|
-| Interim Operations † | `ma.conduct.ordinary_course` | Ordinary Course Covenant | value stub; party: obligor |
-| Interim Operations † | `ma.conduct.negative_covenants` | Negative Covenants (Restricted Actions) | wave 2; party: obligor |
-| Interim Operations † | `ma.conduct.restriction.dividends` | Restriction on Dividends and Repurchases | component; wave 2; value stub; party: obligor; part of `ma.conduct.negative_covenants` |
-| Interim Operations † | `ma.conduct.restriction.equity_issuance` | Restriction on Issuing Equity | component; wave 2; party: obligor; part of `ma.conduct.negative_covenants` |
-| Interim Operations † | `ma.conduct.restriction.indebtedness` | Restriction on Indebtedness and Liens | component; wave 2; value stub; party: obligor; part of `ma.conduct.negative_covenants` |
-| Interim Operations † | `ma.conduct.restriction.capex` | Restriction on Capital Expenditures | component; wave 2; value stub; party: obligor; part of `ma.conduct.negative_covenants` |
-| Interim Operations † | `ma.conduct.restriction.acquisitions_dispositions` | Restriction on Acquisitions and Dispositions | component; wave 2; value stub; party: obligor; part of `ma.conduct.negative_covenants` |
-| Interim Operations † | `ma.conduct.restriction.compensation` | Restriction on Compensation and Benefits | component; wave 2; party: obligor; part of `ma.conduct.negative_covenants` |
-| Interim Operations † | `ma.conduct.restriction.organizational_documents` | Restriction on Charter and Structural Changes | component; wave 2; party: obligor; part of `ma.conduct.negative_covenants` |
-| Interim Operations † | `ma.conduct.restriction.contracts` | Restriction on Material Contracts | component; wave 2; party: obligor; part of `ma.conduct.negative_covenants` |
-| Interim Operations † | `ma.conduct.restriction.litigation_settlement` | Restriction on Settling Claims | component; wave 2; value stub; party: obligor; part of `ma.conduct.negative_covenants` |
-| Interim Operations † | `ma.conduct.restriction.accounting` | Restriction on Accounting Changes | component; wave 2; party: obligor; part of `ma.conduct.negative_covenants` |
-| Interim Operations † | `ma.conduct.emergency_exception` | Emergency and Pandemic Exception | modifier; wave 2; party: obligor; part of `ma.conduct.ordinary_course` |
-| Interim Operations † | `ma.conduct.no_control` | No Control of the Other Party's Business |  |
-| Interim Operations † | `ma.conduct.integration_planning` | Integration Planning; Systems Conversion |  |
+| Interim Operations | `ma.conduct.ordinary_course` | Ordinary Course Covenant | value stub; party: obligor |
+| Interim Operations | `ma.conduct.negative_covenants` | Negative Covenants (Restricted Actions) | party: obligor |
+| Interim Operations | `ma.conduct.restriction.dividends` | Restriction on Dividends and Repurchases | component; wave 2; value stub; party: obligor; part of `ma.conduct.negative_covenants` |
+| Interim Operations | `ma.conduct.restriction.equity_issuance` | Restriction on Issuing Equity | component; wave 2; party: obligor; part of `ma.conduct.negative_covenants` |
+| Interim Operations | `ma.conduct.restriction.indebtedness` | Restriction on Indebtedness and Liens | component; wave 2; value stub; party: obligor; part of `ma.conduct.negative_covenants` |
+| Interim Operations | `ma.conduct.restriction.capex` | Restriction on Capital Expenditures | component; wave 2; value stub; party: obligor; part of `ma.conduct.negative_covenants` |
+| Interim Operations | `ma.conduct.restriction.acquisitions_dispositions` | Restriction on Acquisitions and Dispositions | component; wave 2; value stub; party: obligor; part of `ma.conduct.negative_covenants` |
+| Interim Operations | `ma.conduct.restriction.compensation` | Restriction on Compensation and Benefits | component; wave 2; party: obligor; part of `ma.conduct.negative_covenants` |
+| Interim Operations | `ma.conduct.restriction.organizational_documents` | Restriction on Charter and Structural Changes | component; wave 2; party: obligor; part of `ma.conduct.negative_covenants` |
+| Interim Operations | `ma.conduct.restriction.contracts` | Restriction on Material Contracts | component; wave 2; party: obligor; part of `ma.conduct.negative_covenants` |
+| Interim Operations | `ma.conduct.restriction.litigation_settlement` | Restriction on Settling Claims | component; wave 2; value stub; party: obligor; part of `ma.conduct.negative_covenants` |
+| Interim Operations | `ma.conduct.restriction.accounting` | Restriction on Accounting Changes | component; wave 2; party: obligor; part of `ma.conduct.negative_covenants` |
+| Interim Operations | `ma.conduct.emergency_exception` | Emergency and Pandemic Exception | modifier; wave 2; party: obligor; part of `ma.conduct.ordinary_course` |
+| Interim Operations | `ma.conduct.no_control` | No Control of the Other Party's Business |  |
+| Interim Operations | `ma.conduct.integration_planning` | Integration Planning; Systems Conversion |  |
 | Information, Confidentiality and Publicity | `ma.access.information` | Access to Information | party: obligor |
 | Information, Confidentiality and Publicity | `ma.access.notification` | Notice of Certain Events | party: obligor |
 | Information, Confidentiality and Publicity | `ma.access.schedule_updates` | Disclosure Schedule Updates | value stub |
@@ -169,7 +169,7 @@ In the M&A pack, † after a group name means that the group can be the label of
 | Board Recommendation and Fiduciary Out † | `ma.recommendation.board_recommendation` | Board Recommendation; No Adverse Change | wave 2; party: obligor |
 | Board Recommendation and Fiduciary Out † | `ma.recommendation.change_superior_proposal` | Fiduciary Out for a Superior Proposal | wave 2; value stub |
 | Board Recommendation and Fiduciary Out † | `ma.recommendation.change_intervening_event` | Fiduciary Out for an Intervening Event | wave 2; value stub |
-| Board Recommendation and Fiduciary Out † | `ma.recommendation.match_right` | Match Right | component; wave 2; value stub; part of `ma.recommendation.board_recommendation` |
+| Board Recommendation and Fiduciary Out † | `ma.recommendation.match_right` | Match Right | component; wave 2; value stub; part of `ma.recommendation.change_superior_proposal` |
 | Board Recommendation and Fiduciary Out † | `ma.recommendation.permitted_disclosure` | Permitted Disclosure; Stop, Look and Listen | component; wave 2; value stub; part of `ma.recommendation.board_recommendation` |
 | Stockholder Approval Process | `ma.approval.stockholder_meeting` | Stockholder Meeting | party: obligor |
 | Stockholder Approval Process | `ma.approval.force_the_vote` | Force-the-Vote | component; wave 2; value stub; part of `ma.approval.stockholder_meeting` |
@@ -188,9 +188,9 @@ In the M&A pack, † after a group name means that the group can be the label of
 | Efforts to Close | `ma.efforts.general` | Efforts to Consummate | value stub |
 | Efforts to Close | `ma.efforts.third_party_consents` | Third-Party Consents |  |
 | Antitrust † | `ma.regulatory.antitrust_filings` | Antitrust Filings and Cooperation | value stub |
-| Antitrust † | `ma.regulatory.remedies` | Antitrust Remedies; Divestitures | wave 2; value stub |
-| Antitrust † | `ma.regulatory.litigation` | Duty to Litigate Regulatory Challenges | wave 2; value stub |
-| Antitrust † | `ma.regulatory.strategy_control` | Control of Regulatory Strategy | wave 2; value stub |
+| Antitrust † | `ma.regulatory.remedies` | Antitrust Remedies; Divestitures | wave 2; value stub; party: obligor |
+| Antitrust † | `ma.regulatory.litigation` | Duty to Litigate Regulatory Challenges | wave 2; value stub; party: obligor |
+| Antitrust † | `ma.regulatory.strategy_control` | Control of Regulatory Strategy | wave 2; value stub; party: obligor |
 | Antitrust † | `ma.regulatory.no_interfering_acquisitions` | No Acquisitions That Delay Clearance | wave 2; party: obligor |
 | Antitrust † | `ma.regulatory.filing_fee_allocation` | Allocation of Regulatory Filing Fees | wave 2; also under `ma.nav.general.costs` |
 | Other Regulatory Approvals | `ma.regulatory.cfius` | CFIUS and Foreign Investment Review | value stub |
@@ -202,10 +202,10 @@ In the M&A pack, † after a group name means that the group can be the label of
 
 | Group | Id | Label | Marks |
 |---|---|---|---|
-| Financing Arrangements † | `ma.financing.structure` | Financing Structure | wave 2; value |
-| Financing Arrangements † | `ma.financing.debt_commitment` | Debt Financing; Commitment Letters | component; wave 2; part of `ma.rep.financing` |
-| Financing Arrangements † | `ma.financing.equity_commitment` | Equity Financing; Equity Commitment Letters | component; wave 2; part of `ma.rep.financing` |
-| Financing Arrangements † | `ma.financing.limited_guarantee` | Limited Guarantee; Parent Guarantee |  |
+| Financing Arrangements | `ma.financing.structure` | Financing Structure | wave 2; value |
+| Financing Arrangements | `ma.financing.debt_commitment` | Debt Financing; Commitment Letters | component; wave 2; part of `ma.rep.financing` |
+| Financing Arrangements | `ma.financing.equity_commitment` | Equity Financing; Equity Commitment Letters | component; wave 2; part of `ma.rep.financing` |
+| Financing Arrangements | `ma.financing.limited_guarantee` | Limited Guarantee; Parent Guarantee |  |
 | Financing Covenants | `ma.financing.buyer_covenant` | Buyer Financing Covenant | value stub |
 | Financing Covenants | `ma.financing.cooperation` | Financing Cooperation |  |
 | Financing Covenants | `ma.financing.cooperation_costs` | Financing Cooperation Costs and Indemnity | component; wave 2; part of `ma.financing.cooperation` |
@@ -231,8 +231,8 @@ In the M&A pack, † after a group name means that the group can be the label of
 
 | Group | Id | Label | Marks |
 |---|---|---|---|
-| Directors, Officers and Governance | `ma.dando.indemnification` | D&O Indemnification | value stub |
-| Directors, Officers and Governance | `ma.dando.tail_insurance` | D&O Tail Insurance | value stub |
+| Directors, Officers and Governance | `ma.dando.indemnification` | D&O Indemnification | value stub; party: obligor |
+| Directors, Officers and Governance | `ma.dando.tail_insurance` | D&O Tail Insurance | value stub; party: obligor |
 | Directors, Officers and Governance | `ma.governance.post_closing` | Governance of the Combined Company | value stub |
 | Directors, Officers and Governance | `ma.governance.resignations` | Resignations of Directors and Officers |  |
 | Directors, Officers and Governance | `ma.governance.section_16` | Section 16 Matters |  |
@@ -270,8 +270,8 @@ In the M&A pack, † after a group name means that the group can be the label of
 | Conditions for One Party † | `ma.condition.no_mae` | No Material Adverse Effect Condition | party: tested_party |
 | Conditions for One Party † | `ma.condition.financing` | Financing Condition | wave 2; also under `ma.nav.financing.arrangements` |
 | Conditions for One Party † | `ma.condition.dissenting_shares` | Dissenting Shares Condition | wave 2; value stub |
-| Conditions for One Party † | `ma.condition.third_party_consents` | Third-Party Consents Condition |  |
-| Conditions for One Party † | `ma.condition.no_litigation` | No Pending Litigation Condition |  |
+| Conditions for One Party † | `ma.condition.third_party_consents` | Third-Party Consents Condition | party: tested_party |
+| Conditions for One Party † | `ma.condition.no_litigation` | No Pending Litigation Condition | party: tested_party |
 | Conditions for One Party † | `ma.condition.other` | Other Closing Condition | party: tested_party |
 
 ### Termination
@@ -281,9 +281,9 @@ In the M&A pack, † after a group name means that the group can be the label of
 | Group | Id | Label | Marks |
 |---|---|---|---|
 | Termination Rights † | `ma.termination.right.mutual_consent` | Termination by Mutual Consent |  |
-| Termination Rights † | `ma.termination.outside_date` | Outside Date | wave 2; value |
-| Termination Rights † | `ma.termination.right.legal_restraint` | Termination for a Final Legal Restraint | wave 2 |
-| Termination Rights † | `ma.termination.right.vote_failure` | Termination for Failure of the Stockholder Vote | wave 2; value stub |
+| Termination Rights † | `ma.termination.outside_date` | Outside Date | wave 2; value; party: holder |
+| Termination Rights † | `ma.termination.right.legal_restraint` | Termination for a Final Legal Restraint | wave 2; party: holder |
+| Termination Rights † | `ma.termination.right.vote_failure` | Termination for Failure of the Stockholder Vote | wave 2; value stub; party: holder |
 | Termination Rights † | `ma.termination.right.breach` | Termination for Breach | wave 2; value stub; party: holder |
 | Termination Rights † | `ma.termination.right.recommendation_change` | Termination for a Change of Recommendation | wave 2; party: holder |
 | Termination Rights † | `ma.termination.right.superior_proposal` | Termination to Accept a Superior Proposal | wave 2; party: holder |
@@ -292,7 +292,7 @@ In the M&A pack, † after a group name means that the group can be the label of
 | Effect of Termination † | `ma.termination.effect` | Effect of Termination; Notice of Termination |  |
 | Effect of Termination † | `ma.termination.willful_breach_liability` | Liability After Termination for Willful Breach or Fraud | wave 2; value stub |
 | Termination Fees and Expenses † | `ma.termination.fee.target` | Target Termination Fee | wave 2; value |
-| Termination Fees and Expenses † | `ma.termination.fee.reverse` | Reverse Termination Fee | wave 2; value |
+| Termination Fees and Expenses † | `ma.termination.fee.reverse` | Reverse Termination Fee | value |
 | Termination Fees and Expenses † | `ma.termination.expense_reimbursement` | Expense Reimbursement on Termination | value |
 | Termination Fees and Expenses † | `ma.termination.fee.exclusive_remedy` | Termination Fee as Exclusive Remedy; Liability Cap | wave 2 |
 | Termination Fees and Expenses † | `ma.termination.collection_costs` | Collection Costs and Interest on Unpaid Fees | wave 2 |
@@ -306,8 +306,8 @@ In the M&A pack, † after a group name means that the group can be the label of
 | Survival and Scope | `ma.indemn.survival` | Survival of Representations and Covenants | value; also under `ma.nav.general.agreement` |
 | Survival and Scope | `ma.indemn.obligation` | Indemnification Obligation | party: indemnitor |
 | Survival and Scope | `ma.indemn.specific` | Specific Indemnities | component; wave 2; party: indemnitor; part of `ma.indemn.obligation` |
-| Limits on Recovery † | `ma.indemn.cap` | Indemnification Cap | wave 2; value |
-| Limits on Recovery † | `ma.indemn.basket` | Basket; Deductible; De Minimis | wave 2; value |
+| Limits on Recovery † | `ma.indemn.cap` | Indemnification Cap | wave 2; value; party: indemnitor |
+| Limits on Recovery † | `ma.indemn.basket` | Basket; Deductible; De Minimis | value; party: indemnitor |
 | Limits on Recovery † | `ma.indemn.materiality_scrape` | Materiality Scrape | modifier; wave 2; value stub; part of `ma.indemn.obligation` |
 | Limits on Recovery † | `ma.indemn.sandbagging` | Sandbagging | value stub |
 | Limits on Recovery † | `ma.indemn.exclusive_remedy` | Exclusive Remedy | value stub |
@@ -345,7 +345,7 @@ In the M&A pack, † after a group name means that the group can be the label of
 | Key Defined Terms † | `ma.mae.definition` | Material Adverse Effect Definition | definition; wave 2; value; party: subject; also under `ma.nav.conditions.party` |
 | Key Defined Terms † | `ma.mae.carveout` | MAE Carve-Out | component; wave 2; value; part of `ma.mae.definition` |
 | Key Defined Terms † | `ma.mae.disproportionate_effect` | MAE Disproportionate Effect Exception | modifier; wave 2; part of `ma.mae.definition` |
-| Key Defined Terms † | `ma.def.knowledge` | "Knowledge" Definition | definition; wave 2; value stub |
+| Key Defined Terms † | `ma.def.knowledge` | "Knowledge" Definition | definition; wave 2; value stub; party: subject |
 | Key Defined Terms † | `ma.def.acquisition_proposal` | "Acquisition Proposal" Definition | definition; wave 2; value stub; also under `ma.nav.deal_protection.no_shop` |
 | Key Defined Terms † | `ma.def.superior_proposal` | "Superior Proposal" Definition | definition; wave 2; value stub; also under `ma.nav.deal_protection.recommendation` |
 | Key Defined Terms † | `ma.def.intervening_event` | "Intervening Event" Definition | definition; wave 2; also under `ma.nav.deal_protection.recommendation` |
@@ -416,15 +416,15 @@ In the M&A pack, † after a group name means that the group can be the label of
 
 | Group | Id | Label | Marks |
 |---|---|---|---|
-| (branch) | `tax.interim.timely_filing` | Timely Filing of Tax Returns |  |
-| (branch) | `tax.interim.timely_payment` | Timely Payment of Taxes |  |
-| (branch) | `tax.interim.maintain_elections` | Maintain Existing Tax Elections / Methods |  |
-| (branch) | `tax.interim.no_new_elections` | No Unusual Tax Election or Accounting Method Change |  |
-| (branch) | `tax.interim.no_amended_returns` | No Amended Returns / Voluntary Disclosure / Ruling Request |  |
-| (branch) | `tax.interim.no_limitations_waiver` | No Waiver of Limitations / Extension of Assessment Period |  |
-| (branch) | `tax.interim.no_settlement` | No Settlement of Tax Claims Without Consent |  |
-| (branch) | `tax.interim.no_refund_surrender` | No Surrender of Refund Rights |  |
-| (branch) | `tax.interim.no_residency_change` | No Change in Tax Residency / Classification |  |
+| (branch) | `tax.interim.timely_filing` | Timely Filing of Tax Returns | party: obligor |
+| (branch) | `tax.interim.timely_payment` | Timely Payment of Taxes | party: obligor |
+| (branch) | `tax.interim.maintain_elections` | Maintain Existing Tax Elections / Methods | party: obligor |
+| (branch) | `tax.interim.no_new_elections` | No Unusual Tax Election or Accounting Method Change | party: obligor |
+| (branch) | `tax.interim.no_amended_returns` | No Amended Returns / Voluntary Disclosure / Ruling Request | party: obligor |
+| (branch) | `tax.interim.no_limitations_waiver` | No Waiver of Limitations / Extension of Assessment Period | party: obligor |
+| (branch) | `tax.interim.no_settlement` | No Settlement of Tax Claims Without Consent | party: obligor |
+| (branch) | `tax.interim.no_refund_surrender` | No Surrender of Refund Rights | party: obligor |
+| (branch) | `tax.interim.no_residency_change` | No Change in Tax Residency / Classification | party: obligor |
 
 ### Transfer and Withholding Taxes
 
@@ -479,7 +479,7 @@ In the M&A pack, † after a group name means that the group can be the label of
 | Straddle Period Allocation Rules | `tax.straddle.closing_date_convention` | Closing Date Allocation Convention |  |
 | Straddle Period Allocation Rules | `tax.straddle.closing_of_books` | Interim Closing of Books |  |
 | Straddle Period Allocation Rules | `tax.straddle.proration` | Proration by Days / Other Allocation Formula |  |
-| Indemnity Mechanics | `tax.indemnity.obligation` | Tax Indemnity Obligation | also under `ma.nav.indemnification.scope` |
+| Indemnity Mechanics | `tax.indemnity.obligation` | Tax Indemnity Obligation | party: indemnitor; also under `ma.nav.indemnification.scope` |
 | Indemnity Mechanics | `tax.indemnity.payment_timing` | Timing of Tax Indemnity Payments |  |
 | Indemnity Mechanics | `tax.indemnity.benefit_offset` | Treatment of Tax Benefits and Insurance Proceeds |  |
 | Indemnity Mechanics | `tax.indemnity.limitations` | Limitations |  |
