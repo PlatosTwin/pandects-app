@@ -2,14 +2,30 @@
 # Ids were read from DealOS KG v6 (manifest 7.0.0) on 2026-11-22. No DealOS prose is copied.
 # `relation` describes the Pandects concept relative to the DealOS concept.
 # Kept in its own file so that it can be left out of the public dump (open question in the plan).
+# Rechecked against DealOS v6 on 2026-11-23: links to a family node now point to the child node that fits.
 scheme: dealos_v6
 links:
   - concept: ma.structure.merger
     dealos_id: cra:r-merger-effectuation-at-the-effective-time
-    relation: related
+    relation: narrower
+  - concept: ma.structure.effective_time
+    dealos_id: cra:r-merger-effectuation-at-the-effective-time
+    relation: narrower
   - concept: ma.structure.purchase_and_sale
     dealos_id: cra:r-operative-purchase-and-sale-clause
-    relation: exact
+    relation: narrower
+  - concept: ma.asset.purchased_assets
+    dealos_id: cra:r-operative-purchase-and-sale-clause
+    relation: narrower
+  - concept: ma.asset.excluded_assets
+    dealos_id: cra:r-operative-purchase-and-sale-clause
+    relation: narrower
+  - concept: ma.asset.assumed_liabilities
+    dealos_id: cra:r-assumed-and-excluded-liabilities-in-asset-purchases
+    relation: narrower
+  - concept: ma.asset.excluded_liabilities
+    dealos_id: cra:r-assumed-and-excluded-liabilities-in-asset-purchases
+    relation: narrower
   - concept: ma.closing.time_and_place
     dealos_id: cra:21
     relation: exact
@@ -19,9 +35,15 @@ links:
   - concept: ma.closing.deliverables
     dealos_id: cra:r-buyers-closing-deliverables
     relation: broader
+  - concept: ma.closing.payments
+    dealos_id: cra:34
+    relation: exact
   - concept: ma.consideration.purchase_price
     dealos_id: econ:4
     relation: related
+  - concept: ma.consideration.seller_note
+    dealos_id: econ:6
+    relation: broader
   - concept: ma.consideration.rollover
     dealos_id: econ:145
     relation: exact
@@ -34,51 +56,90 @@ links:
   - concept: ma.exchange.procedures
     dealos_id: ai:60
     relation: exact
+  - concept: ma.exchange.dissenting_shares
+    dealos_id: cra:r-dissenting-shares-and-appraisal-rights
+    relation: exact
   - concept: ma.exchange.payment_schedule
     dealos_id: econ:r-per-holder-allocation-of-consideration-allocation-schedule
     relation: exact
   - concept: ma.price_adjustment.mechanism
     dealos_id: econ:113
-    relation: exact
+    relation: narrower
   - concept: ma.price_adjustment.closing_statement
-    dealos_id: econ:109
-    relation: related
+    dealos_id: econ:104
+    relation: broader
+  - concept: ma.price_adjustment.closing_statement
+    dealos_id: econ:107
+    relation: broader
+  - concept: ma.price_adjustment.dispute_resolution
+    dealos_id: econ:110
+    relation: exact
   - concept: ma.price_adjustment.escrow
     dealos_id: econ:111
     relation: exact
   - concept: ma.rep.organization
-    dealos_id: rw:23
-    relation: narrower
+    dealos_id: rw:24
+    relation: broader
+  - concept: ma.rep.organization
+    dealos_id: rw:r-organizational-documents-furnished-and-complied-with
+    relation: related
   - concept: ma.rep.authority
-    dealos_id: rw:23
-    relation: narrower
+    dealos_id: rw:25
+    relation: broader
+  - concept: ma.rep.authority
+    dealos_id: rw:26
+    relation: broader
   - concept: ma.rep.capitalization
     dealos_id: rw:34
     relation: narrower
+  - concept: ma.rep.subsidiaries
+    dealos_id: rw:40
+    relation: exact
   - concept: ma.rep.title_to_shares
-    dealos_id: rw:188
-    relation: narrower
+    dealos_id: rw:196
+    relation: exact
   - concept: ma.rep.no_conflict
     dealos_id: rw:27
     relation: exact
   - concept: ma.rep.financial_statements
     dealos_id: rw:41
+    relation: narrower
+  - concept: ma.rep.internal_controls
+    dealos_id: rw:47
+    relation: exact
+  - concept: ma.rep.books_records
+    dealos_id: rw:46
+    relation: broader
+  - concept: ma.rep.books_records
+    dealos_id: rw:r-bank-accounts
+    relation: broader
+  - concept: ma.rep.undisclosed_liabilities
+    dealos_id: rw:45
     relation: exact
   - concept: ma.rep.absence_of_changes
     dealos_id: rw:48
     relation: exact
   - concept: ma.rep.receivables_inventory
-    dealos_id: rw:92
-    relation: narrower
+    dealos_id: rw:96
+    relation: broader
+  - concept: ma.rep.receivables_inventory
+    dealos_id: rw:97
+    relation: broader
   - concept: ma.rep.litigation
     dealos_id: rw:124
     relation: exact
   - concept: ma.rep.compliance_permits
-    dealos_id: rw:139
-    relation: narrower
+    dealos_id: rw:140
+    relation: broader
   - concept: ma.rep.compliance_permits
     dealos_id: rw:134
-    relation: narrower
+    relation: broader
+  - concept: ma.rep.anti_corruption_sanctions
+    dealos_id: rw:144
+    relation: broader
+  - concept: ma.rep.anti_corruption_sanctions
+    dealos_id: rw:145
+    relation: broader
   - concept: ma.rep.material_contracts
     dealos_id: rw:60
     relation: exact
@@ -87,6 +148,9 @@ links:
     relation: exact
   - concept: ma.rep.affiliate_transactions
     dealos_id: rw:149
+    relation: exact
+  - concept: ma.rep.government_contracts
+    dealos_id: rw:r-government-contracts-compliance
     relation: exact
   - concept: ma.rep.product_liability_warranty
     dealos_id: rw:172
@@ -98,20 +162,35 @@ links:
     dealos_id: rw:86
     relation: exact
   - concept: ma.rep.title_sufficiency_assets
-    dealos_id: rw:92
-    relation: narrower
+    dealos_id: rw:93
+    relation: broader
+  - concept: ma.rep.title_sufficiency_assets
+    dealos_id: rw:94
+    relation: broader
+  - concept: ma.rep.title_sufficiency_assets
+    dealos_id: rw:95
+    relation: broader
   - concept: ma.rep.intellectual_property
     dealos_id: rw:78
     relation: narrower
   - concept: ma.rep.privacy_cybersecurity
-    dealos_id: rw:78
-    relation: narrower
+    dealos_id: rw:84
+    relation: broader
+  - concept: ma.rep.privacy_cybersecurity
+    dealos_id: rw:85
+    relation: broader
   - concept: ma.rep.environmental
     dealos_id: rw:99
     relation: exact
   - concept: ma.rep.employee_benefits
-    dealos_id: rw:114
-    relation: narrower
+    dealos_id: rw:116
+    relation: broader
+  - concept: ma.rep.employee_benefits
+    dealos_id: rw:117
+    relation: broader
+  - concept: ma.rep.employee_benefits
+    dealos_id: rw:123
+    relation: related
   - concept: ma.rep.labor_employment
     dealos_id: rw:114
     relation: narrower
@@ -119,56 +198,116 @@ links:
     dealos_id: rw:168
     relation: exact
   - concept: ma.rep.financing
-    dealos_id: rw:201
-    relation: narrower
+    dealos_id: rw:204
+    relation: exact
+  - concept: ma.rep.solvency
+    dealos_id: rw:205
+    relation: exact
+  - concept: ma.rep.investment_intent
+    dealos_id: rw:207
+    relation: exact
   - concept: ma.rep.no_other_reps
     dealos_id: pcra:60
     relation: narrower
   - concept: ma.rep.non_reliance
     dealos_id: pcra:60
     relation: narrower
+  - concept: ma.rep.non_reliance
+    dealos_id: rw:208
+    relation: exact
   - concept: ma.conduct.ordinary_course
     dealos_id: cra:r-ordinary-course-covenant
     relation: exact
   - concept: ma.conduct.negative_covenants
     dealos_id: cra:50
     relation: exact
+  - concept: ma.conduct.restriction.dividends
+    dealos_id: cra:51
+    relation: narrower
+  - concept: ma.conduct.restriction.equity_issuance
+    dealos_id: cra:51
+    relation: narrower
+  - concept: ma.conduct.restriction.indebtedness
+    dealos_id: cra:54
+    relation: exact
+  - concept: ma.conduct.restriction.capex
+    dealos_id: cra:56
+    relation: exact
+  - concept: ma.conduct.restriction.acquisitions_dispositions
+    dealos_id: cra:53
+    relation: exact
+  - concept: ma.conduct.restriction.compensation
+    dealos_id: cra:57
+    relation: broader
+  - concept: ma.conduct.restriction.compensation
+    dealos_id: cra:58
+    relation: broader
+  - concept: ma.conduct.restriction.organizational_documents
+    dealos_id: cra:52
+    relation: exact
+  - concept: ma.conduct.restriction.contracts
+    dealos_id: cra:55
+    relation: exact
+  - concept: ma.conduct.restriction.litigation_settlement
+    dealos_id: cra:60
+    relation: exact
+  - concept: ma.conduct.restriction.accounting
+    dealos_id: cra:61
+    relation: exact
   - concept: ma.conduct.emergency_exception
     dealos_id: cra:65
     relation: exact
   - concept: ma.access.information
-    dealos_id: cra:43
-    relation: narrower
-  - concept: ma.access.confidentiality
-    dealos_id: pcor:27
-    relation: broader
+    dealos_id: cra:47
+    relation: exact
+  - concept: ma.access.notification
+    dealos_id: cra:49
+    relation: exact
+  - concept: ma.access.schedule_updates
+    dealos_id: rw:17
+    relation: exact
   - concept: ma.access.public_announcements
     dealos_id: pcor:49
     relation: exact
+  - concept: ma.noshop.non_solicitation
+    dealos_id: cra:48
+    relation: exact
   - concept: ma.efforts.general
-    dealos_id: cra:87
-    relation: broader
+    dealos_id: cra:r-general-efforts-to-consummate-and-no-impediment-covenant
+    relation: exact
   - concept: ma.efforts.third_party_consents
-    dealos_id: cra:137
+    dealos_id: cra:r-pursue-third-party-consents
     relation: exact
   - concept: ma.regulatory.antitrust_filings
     dealos_id: cra:83
     relation: exact
   - concept: ma.regulatory.remedies
-    dealos_id: cra:96
-    relation: related
+    dealos_id: cra:91
+    relation: exact
+  - concept: ma.regulatory.no_interfering_acquisitions
+    dealos_id: cra:92
+    relation: narrower
   - concept: ma.regulatory.filing_fee_allocation
     dealos_id: econ:155
     relation: exact
+  - concept: ma.regulatory.cfius
+    dealos_id: cra:94
+    relation: narrower
   - concept: ma.regulatory.industry_approvals
     dealos_id: cra:93
     relation: exact
   - concept: ma.financing.buyer_covenant
     dealos_id: cra:63
     relation: exact
+  - concept: ma.financing.cooperation
+    dealos_id: cra:r-cooperate-with-financing
+    relation: exact
   - concept: ma.financing.cooperation_costs
     dealos_id: pcra:130
     relation: exact
+  - concept: ma.financing.payoff_letters
+    dealos_id: cra:r-payoff-letters-and-lien-releases
+    relation: broader
   - concept: ma.financing.source_protections
     dealos_id: ai:r-debt-financing-sources-provisions
     relation: exact
@@ -184,18 +323,39 @@ links:
   - concept: ma.employee.retention_severance
     dealos_id: econ:r-closing-year-bonus-honoring
     relation: broader
+  - concept: ma.employee.retention_severance
+    dealos_id: pcor:18
+    relation: broader
+  - concept: ma.employee.retention_severance
+    dealos_id: pcor:19
+    relation: broader
+  - concept: ma.employee.section_280g
+    dealos_id: cra:r-section-280g-waiver-and-shareholder-approval-covenant
+    relation: exact
   - concept: ma.dando.indemnification
     dealos_id: pcor:38
     relation: narrower
   - concept: ma.dando.tail_insurance
-    dealos_id: econ:147
+    dealos_id: pcor:41
     relation: exact
+  - concept: ma.dando.tail_insurance
+    dealos_id: econ:147
+    relation: related
   - concept: ma.restrictive.non_compete
-    dealos_id: pcor:20
-    relation: narrower
+    dealos_id: pcor:21
+    relation: exact
   - concept: ma.restrictive.non_solicit
-    dealos_id: pcor:20
-    relation: narrower
+    dealos_id: pcor:22
+    relation: broader
+  - concept: ma.restrictive.non_solicit
+    dealos_id: pcor:23
+    relation: broader
+  - concept: ma.restrictive.non_solicit
+    dealos_id: pcor:r-non-disparagement
+    relation: broader
+  - concept: ma.restrictive.confidentiality
+    dealos_id: pcor:27
+    relation: exact
   - concept: ma.release
     dealos_id: pcra:69
     relation: exact
@@ -207,34 +367,61 @@ links:
     relation: exact
   - concept: ma.records_access
     dealos_id: pcor:32
-    relation: exact
+    relation: broader
   - concept: ma.records_access
     dealos_id: pcor:54
-    relation: broader
+    relation: related
   - concept: ma.wrong_pockets
-    dealos_id: pcor:64
+    dealos_id: pcor:66
     relation: exact
   - concept: ma.use_of_name
-    dealos_id: pcor:70
+    dealos_id: pcor:72
     relation: exact
   - concept: ma.transition_services
     dealos_id: pcor:76
     relation: exact
+  - concept: ma.condition.stockholder_approval
+    dealos_id: cra:r-stockholder-approval-obtained
+    relation: exact
   - concept: ma.condition.regulatory_approval
-    dealos_id: cra:7
-    relation: narrower
+    dealos_id: cra:9
+    relation: exact
   - concept: ma.condition.no_legal_restraint
-    dealos_id: cra:7
-    relation: narrower
-  - concept: ma.condition.reps_bringdown
-    dealos_id: cra:12
-    relation: narrower
-  - concept: ma.condition.third_party_consents
-    dealos_id: cra:131
-    relation: related
+    dealos_id: cra:8
+    relation: exact
   - concept: ma.condition.frustration
-    dealos_id: cra:39
-    relation: narrower
+    dealos_id: cra:40
+    relation: exact
+  - concept: ma.condition.reps_bringdown
+    dealos_id: cra:13
+    relation: broader
+  - concept: ma.condition.reps_bringdown
+    dealos_id: cra:14
+    relation: broader
+  - concept: ma.condition.reps_bringdown
+    dealos_id: cra:r-accuracy-of-buyer-representations
+    relation: broader
+  - concept: ma.condition.covenant_performance
+    dealos_id: cra:15
+    relation: broader
+  - concept: ma.condition.covenant_performance
+    dealos_id: cra:37
+    relation: broader
+  - concept: ma.condition.no_mae
+    dealos_id: cra:16
+    relation: exact
+  - concept: ma.condition.financing
+    dealos_id: cra:20
+    relation: exact
+  - concept: ma.condition.dissenting_shares
+    dealos_id: cra:r-appraisal-demand-closing-condition
+    relation: exact
+  - concept: ma.condition.third_party_consents
+    dealos_id: cra:18
+    relation: exact
+  - concept: ma.condition.no_litigation
+    dealos_id: cra:10
+    relation: broader
   - concept: ma.termination.right.mutual_consent
     dealos_id: cra:113
     relation: narrower
@@ -243,22 +430,40 @@ links:
     relation: exact
   - concept: ma.termination.outside_date
     dealos_id: cra:114
-    relation: related
+    relation: exact
+  - concept: ma.termination.right.legal_restraint
+    dealos_id: cra:115
+    relation: exact
   - concept: ma.termination.right.breach
-    dealos_id: cra:116
-    relation: narrower
+    dealos_id: cra:117
+    relation: broader
   - concept: ma.termination.right.breach
-    dealos_id: cra:119
-    relation: narrower
+    dealos_id: cra:120
+    relation: broader
+  - concept: ma.termination.right.failure_to_close
+    dealos_id: cra:121
+    relation: exact
+  - concept: ma.termination.right.superior_proposal
+    dealos_id: cra:r-termination-to-accept-a-superior-proposal
+    relation: exact
   - concept: ma.termination.effect
-    dealos_id: cra:122
+    dealos_id: cra:123
+    relation: broader
+  - concept: ma.termination.willful_breach_liability
+    dealos_id: cra:124
     relation: exact
   - concept: ma.termination.fee.target
     dealos_id: cra:r-termination-fees-and-expense-reimbursement
     relation: narrower
   - concept: ma.termination.fee.reverse
-    dealos_id: cra:r-termination-fees-and-expense-reimbursement
-    relation: narrower
+    dealos_id: cra:r-reverse-termination-fee
+    relation: exact
+  - concept: ma.termination.expense_reimbursement
+    dealos_id: cra:125
+    relation: exact
+  - concept: ma.termination.fee.exclusive_remedy
+    dealos_id: cra:126
+    relation: broader
   - concept: ma.indemn.survival
     dealos_id: pcra:25
     relation: exact
@@ -269,10 +474,19 @@ links:
     dealos_id: pcra:43
     relation: exact
   - concept: ma.indemn.cap
-    dealos_id: pcra:35
-    relation: narrower
+    dealos_id: pcra:36
+    relation: exact
+  - concept: ma.indemn.cap
+    dealos_id: pcra:37
+    relation: broader
   - concept: ma.indemn.basket
     dealos_id: pcra:38
+    relation: broader
+  - concept: ma.indemn.basket
+    dealos_id: pcra:39
+    relation: broader
+  - concept: ma.indemn.materiality_scrape
+    dealos_id: rw:13
     relation: exact
   - concept: ma.indemn.sandbagging
     dealos_id: pcra:48
@@ -283,11 +497,17 @@ links:
   - concept: ma.indemn.mitigation
     dealos_id: pcra:122
     relation: exact
+  - concept: ma.indemn.recovery_offsets
+    dealos_id: pcra:92
+    relation: related
   - concept: ma.indemn.claims_procedure
     dealos_id: pcra:79
-    relation: narrower
+    relation: exact
   - concept: ma.indemn.escrow
     dealos_id: pcra:93
+    relation: narrower
+  - concept: ma.indemn.setoff
+    dealos_id: pcra:97
     relation: exact
   - concept: ma.seller_representative
     dealos_id: ai:r-sellers-representative
@@ -299,26 +519,29 @@ links:
     dealos_id: econ:151
     relation: broader
   - concept: ma.governing_law
-    dealos_id: ai:38
-    relation: narrower
+    dealos_id: ai:r-governing-law-and-the-contractual-choice
+    relation: exact
   - concept: ma.forum_selection
-    dealos_id: ai:38
-    relation: narrower
+    dealos_id: ai:32
+    relation: exact
   - concept: ma.jury_waiver
-    dealos_id: ai:38
-    relation: narrower
+    dealos_id: ai:36
+    relation: exact
   - concept: ma.arbitration
     dealos_id: pcra:118
     relation: exact
   - concept: ma.specific_performance
     dealos_id: cra:r-specific-performance
     relation: exact
-  - concept: ma.attorneys_fees
-    dealos_id: ai:r-prevailing-party-attorneys-fees
-    relation: exact
   - concept: ma.specific_performance
     dealos_id: ai:77
     relation: broader
+  - concept: ma.non_recourse
+    dealos_id: pcra:8
+    relation: exact
+  - concept: ma.attorneys_fees
+    dealos_id: ai:r-prevailing-party-attorneys-fees
+    relation: exact
   - concept: ma.definitions.general
     dealos_id: ai:r-definitions
     relation: exact
@@ -332,11 +555,17 @@ links:
     dealos_id: cra:77
     relation: exact
   - concept: ma.def.knowledge
-    dealos_id: pcra:16
+    dealos_id: rw:9
     relation: exact
+  - concept: ma.def.knowledge
+    dealos_id: pcra:16
+    relation: narrower
   - concept: ma.def.fraud
     dealos_id: pcra:101
     relation: narrower
+  - concept: ma.def.marketing_period
+    dealos_id: cra:r-marketing-period
+    relation: exact
   - concept: ma.def.indebtedness
     dealos_id: econ:68
     relation: exact
@@ -350,13 +579,16 @@ links:
     dealos_id: pcra:87
     relation: exact
   - concept: ma.def.fundamental_reps
-    dealos_id: rw:18
+    dealos_id: rw:19
     relation: exact
   - concept: ma.interpretation.rules
     dealos_id: ai:r-interpretation-and-construction-rules
     relation: exact
   - concept: ma.interpretation.disclosure_schedules
     dealos_id: rw:15
+    relation: narrower
+  - concept: ma.interpretation.disclosure_schedules
+    dealos_id: ai:41
     relation: exact
   - concept: ma.recitals
     dealos_id: ai:66
@@ -369,7 +601,7 @@ links:
     relation: exact
   - concept: ma.amendment
     dealos_id: ai:r-amendment-and-waiver
-    relation: narrower
+    relation: broader
   - concept: ma.assignment
     dealos_id: ai:r-successors-and-assigns
     relation: exact
@@ -378,7 +610,7 @@ links:
     relation: exact
   - concept: ma.severability
     dealos_id: ai:87
-    relation: exact
+    relation: broader
   - concept: ma.severability
     dealos_id: ai:r-counterparts-and-electronic-execution
     relation: broader
@@ -390,7 +622,28 @@ links:
     relation: exact
   - concept: tax.election.338h10
     dealos_id: pcor:9
-    relation: related
+    relation: narrower
+  - concept: tax.election.754
+    dealos_id: pcor:9
+    relation: narrower
+  - concept: tax.allocation.purchase_price
+    dealos_id: pcor:r-purchase-price-allocation-section-1060
+    relation: exact
+  - concept: tax.cooperation.post_closing
+    dealos_id: pcor:12
+    relation: exact
+  - concept: tax.cooperation.tax_sharing_termination
+    dealos_id: pcor:r-termination-of-tax-sharing-agreements
+    relation: exact
   - concept: tax.transfer.allocation
     dealos_id: econ:157
+    relation: exact
+  - concept: tax.rep.returns_filed
+    dealos_id: rw:108
+    relation: exact
+  - concept: tax.rep.entity_status
+    dealos_id: rw:r-entity-tax-classification-and-pass-through-status
+    relation: exact
+  - concept: tax.rep.no_post_closing_income
+    dealos_id: rw:r-post-closing-income-inclusion-from-pre-closing-items
     relation: exact
