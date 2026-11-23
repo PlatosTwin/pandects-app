@@ -1,0 +1,719 @@
+# Pandects taxonomy, tax pack (`tax`). Navigation branch: Tax Representations.
+# Structure and labels mirror tax_clause_taxonomy_l1/l2/l3, which was built with a tax professor.
+# Nodes marked `new_in_redesign: true` are additions to the legacy tax tree. The maintainer accepted them on 2026-11-22.
+# Field reference: etl/taxonomy/README.md. Validate with: python -m etl.domain.taxonomy_pack
+pack: tax
+release: '2026.1'
+branch:
+  id: tax.nav.reps
+  label: Tax Representations
+  kind: branch
+  order: 7
+  assignable: true
+  description: >-
+    Representations and warranties about taxes. The party that makes the representation is an attribute
+    of the instance.
+  also_listed_under:
+    - ma.nav.reps.financial
+  crosswalk:
+    tax_v1:
+      - id: tax.7
+        relation: exact
+    section_v1:
+      - id: ad8a74d3130549ee
+        relation: exact
+        party: target
+      - id: dd38791fcfcd469e
+        relation: exact
+        party: buyer
+    section_v2:
+      - id: d2985199715226d9
+        relation: exact
+        party: target
+      - id: a678f35bc4d02501
+        relation: exact
+        party: buyer
+  introduced_in: '2026.1'
+groups:
+
+  - id: tax.nav.reps.returns_payments
+    label: Returns and Payments
+    kind: group
+    nav_parent: tax.nav.reps
+    assignable: true
+    description: Representations on filing returns, paying taxes and withholding.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.nav.reps.audits
+    label: Audits and Proceedings
+    kind: group
+    nav_parent: tax.nav.reps
+    assignable: true
+    description: Representations on audits, waivers, deficiencies, liens and rulings.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.nav.reps.status
+    label: Attributes and Status
+    kind: group
+    nav_parent: tax.nav.reps
+    assignable: true
+    description: Representations on tax status, group membership and tax attributes.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.3
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.nav.reps.transaction
+    label: Transaction-Specific Tax Reps
+    kind: group
+    nav_parent: tax.nav.reps
+    assignable: true
+    description: Tax representations specific to this transaction.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.4
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.nav.reps.history
+    label: Transactional History
+    kind: group
+    nav_parent: tax.nav.reps
+    assignable: true
+    description: Representations on past transactions with tax consequences.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.5
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.nav.reps.timing
+    label: Timing and Income Inclusion
+    kind: group
+    nav_parent: tax.nav.reps
+    assignable: true
+    description: Representations that no pre-closing item will create taxable income after closing.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.6
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.nav.reps.partnership
+    label: Partnership-Related Representations
+    kind: group
+    nav_parent: tax.nav.reps
+    assignable: true
+    description: Tax representations specific to partnerships.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.7
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.nav.reps.s_corporation
+    label: S Corporation-Related Representations
+    kind: group
+    nav_parent: tax.nav.reps
+    assignable: true
+    description: Tax representations specific to S corporations.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.8
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.nav.reps.ring_fencing
+    label: Ring-Fencing Provisions
+    kind: group
+    nav_parent: tax.nav.reps
+    assignable: true
+    description: Provisions that make the tax representations the only representations about taxes.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.9
+          relation: exact
+    introduced_in: '2026.1'
+concepts:
+
+  - id: tax.rep.returns_filed
+    label: Returns Filed and Taxes Paid
+    kind: provision
+    nav_parent: tax.nav.reps.returns_payments
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      A representation that all tax returns were filed on time and were correct, and that all taxes due
+      were paid.
+    canonical_terms:
+      - has timely filed all Tax Returns
+      - true, correct and complete
+      - all Taxes due and payable have been paid
+    example_phrases:
+      - >-
+        The Company has timely filed all material Tax Returns required to be filed by it, and all such
+        Tax Returns are true, correct and complete in all material respects.
+    exclusion_cues:
+      - The covenant to keep filing on time before closing is tax.interim.timely_filing.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.1.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.rep.accruals
+    label: Adequate Accrual / Reserve for Taxes
+    kind: provision
+    nav_parent: tax.nav.reps.returns_payments
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      A representation that the financial statements carry adequate accruals or reserves for unpaid taxes.
+    canonical_terms:
+      - adequate reserves
+      - accrued on the financial statements
+      - in accordance with GAAP
+    example_phrases:
+      - >-
+        The unpaid Taxes of the Company did not, as of the Balance Sheet Date, exceed the reserve for
+        Tax liability set forth on the face of the Balance Sheet.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.1.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.rep.withholding_compliance
+    label: Withholding Compliance
+    kind: provision
+    nav_parent: tax.nav.reps.returns_payments
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      A representation that the company withheld and paid over all taxes it had to withhold from payments
+      to employees, creditors and others.
+    canonical_terms:
+      - withheld and paid over
+      - employee, independent contractor, creditor, stockholder
+      - Forms W-2 and 1099
+    example_phrases:
+      - >-
+        The Company has withheld and paid all Taxes required to have been withheld and paid in connection
+        with amounts paid to any employee, independent contractor, creditor or stockholder.
+    exclusion_cues:
+      - The payor's right to withhold from deal payments is tax.withholding.provision.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.1.3
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.rep.no_audit
+    label: No Pending Audit / Examination / Claim
+    kind: provision
+    nav_parent: tax.nav.reps.audits
+    tier: label
+    attributes:
+      party: maker
+    description: A representation that no tax audit, examination or claim is pending or threatened.
+    canonical_terms:
+      - no audit or examination
+      - pending or threatened in writing
+      - claim by a Taxing Authority
+    example_phrases:
+      - >-
+        There is no audit, examination or other proceeding pending or, to the Company's Knowledge, threatened
+        in writing with respect to any Taxes of the Company.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.2.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.rep.no_limitations_waiver
+    label: No Extension / Waiver of Limitations
+    kind: provision
+    nav_parent: tax.nav.reps.audits
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      A representation that the company has not waived a statute of limitations for taxes or agreed to
+      extend the time for an assessment.
+    canonical_terms:
+      - has not waived any statute of limitations
+      - extension of time with respect to a Tax assessment
+    example_phrases:
+      - >-
+        The Company has not waived any statute of limitations in respect of Taxes or agreed to any extension
+        of time with respect to a Tax assessment or deficiency.
+    exclusion_cues:
+      - The interim covenant is tax.interim.no_limitations_waiver.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.2.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.rep.no_deficiency_lien
+    label: No Deficiency / Lien / Closing Agreement / Ruling
+    kind: provision
+    nav_parent: tax.nav.reps.audits
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      A representation that there is no unpaid tax deficiency, no tax lien other than for taxes not yet
+      due, and no closing agreement or private ruling that binds the company.
+    canonical_terms:
+      - no deficiency for Taxes
+      - no Liens for Taxes other than Permitted Liens
+      - no closing agreement or ruling in effect
+      - private letter ruling
+    example_phrases:
+      - >-
+        There are no Liens for Taxes upon any of the assets of the Company, other than Liens for Taxes
+        not yet due and payable.
+    exclusion_cues:
+      - A closing agreement listed as a cause of income after closing is tax.rep.no_deferred_income.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.2.3
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.rep.entity_status
+    label: Entity Classification / Residency / Special Status
+    kind: provision
+    nav_parent: tax.nav.reps.status
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      A representation on the company's tax classification, tax residency or other special tax status.
+    canonical_terms:
+      - classified as a corporation for U.S. federal income tax purposes
+      - since its formation
+      - resident for Tax purposes
+    example_phrases:
+      - >-
+        The Company is, and has been since its formation, classified as a corporation for U.S. federal
+        income tax purposes.
+    exclusion_cues:
+      - Partnership and S corporation status have their own groups under tax.nav.reps.
+      - >-
+        Representations on REIT, RIC, PFIC or CFC status, and on tax residency abroad or a permanent establishment,
+        go to the matching node under tax.nav.regimes.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.3.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.rep.tax_sharing_group
+    label: Tax Sharing Agreement / Consolidated Group Membership
+    kind: provision
+    nav_parent: tax.nav.reps.status
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      A representation that the company is not a party to a tax sharing, allocation or indemnity agreement
+      and has not been a member of a consolidated, combined or unitary group, and has no liability for
+      taxes of another person.
+    canonical_terms:
+      - Tax sharing agreement
+      - Tax allocation agreement
+      - affiliated group filing a consolidated return
+      - Treasury Regulations Section 1.1502-6
+    example_phrases:
+      - >-
+        The Company is not a party to any Tax sharing, allocation or indemnification agreement, other
+        than customary commercial agreements not primarily related to Taxes.
+    exclusion_cues:
+      - >-
+        The covenant to end tax sharing agreements at closing is tax.cooperation.tax_sharing_termination.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.3.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.rep.attribute_availability
+    label: Availability of Tax Attributes
+    kind: provision
+    nav_parent: tax.nav.reps.status
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      A representation on the amount or availability of tax attributes such as net operating losses or
+      credits.
+    canonical_terms:
+      - net operating loss carryforwards
+      - not subject to any limitation under Section 382
+      - available to offset
+    example_phrases:
+      - >-
+        Section [•] of the Disclosure Schedule sets forth the amount of the Company's net operating loss
+        carryforwards as of [•].
+    exclusion_cues:
+      - Covenants that protect the attributes are under tax.nav.attributes.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.3.3
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.rep.firpta
+    label: FIRPTA Status
+    kind: provision
+    nav_parent: tax.nav.reps.transaction
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      A representation on FIRPTA status: that the company is not, and has not been, a United States real
+      property holding corporation, or that the seller is not a foreign person.
+    canonical_terms:
+      - United States real property holding corporation
+      - Section 897(c)(2)
+      - not a foreign person
+      - Section 1445
+    example_phrases:
+      - >-
+        The Company has not been a United States real property holding corporation within the meaning
+        of Section 897(c)(2) of the Code during the applicable period.
+    exclusion_cues:
+      - Delivery of the FIRPTA certificate at closing is tax.withholding.form_delivery.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.4.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.rep.intended_treatment
+    label: Intended Tax Treatment
+    kind: provision
+    nav_parent: tax.nav.reps.transaction
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      A representation that the party has not taken an action and knows of no fact that would prevent
+      the intended tax treatment of the transaction.
+    canonical_terms:
+      - has not taken or agreed to take any action
+      - would reasonably be expected to prevent the Merger from qualifying
+      - reorganization
+    example_phrases:
+      - >-
+        Neither the Company nor any of its Subsidiaries has taken any action or knows of any fact that
+        would reasonably be expected to prevent the Merger from qualifying as a reorganization within
+        the meaning of Section 368(a) of the Code.
+    exclusion_cues:
+      - The statement of intent and the covenant are tax.treatment.reorganization.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.4.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.rep.section_355
+    label: Section 355 Transactions
+    kind: provision
+    nav_parent: tax.nav.reps.history
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      A representation that the company has not been a distributing or controlled corporation in a distribution
+      intended to qualify under Section 355.
+    canonical_terms:
+      - distributing corporation
+      - controlled corporation
+      - Section 355
+      - within the past two years
+    example_phrases:
+      - >-
+        Within the past two years, the Company has not been a "distributing corporation" or a "controlled
+        corporation" in a distribution intended to qualify under Section 355 of the Code.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.5.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.rep.reportable_transactions
+    label: Listed / Reportable Transactions
+    kind: provision
+    nav_parent: tax.nav.reps.history
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      A representation that the company has not taken part in a listed transaction or reportable transaction.
+    canonical_terms:
+      - listed transaction
+      - reportable transaction
+      - Treasury Regulations Section 1.6011-4(b)
+    example_phrases:
+      - >-
+        The Company has not participated in any "listed transaction" within the meaning of Treasury Regulations
+        Section 1.6011-4(b)(2).
+    crosswalk:
+      tax_v1:
+        - id: tax.7.5.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.rep.no_post_closing_income
+    label: No Post-Closing Income from Pre-Closing Periods
+    kind: provision
+    nav_parent: tax.nav.reps.timing
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      A representation that the company will not have to include income in, or exclude a deduction from,
+      a period after closing because of a pre-closing event.
+    canonical_terms:
+      - include any item of income in, or exclude any item of deduction from
+      - taxable period ending after the Closing Date
+    example_phrases:
+      - >-
+        The Company will not be required to include any item of income in, or exclude any item of deduction
+        from, taxable income for any period ending after the Closing Date as a result of any transaction
+        made on or prior to the Closing Date.
+      - >-
+        The Company will not be required to include any item of income in, or exclude any item of deduction
+        from, taxable income for any taxable period ending after the Closing Date as a result of any of
+        the following:
+    exclusion_cues:
+      - >-
+        Each listed cause of the income, such as a change in accounting method, a closing agreement, an
+        installment sale or a prepaid amount, is tax.rep.no_deferred_income. This concept takes the lead-in,
+        and the whole statement when it lists no causes.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.6.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.rep.no_deferred_income
+    label: >-
+      No Closing Agreements / Installment Sales / Accounting Method Changes Causing Deferred Income
+    kind: provision
+    nav_parent: tax.nav.reps.timing
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      The listed causes of deferred income: a change in accounting method, a closing agreement, an installment
+      sale, a prepaid amount or an intercompany transaction before closing. This concept takes the listed
+      causes. The lead-in statement takes tax.rep.no_post_closing_income.
+    canonical_terms:
+      - change in method of accounting
+      - Section 481
+      - closing agreement under Section 7121
+      - installment sale or open transaction
+      - prepaid amount
+    example_phrases:
+      - >-
+        ... as a result of any (i) change in method of accounting, (ii) closing agreement, (iii) installment
+        sale or open transaction disposition, or (iv) prepaid amount received on or prior to the Closing
+        Date.
+    exclusion_cues:
+      - The lead-in statement without the list is tax.rep.no_post_closing_income.
+      - >-
+        A statement that no closing agreement or ruling binds the company, with no income effect, is
+        tax.rep.no_deficiency_lien.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.6.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.rep.partnership_classification
+    label: Partnership Tax Classification
+    kind: provision
+    nav_parent: tax.nav.reps.partnership
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      A representation that an entity is, and has been, classified as a partnership for tax purposes.
+    canonical_terms:
+      - classified as a partnership
+      - not a publicly traded partnership
+      - Section 7704
+    example_phrases:
+      - >-
+        The Company has at all times since its formation been classified as a partnership for U.S. federal
+        income tax purposes.
+    exclusion_cues:
+      - >-
+        A representation that an entity is disregarded as separate from its owner is tax.rep.entity_status.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.7.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.rep.partnership_compliance
+    label: Partnership Tax Compliance
+    kind: provision
+    nav_parent: tax.nav.reps.partnership
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      A representation on partnership tax compliance, such as capital accounts, allocations and Schedules
+      K-1.
+    canonical_terms:
+      - Schedule K-1
+      - capital accounts
+      - allocations in accordance with Section 704
+    example_phrases:
+      - >-
+        The Company has timely delivered a Schedule K-1 to each of its partners for each taxable year.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.7.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.rep.partnership_audit_regime
+    label: Partnership Audit Regime Matters
+    kind: provision
+    nav_parent: tax.nav.reps.partnership
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      A representation on the centralized partnership audit regime, such as elections made under it.
+    canonical_terms:
+      - Bipartisan Budget Act of 2015
+      - partnership representative
+      - election under Section 6221(b)
+    example_phrases:
+      - >-
+        The Company has not made an election to apply the partnership audit rules of the Bipartisan Budget
+        Act of 2015 to any taxable year beginning before January 1, 2018.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.7.3
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.rep.s_corp_election
+    label: Valid S Corporation Election
+    kind: provision
+    nav_parent: tax.nav.reps.s_corporation
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      A representation that the company has had a valid S corporation election in effect at all relevant
+      times.
+    canonical_terms:
+      - valid election under Section 1362
+      - S corporation within the meaning of Section 1361
+      - at all times since
+    example_phrases:
+      - >-
+        The Company has been a validly electing S corporation within the meaning of Sections 1361 and
+        1362 of the Code at all times since [•].
+    crosswalk:
+      tax_v1:
+        - id: tax.7.8.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.rep.s_corp_shareholders
+    label: Qualified S Corporation Shareholders
+    kind: provision
+    nav_parent: tax.nav.reps.s_corporation
+    tier: label
+    attributes:
+      party: maker
+    description: A representation that each shareholder is a person allowed to hold S corporation stock.
+    canonical_terms:
+      - eligible shareholder
+      - qualified subchapter S trust
+      - Section 1361(b)
+    example_phrases:
+      - >-
+        Each shareholder of the Company is, and has at all times been, a person permitted to be a shareholder
+        of an S corporation under Section 1361(b) of the Code.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.8.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.rep.s_corp_no_termination
+    label: No S Corporation Termination Event
+    kind: provision
+    nav_parent: tax.nav.reps.s_corporation
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      A representation that nothing has ended or will end the S election.
+    canonical_terms:
+      - termination of S corporation status
+      - would terminate the S election
+      - revocation of the S corporation election
+    example_phrases:
+      - >-
+        No event has occurred that would terminate the Company's status as an S corporation, other than
+        the transactions contemplated by this Agreement.
+    exclusion_cues:
+      - Covenants and indemnities on built-in gains tax under Section 1374 are tax.passthrough.s_corporation.
+      - >-
+        A representation on built-in gains tax under Section 1374 has no concept of its own. It takes the
+        group tax.nav.reps.s_corporation.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.8.3
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.rep.ring_fencing
+    label: Exclusive Tax Representations / Ring-Fencing
+    kind: provision
+    nav_parent: tax.nav.reps.ring_fencing
+    tier: label
+    attributes:
+      party: maker
+    description: >-
+      A statement that the tax section holds the only representations about taxes, or that the tax representations
+      cover pre-closing periods only and give no assurance on tax attributes after closing.
+    canonical_terms:
+      - sole and exclusive representations and warranties relating to Taxes
+      - no representation as to the amount or availability of any Tax attribute
+      - taxable periods beginning after the Closing Date
+    example_phrases:
+      - >-
+        The representations and warranties in this Section [•] are the sole and exclusive representations
+        and warranties of the Company relating to Taxes.
+    exclusion_cues:
+      - The general no-other-representations clause is ma.rep.no_other_reps.
+    crosswalk:
+      tax_v1:
+        - id: tax.7.9.1
+          relation: exact
+    introduced_in: '2026.1'

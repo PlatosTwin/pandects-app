@@ -1,0 +1,236 @@
+# Pandects taxonomy, tax pack (`tax`). Navigation branch: Transfer and Withholding Taxes.
+# Structure and labels mirror tax_clause_taxonomy_l1/l2/l3, which was built with a tax professor.
+# Nodes marked `new_in_redesign: true` are additions to the legacy tax tree. The maintainer accepted them on 2026-11-22.
+# Field reference: etl/taxonomy/README.md. Validate with: python -m etl.domain.taxonomy_pack
+pack: tax
+release: '2026.1'
+branch:
+  id: tax.nav.transfer_withholding
+  label: Transfer and Withholding Taxes
+  kind: branch
+  order: 3
+  assignable: true
+  description: >-
+    Who bears transfer taxes, when a payor may withhold from payments, and gross-up mechanics.
+  also_listed_under:
+    - ma.nav.general.costs
+    - ma.nav.consideration.exchange
+  crosswalk:
+    tax_v1:
+      - id: tax.3
+        relation: exact
+  introduced_in: '2026.1'
+groups:
+
+  - id: tax.nav.transfer_withholding.transfer
+    label: Transfer Taxes
+    kind: group
+    nav_parent: tax.nav.transfer_withholding
+    assignable: true
+    description: Transfer, sales, use, stamp and similar taxes on the transaction.
+    crosswalk:
+      tax_v1:
+        - id: tax.3.1
+          relation: exact
+      section_v2:
+        - id: 6c5f2590fc80b4a8
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: tax.nav.transfer_withholding.withholding
+    label: Withholding
+    kind: group
+    nav_parent: tax.nav.transfer_withholding
+    assignable: true
+    description: Withholding from payments under the agreement and the forms that avoid it.
+    crosswalk:
+      tax_v1:
+        - id: tax.3.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.nav.transfer_withholding.gross_up
+    label: Gross-Up and Tax Adjustment Mechanics
+    kind: group
+    nav_parent: tax.nav.transfer_withholding
+    assignable: true
+    description: Gross-up and tax-effect adjustments to payments.
+    crosswalk:
+      tax_v1:
+        - id: tax.3.3
+          relation: exact
+    introduced_in: '2026.1'
+concepts:
+
+  - id: tax.transfer.allocation
+    label: Transfer Tax Allocation
+    kind: provision
+    nav_parent: tax.nav.transfer_withholding.transfer
+    also_listed_under:
+      - ma.nav.general.costs
+    tier: label
+    description: >-
+      Which party bears transfer, sales, use, stamp, documentary and similar taxes on the transaction.
+    canonical_terms:
+      - Transfer Taxes
+      - borne by Buyer
+      - shared equally
+      - sales, use, stamp, documentary
+    example_phrases:
+      - >-
+        All Transfer Taxes arising from the transactions contemplated by this Agreement shall be borne
+        50% by Buyer and 50% by Seller.
+    exclusion_cues:
+      - The general rule that each party pays its own expenses is ma.expenses.
+      - >-
+        A stand-alone definition of "Transfer Taxes", such as one in the definitions article, is tax.nav.transfer_withholding.transfer.
+        A term defined inside the allocation sentence stays with this concept.
+    crosswalk:
+      tax_v1:
+        - id: tax.3.1.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.transfer.return_filing
+    label: Transfer Tax Return Filing Responsibility
+    kind: provision
+    nav_parent: tax.nav.transfer_withholding.transfer
+    tier: label
+    description: >-
+      Which party prepares and files transfer tax returns, and the duty to cooperate in filing them.
+    canonical_terms:
+      - file all necessary Tax Returns with respect to Transfer Taxes
+      - cooperate in the filing
+    example_phrases:
+      - >-
+        The party required by Law to do so shall file all Tax Returns with respect to Transfer Taxes,
+        and the other party shall cooperate.
+    crosswalk:
+      tax_v1:
+        - id: tax.3.1.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.withholding.provision
+    label: Withholding Provisions
+    kind: provision
+    nav_parent: tax.nav.transfer_withholding.withholding
+    also_listed_under:
+      - ma.nav.consideration.exchange
+    tier: label
+    description: >-
+      The right of the buyer, the paying agent or another payor to deduct and withhold taxes from payments
+      under the agreement, with withheld amounts treated as paid.
+    canonical_terms:
+      - entitled to deduct and withhold
+      - treated for all purposes as having been paid
+      - withholding rights
+    example_phrases:
+      - >-
+        Parent and the Paying Agent shall be entitled to deduct and withhold from any amount payable under
+        this Agreement such amounts as are required to be deducted and withheld under the Code.
+    exclusion_cues:
+      - A representation that the company has withheld taxes is tax.rep.withholding_compliance.
+    crosswalk:
+      tax_v1:
+        - id: tax.3.2.1
+          relation: exact
+      section_v1:
+        - id: e6472f83aba370e6
+          relation: narrower
+      section_v2:
+        - id: 795347ada3b70efb
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.withholding.form_delivery
+    label: Form Delivery
+    kind: provision
+    nav_parent: tax.nav.transfer_withholding.withholding
+    tier: label
+    description: >-
+      Delivery of tax forms and certificates that avoid withholding, such as an IRS Form W-9 or a FIRPTA
+      certificate.
+    canonical_terms:
+      - IRS Form W-9
+      - FIRPTA certificate
+      - Section 1445
+      - non-foreign affidavit
+    example_phrases:
+      - At the Closing, Seller shall deliver to Buyer a properly completed IRS Form W-9.
+    exclusion_cues:
+      - A representation on FIRPTA status is tax.rep.firpta.
+    crosswalk:
+      tax_v1:
+        - id: tax.3.2.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.grossup.obligation
+    label: Gross-Up Obligation
+    kind: provision
+    nav_parent: tax.nav.transfer_withholding.gross_up
+    tier: label
+    description: >-
+      A duty to pay additional amounts so that the recipient receives the full payment after a deduction
+      or withholding.
+    canonical_terms:
+      - gross-up
+      - additional amounts
+      - as if no such deduction or withholding had been made
+    example_phrases:
+      - >-
+        The payor shall pay such additional amounts as are necessary so that the recipient receives the
+        amount it would have received had no such withholding been made.
+    crosswalk:
+      tax_v1:
+        - id: tax.3.3.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.grossup.benefit_detriment
+    label: Tax Benefit / Tax Detriment Adjustment
+    kind: provision
+    nav_parent: tax.nav.transfer_withholding.gross_up
+    tier: label
+    description: >-
+      An adjustment that changes the amount of a payment for the tax cost or tax benefit that the payment
+      creates for the recipient, such as payment on an after-tax basis.
+    canonical_terms:
+      - grossed up for any Taxes imposed on the payment
+      - Tax cost
+      - after-tax basis
+    example_phrases:
+      - >-
+        The amount of any payment shall be increased to take account of any net Tax cost incurred by the
+        recipient arising from the receipt of the payment.
+    exclusion_cues:
+      - An offset to a tax indemnity claim is tax.indemnity.benefit_offset.
+      - A reduction of a general indemnity claim for tax benefits is ma.indemn.recovery_offsets.
+    crosswalk:
+      tax_v1:
+        - id: tax.3.3.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.grossup.required_law_exception
+    label: Withholding Exception for Required Law
+    kind: provision
+    nav_parent: tax.nav.transfer_withholding.gross_up
+    tier: label
+    description: >-
+      An exception that permits withholding where the law requires it, often with a duty to give notice
+      and to cooperate to reduce the withholding.
+    canonical_terms:
+      - except as required by applicable Law
+      - notice of intent to withhold
+      - cooperate to reduce or eliminate
+    example_phrases:
+      - >-
+        Before making any such deduction or withholding, Buyer shall give Seller notice and shall cooperate
+        with Seller to reduce or eliminate it.
+    crosswalk:
+      tax_v1:
+        - id: tax.3.3.3
+          relation: exact
+    introduced_in: '2026.1'

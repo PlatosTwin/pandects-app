@@ -1,0 +1,754 @@
+# Snapshot of the tax clause taxonomy (tax_clause_taxonomy_l1/l2/l3: 9 / 45 / 96), taken
+# read-only from the local pdx database on 2026-11-22. Do not edit.
+scheme: tax_v1
+nodes:
+- id: tax.1
+  level: l1
+  label: Intended Tax Treatment, Elections, and Purchase Price Allocation
+  parent: null
+  leaf: false
+- id: tax.2
+  level: l1
+  label: Tax Interim Operating Covenants
+  parent: null
+  leaf: false
+- id: tax.3
+  level: l1
+  label: Transfer and Withholding Taxes
+  parent: null
+  leaf: false
+- id: tax.4
+  level: l1
+  label: Tax Cooperation, Returns, Contests, and Refunds
+  parent: null
+  leaf: false
+- id: tax.5
+  level: l1
+  label: Tax Allocation and Indemnity
+  parent: null
+  leaf: false
+- id: tax.6
+  level: l1
+  label: Special Regimes
+  parent: null
+  leaf: false
+- id: tax.7
+  level: l1
+  label: Tax Representations
+  parent: null
+  leaf: false
+- id: tax.8
+  level: l1
+  label: Tax Attributes
+  parent: null
+  leaf: false
+- id: tax.9
+  level: l1
+  label: Other / Unclassified
+  parent: null
+  leaf: false
+- id: tax.1.1
+  level: l2
+  label: Tax Classification of the Deal
+  parent: tax.1
+  leaf: false
+- id: tax.1.2
+  level: l2
+  label: Tax Reporting
+  parent: tax.1
+  leaf: true
+- id: tax.1.3
+  level: l2
+  label: Tax Elections
+  parent: tax.1
+  leaf: false
+- id: tax.1.4
+  level: l2
+  label: Tax Opinions and Representation Letters
+  parent: tax.1
+  leaf: false
+- id: tax.1.5
+  level: l2
+  label: Pre-Closing Restructuring
+  parent: tax.1
+  leaf: false
+- id: tax.1.6
+  level: l2
+  label: Purchase Price Allocation
+  parent: tax.1
+  leaf: false
+- id: tax.1.7
+  level: l2
+  label: Tax Treatment of Purchase Price Adjustments
+  parent: tax.1
+  leaf: false
+- id: tax.2.1
+  level: l2
+  label: Timely Filing of Tax Returns
+  parent: tax.2
+  leaf: true
+- id: tax.2.2
+  level: l2
+  label: Timely Payment of Taxes
+  parent: tax.2
+  leaf: true
+- id: tax.2.3
+  level: l2
+  label: Maintain Existing Tax Elections / Methods
+  parent: tax.2
+  leaf: true
+- id: tax.2.4
+  level: l2
+  label: No Unusual Tax Election or Accounting Method Change
+  parent: tax.2
+  leaf: true
+- id: tax.2.5
+  level: l2
+  label: No Amended Returns / Voluntary Disclosure / Ruling Request
+  parent: tax.2
+  leaf: true
+- id: tax.2.6
+  level: l2
+  label: No Waiver of Limitations / Extension of Assessment Period
+  parent: tax.2
+  leaf: true
+- id: tax.2.7
+  level: l2
+  label: No Settlement of Tax Claims Without Consent
+  parent: tax.2
+  leaf: true
+- id: tax.2.8
+  level: l2
+  label: No Surrender of Refund Rights
+  parent: tax.2
+  leaf: true
+- id: tax.2.9
+  level: l2
+  label: No Change in Tax Residency / Classification
+  parent: tax.2
+  leaf: true
+- id: tax.3.1
+  level: l2
+  label: Transfer Taxes
+  parent: tax.3
+  leaf: false
+- id: tax.3.2
+  level: l2
+  label: Withholding
+  parent: tax.3
+  leaf: false
+- id: tax.3.3
+  level: l2
+  label: Gross-Up and Tax Adjustment Mechanics
+  parent: tax.3
+  leaf: false
+- id: tax.4.1
+  level: l2
+  label: Tax Return Preparation
+  parent: tax.4
+  leaf: false
+- id: tax.4.2
+  level: l2
+  label: Tax Contests
+  parent: tax.4
+  leaf: false
+- id: tax.4.3
+  level: l2
+  label: Refunds and Credits
+  parent: tax.4
+  leaf: false
+- id: tax.4.4
+  level: l2
+  label: Pre-Closing Cooperation
+  parent: tax.4
+  leaf: false
+- id: tax.4.5
+  level: l2
+  label: Post-Closing Cooperation and Records
+  parent: tax.4
+  leaf: false
+- id: tax.5.1
+  level: l2
+  label: Indemnified Taxes
+  parent: tax.5
+  leaf: false
+- id: tax.5.2
+  level: l2
+  label: Straddle Period Allocation Rules
+  parent: tax.5
+  leaf: false
+- id: tax.5.3
+  level: l2
+  label: Indemnity Mechanics
+  parent: tax.5
+  leaf: false
+- id: tax.6.1
+  level: l2
+  label: International Tax
+  parent: tax.6
+  leaf: false
+- id: tax.6.2
+  level: l2
+  label: Pass-Through Regimes
+  parent: tax.6
+  leaf: false
+- id: tax.6.3
+  level: l2
+  label: Industry-Specific Rules
+  parent: tax.6
+  leaf: false
+- id: tax.7.1
+  level: l2
+  label: Returns and Payments
+  parent: tax.7
+  leaf: false
+- id: tax.7.2
+  level: l2
+  label: Audits and Proceedings
+  parent: tax.7
+  leaf: false
+- id: tax.7.3
+  level: l2
+  label: Attributes and Status
+  parent: tax.7
+  leaf: false
+- id: tax.7.4
+  level: l2
+  label: Transaction-Specific Tax Reps
+  parent: tax.7
+  leaf: false
+- id: tax.7.5
+  level: l2
+  label: Transactional History
+  parent: tax.7
+  leaf: false
+- id: tax.7.6
+  level: l2
+  label: Timing and Income Inclusion
+  parent: tax.7
+  leaf: false
+- id: tax.7.7
+  level: l2
+  label: Partnership-Related Representations
+  parent: tax.7
+  leaf: false
+- id: tax.7.8
+  level: l2
+  label: S Corporation-Related Representations
+  parent: tax.7
+  leaf: false
+- id: tax.7.9
+  level: l2
+  label: Ring-Fencing Provisions
+  parent: tax.7
+  leaf: false
+- id: tax.8.1
+  level: l2
+  label: Net Operating Losses and Section 382
+  parent: tax.8
+  leaf: false
+- id: tax.8.2
+  level: l2
+  label: Tax Credits and Section 383
+  parent: tax.8
+  leaf: false
+- id: tax.8.3
+  level: l2
+  label: Basis
+  parent: tax.8
+  leaf: false
+- id: tax.8.4
+  level: l2
+  label: Earnings and Profits
+  parent: tax.8
+  leaf: false
+- id: tax.8.5
+  level: l2
+  label: Other Tax Attributes
+  parent: tax.8
+  leaf: false
+- id: tax.9.1
+  level: l2
+  label: Other / Unclassified Tax Provisions
+  parent: tax.9
+  leaf: false
+- id: tax.1.1.1
+  level: l3
+  label: Intended Tax-Free Reorganization
+  parent: tax.1.1
+  leaf: true
+- id: tax.1.1.2
+  level: l3
+  label: Taxable Transaction (C-Corps)
+  parent: tax.1.1
+  leaf: true
+- id: tax.1.1.3
+  level: l3
+  label: Partnership Transactions
+  parent: tax.1.1
+  leaf: true
+- id: tax.1.1.4
+  level: l3
+  label: Disregarded Entity Transactions
+  parent: tax.1.1
+  leaf: true
+- id: tax.1.1.5
+  level: l3
+  label: Blocker Structures
+  parent: tax.1.1
+  leaf: true
+- id: tax.1.1.6
+  level: l3
+  label: Section 351 Transactions
+  parent: tax.1.1
+  leaf: true
+- id: tax.1.3.1
+  level: l3
+  label: Section 338 / 336 / Similar Elections
+  parent: tax.1.3
+  leaf: true
+- id: tax.1.3.2
+  level: l3
+  label: Section 754 / Partnership Elections
+  parent: tax.1.3
+  leaf: true
+- id: tax.1.3.3
+  level: l3
+  label: Entity Classification Elections
+  parent: tax.1.3
+  leaf: true
+- id: tax.1.4.1
+  level: l3
+  label: Tax Opinion Closing Condition
+  parent: tax.1.4
+  leaf: true
+- id: tax.1.4.2
+  level: l3
+  label: Cooperation for Tax Opinion and Representation Letters
+  parent: tax.1.4
+  leaf: true
+- id: tax.1.5.1
+  level: l3
+  label: Pre-Closing Restructuring / Conversion
+  parent: tax.1.5
+  leaf: true
+- id: tax.1.6.1
+  level: l3
+  label: Purchase Price Allocation
+  parent: tax.1.6
+  leaf: true
+- id: tax.1.6.2
+  level: l3
+  label: Purchase Price Allocation Methodology / Schedule
+  parent: tax.1.6
+  leaf: true
+- id: tax.1.6.3
+  level: l3
+  label: Allocation Reporting Consistency
+  parent: tax.1.6
+  leaf: true
+- id: tax.1.7.1
+  level: l3
+  label: Tax Treatment of Purchase Price Adjustments
+  parent: tax.1.7
+  leaf: true
+- id: tax.1.7.2
+  level: l3
+  label: Tax Treatment of Earnouts / Contingent Consideration
+  parent: tax.1.7
+  leaf: true
+- id: tax.3.1.1
+  level: l3
+  label: Transfer Tax Allocation
+  parent: tax.3.1
+  leaf: true
+- id: tax.3.1.2
+  level: l3
+  label: Transfer Tax Return Filing Responsibility
+  parent: tax.3.1
+  leaf: true
+- id: tax.3.2.1
+  level: l3
+  label: Withholding Provisions
+  parent: tax.3.2
+  leaf: true
+- id: tax.3.2.2
+  level: l3
+  label: Form Delivery
+  parent: tax.3.2
+  leaf: true
+- id: tax.3.3.1
+  level: l3
+  label: Gross-Up Obligation
+  parent: tax.3.3
+  leaf: true
+- id: tax.3.3.2
+  level: l3
+  label: Tax Benefit / Tax Detriment Adjustment
+  parent: tax.3.3
+  leaf: true
+- id: tax.3.3.3
+  level: l3
+  label: Withholding Exception for Required Law
+  parent: tax.3.3
+  leaf: true
+- id: tax.4.1.1
+  level: l3
+  label: Pre-Closing Return Responsibility
+  parent: tax.4.1
+  leaf: true
+- id: tax.4.1.2
+  level: l3
+  label: Straddle Return Preparation
+  parent: tax.4.1
+  leaf: true
+- id: tax.4.1.3
+  level: l3
+  label: Review / Comment / Consent Rights on Returns
+  parent: tax.4.1
+  leaf: true
+- id: tax.4.1.4
+  level: l3
+  label: Preparation Consistency / Past Practice
+  parent: tax.4.1
+  leaf: true
+- id: tax.4.2.1
+  level: l3
+  label: Control of Pre-Closing Tax Contest
+  parent: tax.4.2
+  leaf: true
+- id: tax.4.2.2
+  level: l3
+  label: Control of Straddle / Shared Period Tax Contest
+  parent: tax.4.2
+  leaf: true
+- id: tax.4.2.3
+  level: l3
+  label: Notice, Participation, and Settlement Rights
+  parent: tax.4.2
+  leaf: true
+- id: tax.4.3.1
+  level: l3
+  label: Ownership of Tax Refunds
+  parent: tax.4.3
+  leaf: true
+- id: tax.4.3.2
+  level: l3
+  label: Carryback / Carryforward Refund Rights
+  parent: tax.4.3
+  leaf: true
+- id: tax.4.3.3
+  level: l3
+  label: Refund Application / Payment Mechanics
+  parent: tax.4.3
+  leaf: true
+- id: tax.4.4.1
+  level: l3
+  label: Notice of Tax Audits / Proceedings
+  parent: tax.4.4
+  leaf: true
+- id: tax.4.4.2
+  level: l3
+  label: Access to Tax Records and Workpapers
+  parent: tax.4.4
+  leaf: true
+- id: tax.4.4.3
+  level: l3
+  label: Interim Cooperation on Tax Matters
+  parent: tax.4.4
+  leaf: true
+- id: tax.4.5.1
+  level: l3
+  label: Record Retention
+  parent: tax.4.5
+  leaf: true
+- id: tax.4.5.2
+  level: l3
+  label: Mutual Cooperation After Closing
+  parent: tax.4.5
+  leaf: true
+- id: tax.4.5.3
+  level: l3
+  label: Access to Information for Tax Filings and Audits
+  parent: tax.4.5
+  leaf: true
+- id: tax.5.1.1
+  level: l3
+  label: Pre-Closing Taxes
+  parent: tax.5.1
+  leaf: true
+- id: tax.5.1.2
+  level: l3
+  label: Taxes of Subsidiaries / Pre-Deal Entities
+  parent: tax.5.1
+  leaf: true
+- id: tax.5.1.3
+  level: l3
+  label: Successor / Transferee / Consolidated / Combined Group Liability
+  parent: tax.5.1
+  leaf: true
+- id: tax.5.1.4
+  level: l3
+  label: Taxes on Pre-Closing Restructurings
+  parent: tax.5.1
+  leaf: true
+- id: tax.5.1.5
+  level: l3
+  label: Taxes from Breach of Tax Representations
+  parent: tax.5.1
+  leaf: true
+- id: tax.5.2.1
+  level: l3
+  label: Closing Date Allocation Convention
+  parent: tax.5.2
+  leaf: true
+- id: tax.5.2.2
+  level: l3
+  label: Interim Closing of Books
+  parent: tax.5.2
+  leaf: true
+- id: tax.5.2.3
+  level: l3
+  label: Proration by Days / Other Allocation Formula
+  parent: tax.5.2
+  leaf: true
+- id: tax.5.3.1
+  level: l3
+  label: Tax Indemnity Obligation
+  parent: tax.5.3
+  leaf: true
+- id: tax.5.3.2
+  level: l3
+  label: Timing of Tax Indemnity Payments
+  parent: tax.5.3
+  leaf: true
+- id: tax.5.3.3
+  level: l3
+  label: Treatment of Tax Benefits and Insurance Proceeds
+  parent: tax.5.3
+  leaf: true
+- id: tax.5.3.4
+  level: l3
+  label: Limitations
+  parent: tax.5.3
+  leaf: true
+- id: tax.5.3.5
+  level: l3
+  label: Exclusive Remedy / General Indemnity Carve-Out
+  parent: tax.5.3
+  leaf: true
+- id: tax.5.3.6
+  level: l3
+  label: Survival
+  parent: tax.5.3
+  leaf: true
+- id: tax.5.3.7
+  level: l3
+  label: Mitigation
+  parent: tax.5.3
+  leaf: true
+- id: tax.6.1.1
+  level: l3
+  label: CFC / Subpart F / GILTI / NCTI-Related Matters
+  parent: tax.6.1
+  leaf: true
+- id: tax.6.1.2
+  level: l3
+  label: PFIC-Related Matters
+  parent: tax.6.1
+  leaf: true
+- id: tax.6.1.3
+  level: l3
+  label: Tax Residency / Permanent Establishment
+  parent: tax.6.1
+  leaf: true
+- id: tax.6.1.4
+  level: l3
+  label: Treaty Claims / Cross-Border Withholding
+  parent: tax.6.1
+  leaf: true
+- id: tax.6.2.1
+  level: l3
+  label: REIT
+  parent: tax.6.2
+  leaf: true
+- id: tax.6.2.2
+  level: l3
+  label: RIC
+  parent: tax.6.2
+  leaf: true
+- id: tax.6.2.3
+  level: l3
+  label: S Corporation
+  parent: tax.6.2
+  leaf: true
+- id: tax.6.2.4
+  level: l3
+  label: Partnership
+  parent: tax.6.2
+  leaf: true
+- id: tax.6.3.1
+  level: l3
+  label: Insurance
+  parent: tax.6.3
+  leaf: true
+- id: tax.6.3.2
+  level: l3
+  label: Energy
+  parent: tax.6.3
+  leaf: true
+- id: tax.6.3.3
+  level: l3
+  label: Other Industry-Specific Rules
+  parent: tax.6.3
+  leaf: true
+- id: tax.7.1.1
+  level: l3
+  label: Returns Filed and Taxes Paid
+  parent: tax.7.1
+  leaf: true
+- id: tax.7.1.2
+  level: l3
+  label: Adequate Accrual / Reserve for Taxes
+  parent: tax.7.1
+  leaf: true
+- id: tax.7.1.3
+  level: l3
+  label: Withholding Compliance
+  parent: tax.7.1
+  leaf: true
+- id: tax.7.2.1
+  level: l3
+  label: No Pending Audit / Examination / Claim
+  parent: tax.7.2
+  leaf: true
+- id: tax.7.2.2
+  level: l3
+  label: No Extension / Waiver of Limitations
+  parent: tax.7.2
+  leaf: true
+- id: tax.7.2.3
+  level: l3
+  label: No Deficiency / Lien / Closing Agreement / Ruling
+  parent: tax.7.2
+  leaf: true
+- id: tax.7.3.1
+  level: l3
+  label: Entity Classification / Residency / Special Status
+  parent: tax.7.3
+  leaf: true
+- id: tax.7.3.2
+  level: l3
+  label: Tax Sharing Agreement / Consolidated Group Membership
+  parent: tax.7.3
+  leaf: true
+- id: tax.7.3.3
+  level: l3
+  label: Availability of Tax Attributes
+  parent: tax.7.3
+  leaf: true
+- id: tax.7.4.1
+  level: l3
+  label: FIRPTA Status
+  parent: tax.7.4
+  leaf: true
+- id: tax.7.4.2
+  level: l3
+  label: Intended Tax Treatment
+  parent: tax.7.4
+  leaf: true
+- id: tax.7.5.1
+  level: l3
+  label: Section 355 Transactions
+  parent: tax.7.5
+  leaf: true
+- id: tax.7.5.2
+  level: l3
+  label: Listed / Reportable Transactions
+  parent: tax.7.5
+  leaf: true
+- id: tax.7.6.1
+  level: l3
+  label: No Post-Closing Income from Pre-Closing Periods
+  parent: tax.7.6
+  leaf: true
+- id: tax.7.6.2
+  level: l3
+  label: No Closing Agreements / Installment Sales / Accounting Method Changes Causing Deferred Income
+  parent: tax.7.6
+  leaf: true
+- id: tax.7.7.1
+  level: l3
+  label: Partnership Tax Classification
+  parent: tax.7.7
+  leaf: true
+- id: tax.7.7.2
+  level: l3
+  label: Partnership Tax Compliance
+  parent: tax.7.7
+  leaf: true
+- id: tax.7.7.3
+  level: l3
+  label: Partnership Audit Regime Matters
+  parent: tax.7.7
+  leaf: true
+- id: tax.7.8.1
+  level: l3
+  label: Valid S Corporation Election
+  parent: tax.7.8
+  leaf: true
+- id: tax.7.8.2
+  level: l3
+  label: Qualified S Corporation Shareholders
+  parent: tax.7.8
+  leaf: true
+- id: tax.7.8.3
+  level: l3
+  label: No S Corporation Termination Event
+  parent: tax.7.8
+  leaf: true
+- id: tax.7.9.1
+  level: l3
+  label: Exclusive Tax Representations / Ring-Fencing
+  parent: tax.7.9
+  leaf: true
+- id: tax.8.1.1
+  level: l3
+  label: Net Operating Losses
+  parent: tax.8.1
+  leaf: true
+- id: tax.8.1.2
+  level: l3
+  label: Section 382 Limitation Matters
+  parent: tax.8.1
+  leaf: true
+- id: tax.8.2.1
+  level: l3
+  label: Tax Credits
+  parent: tax.8.2
+  leaf: true
+- id: tax.8.2.2
+  level: l3
+  label: Section 383 Limitation Matters
+  parent: tax.8.2
+  leaf: true
+- id: tax.8.3.1
+  level: l3
+  label: Basis
+  parent: tax.8.3
+  leaf: true
+- id: tax.8.4.1
+  level: l3
+  label: Earnings and Profits
+  parent: tax.8.4
+  leaf: true
+- id: tax.8.5.1
+  level: l3
+  label: Other Tax Attributes
+  parent: tax.8.5
+  leaf: true
+- id: tax.9.1.1
+  level: l3
+  label: Other / Unclassified Tax Provision
+  parent: tax.9.1
+  leaf: true

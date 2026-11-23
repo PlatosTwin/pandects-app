@@ -1,0 +1,331 @@
+# Pandects taxonomy, M&A pack (`ma`). Navigation branch: Dispute Resolution and Remedies.
+# Source of truth for these nodes. Field reference: etl/taxonomy/README.md.
+# Validate with: python -m etl.domain.taxonomy_pack
+pack: ma
+release: '2026.1'
+branch:
+  id: ma.nav.remedies
+  label: Dispute Resolution and Remedies
+  kind: branch
+  order: 13
+  description: Which law governs, where and how disputes are heard, and which remedies are available.
+  introduced_in: '2026.1'
+groups:
+
+  - id: ma.nav.remedies.law_forum
+    label: Governing Law and Forum
+    kind: group
+    nav_parent: ma.nav.remedies
+    description: Choice of law, choice of court, jury waiver and arbitration.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.remedies.enforcement
+    label: Remedies and Enforcement
+    kind: group
+    nav_parent: ma.nav.remedies
+    description: Specific performance, limits on damages and recourse, and costs of enforcement.
+    introduced_in: '2026.1'
+concepts:
+
+  - id: ma.governing_law
+    label: Governing Law
+    kind: provision
+    nav_parent: ma.nav.remedies.law_forum
+    tier: label
+    wave: 1
+    description: The law that governs the agreement and claims that arise from it.
+    canonical_terms:
+      - governing law
+      - governed by and construed in accordance with the laws of the State of
+      - without regard to conflicts of laws principles
+      - applicable law
+    example_phrases:
+      - >-
+        This Agreement, and all Actions arising out of or relating to this Agreement, shall be governed
+        by and construed in accordance with the internal laws of the State of Delaware, without giving
+        effect to any choice or conflict of law provision or rule.
+      - The Merger and the fiduciary duties of the Company Board shall be governed by the DGCL.
+    exclusion_cues:
+      - The court that hears disputes is ma.forum_selection.
+      - Law chosen for claims against lenders is ma.financing.source_protections.
+    value_schema:
+      status: stub
+      fields:
+        - name: jurisdiction
+          type: 'code: US state or country'
+        - name: carveouts
+          type: 'text: matters governed by another law'
+    crosswalk:
+      section_v1:
+        - id: 5e59453aaa9255c4
+          relation: exact
+      section_v2:
+        - id: 9dd260f76c5039eb
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.forum_selection
+    label: Forum Selection; Submission to Jurisdiction
+    kind: provision
+    nav_parent: ma.nav.remedies.law_forum
+    tier: label
+    wave: 1
+    description: >-
+      The courts in which disputes must be brought, each party's submission to their jurisdiction, and
+      service of process.
+    canonical_terms:
+      - submission to jurisdiction
+      - exclusive jurisdiction
+      - Court of Chancery of the State of Delaware
+      - venue
+      - consent to jurisdiction
+      - service of process
+    example_phrases:
+      - >-
+        Each party irrevocably and unconditionally submits to the exclusive jurisdiction of the Court
+        of Chancery of the State of Delaware (or, if such court declines jurisdiction, any federal court
+        located in the State of Delaware) for purposes of any Action arising out of or relating to this
+        Agreement.
+      - >-
+        Each party irrevocably waives any objection that it may now or hereafter have to the laying of
+        venue of any such Action in such courts and any claim that any such Action has been brought in
+        an inconvenient forum.
+    exclusion_cues:
+      - The governing law is ma.governing_law.
+      - Arbitration in place of courts is ma.arbitration.
+    value_schema:
+      status: stub
+      fields:
+        - name: forum
+          type: 'code: court or state'
+        - name: exclusive
+          type: boolean
+    crosswalk:
+      section_v1:
+        - id: f758e6a8d32690bd
+          relation: exact
+      section_v2:
+        - id: 361aca9627e30bfd
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.jury_waiver
+    label: Waiver of Jury Trial
+    kind: provision
+    nav_parent: ma.nav.remedies.law_forum
+    tier: label
+    wave: 1
+    description: Each party waives trial by jury.
+    canonical_terms:
+      - waiver of jury trial
+      - WAIVES ANY RIGHT IT MAY HAVE TO A TRIAL BY JURY
+      - waiver of trial by jury
+    example_phrases:
+      - >-
+        EACH PARTY HEREBY IRREVOCABLY AND UNCONDITIONALLY WAIVES ANY RIGHT IT MAY HAVE TO A TRIAL BY JURY
+        IN RESPECT OF ANY ACTION ARISING OUT OF OR RELATING TO THIS AGREEMENT OR THE TRANSACTIONS CONTEMPLATED
+        HEREBY.
+      - >-
+        Each party certifies that no representative of any other party has represented that it would not
+        seek to enforce the foregoing waiver, and acknowledges that it has been induced to enter into
+        this Agreement by, among other things, the mutual waivers in this Section.
+    value_schema:
+      status: stub
+      fields:
+        - name: present
+          type: boolean
+    crosswalk:
+      section_v1:
+        - id: 667489f40c7f2961
+          relation: exact
+      section_v2:
+        - id: 50f05144c09f9ff6
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.arbitration
+    label: Arbitration; Dispute Resolution Procedures
+    kind: provision
+    nav_parent: ma.nav.remedies.law_forum
+    tier: label
+    wave: 1
+    description: >-
+      Disputes are settled by arbitration, mediation or a staged process of negotiation, with the rules,
+      seat and number of arbitrators.
+    canonical_terms:
+      - arbitration
+      - binding arbitration
+      - AAA
+      - JAMS
+      - mediation
+      - dispute resolution
+    example_phrases:
+      - >-
+        Any dispute, controversy, or claim arising out of or relating to this Agreement shall be finally
+        resolved by binding arbitration administered by the American Arbitration Association in accordance
+        with its Commercial Arbitration Rules.
+      - >-
+        The seat of the arbitration shall be New York, New York, the arbitration shall be conducted before
+        a panel of three arbitrators, and the award shall be final and binding upon the parties and enforceable
+        in any court of competent jurisdiction.
+    exclusion_cues:
+      - >-
+        An accounting firm that settles a price adjustment dispute is ma.price_adjustment.dispute_resolution.
+    value_schema:
+      status: stub
+      fields:
+        - name: rules
+          type: text
+        - name: seat
+          type: text
+        - name: scope
+          type: text
+    crosswalk:
+      section_v2:
+        - id: bff96a98ab6d72a2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.specific_performance
+    label: Specific Performance; Remedies Cumulative
+    kind: provision
+    nav_parent: ma.nav.remedies.enforcement
+    tier: label
+    wave: 1
+    description: >-
+      The parties' right to an order that forces the other side to perform, including any limits on forcing
+      the buyer to fund its equity and close. It also covers the clause that the remedies in the agreement
+      add to, and do not replace, other remedies available at law or in equity.
+    canonical_terms:
+      - specific performance
+      - injunction or injunctions
+      - irreparable damage
+      - without proof of actual damages
+      - no bond
+      - specific enforcement
+      - remedies cumulative
+      - cumulative and not exclusive
+      - other remedies
+    example_phrases:
+      - >-
+        The parties agree that irreparable damage would occur and that the parties shall be entitled to
+        an injunction or injunctions to prevent breaches of this Agreement and to enforce specifically
+        the terms and provisions hereof, this being in addition to any other remedy to which they are
+        entitled at law or in equity.
+      - >-
+        Each party waives (i) any defense that a remedy at law would be adequate and (ii) any requirement
+        to post a bond or other security in connection with any such equitable relief.
+      - >-
+        All rights and remedies under this Agreement are cumulative and not exclusive of any rights or
+        remedies provided by Law.
+    exclusion_cues:
+      - The reverse termination fee as an alternative remedy is ma.termination.fee.reverse.
+    value_schema:
+      status: stub
+      fields:
+        - name: available_to
+          type: PartyRole
+        - name: conditions_on_equity_funding
+          type: text
+        - name: bond_waived
+          type: boolean
+    crosswalk:
+      section_v1:
+        - id: 1e8533df50fcc2fd
+          relation: broader
+      section_v2:
+        - id: 5bb8bdc433032a74
+          relation: broader
+    introduced_in: '2026.1'
+
+  - id: ma.damages_waiver
+    label: Waiver of Consequential and Punitive Damages
+    kind: provision
+    nav_parent: ma.nav.remedies.enforcement
+    tier: label
+    wave: 1
+    description: >-
+      A limit on the kinds of damages a party may recover, such as consequential, special, punitive or
+      lost-profit damages. It applies whether the clause sits in the indemnification article or in the
+      general provisions.
+    canonical_terms:
+      - consequential damages
+      - punitive damages
+      - special, incidental or exemplary
+      - lost profits
+      - diminution in value
+      - waiver of consequential damages
+    example_phrases:
+      - >-
+        In no event shall any party be liable for any consequential, incidental, indirect, special, exemplary,
+        or punitive damages, or for any damages calculated as a multiple of earnings or based on diminution
+        in value or lost profits, arising out of or relating to this Agreement, except to the extent such
+        damages are awarded to a third party.
+    exclusion_cues:
+      - The dollar limit on indemnity claims is ma.indemn.cap.
+      - The definition of losses is ma.def.losses.
+      - A dollar cap on a party's liability before closing is ma.termination.fee.exclusive_remedy.
+      - >-
+        A clause headed Limitation of Liability that sets a dollar limit is ma.indemn.cap after closing
+        and ma.termination.fee.exclusive_remedy before closing. This concept is the limit on kinds of
+        damages only.
+    value_schema:
+      status: stub
+      fields:
+        - name: excluded_types
+          type: list
+        - name: third_party_claim_exception
+          type: boolean
+    crosswalk:
+      section_v1:
+        - id: 1496473e2c8d9589
+          relation: broader
+      section_v2:
+        - id: f9da722417abfd8c
+          relation: broader
+    introduced_in: '2026.1'
+
+  - id: ma.non_recourse
+    label: Non-Recourse
+    kind: provision
+    nav_parent: ma.nav.remedies.enforcement
+    tier: label
+    wave: 1
+    description: >-
+      Claims under the agreement may be made only against the named parties, and not against their past,
+      present or future owners, directors, officers, affiliates or agents.
+    canonical_terms:
+      - non-recourse
+      - no recourse
+      - Non-Recourse Party
+      - >-
+        no past, present or future director, officer, employee, incorporator, member, partner, stockholder,
+        Affiliate
+    example_phrases:
+      - >-
+        All claims that may be based upon or arise out of this Agreement may be made only against the
+        Persons that are expressly identified as parties hereto, and no Non-Recourse Party shall have
+        any liability hereunder.
+    exclusion_cues:
+      - The matching protection for lenders is ma.financing.source_protections.
+    introduced_in: '2026.1'
+
+  - id: ma.attorneys_fees
+    label: Attorneys' Fees
+    kind: provision
+    nav_parent: ma.nav.remedies.enforcement
+    tier: label
+    wave: 1
+    description: The winning party in a dispute under the agreement may recover its legal fees and costs.
+    canonical_terms:
+      - attorneys' fees
+      - prevailing party
+      - reasonable attorneys' fees and costs
+    example_phrases:
+      - >-
+        In any action to enforce this Agreement, the prevailing party shall be entitled to recover its
+        reasonable attorneys' fees and costs from the non-prevailing party.
+    exclusion_cues:
+      - Costs of collecting an unpaid termination fee are ma.termination.collection_costs.
+      - The general rule on deal expenses is ma.expenses.
+    introduced_in: '2026.1'

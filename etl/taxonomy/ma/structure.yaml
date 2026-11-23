@@ -1,0 +1,812 @@
+# Pandects taxonomy, M&A pack (`ma`). Navigation branch: Deal Structure and Closing.
+# Source of truth for these nodes. Field reference: etl/taxonomy/README.md.
+# Validate with: python -m etl.domain.taxonomy_pack
+pack: ma
+release: '2026.1'
+branch:
+  id: ma.nav.structure
+  label: Deal Structure and Closing
+  kind: branch
+  order: 1
+  description: >-
+    What the transaction is and how it closes: the merger or purchase, the scope of an asset deal, tender
+    offer terms, closing mechanics and SPAC-specific terms.
+  introduced_in: '2026.1'
+groups:
+
+  - id: ma.nav.structure.transaction
+    label: The Transaction
+    kind: group
+    nav_parent: ma.nav.structure
+    description: The operative merger or purchase and its legal effects.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.structure.asset_deal
+    label: Asset Deal Scope
+    kind: group
+    nav_parent: ma.nav.structure
+    description: Which assets and liabilities move to the buyer in an asset purchase.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.structure.tender_offer
+    label: Tender Offer
+    kind: group
+    nav_parent: ma.nav.structure
+    assignable: true
+    description: Terms of a tender or exchange offer and the merger that follows it.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.structure.closing
+    label: Closing
+    kind: group
+    nav_parent: ma.nav.structure
+    description: When and where the closing takes place and what each side delivers.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.structure.spac
+    label: SPAC Transactions
+    kind: group
+    nav_parent: ma.nav.structure
+    assignable: true
+    description: Terms found only in business combinations with a special purpose acquisition company.
+    introduced_in: '2026.1'
+concepts:
+
+  - id: ma.structure.merger
+    label: The Merger; Constituent Entities
+    kind: provision
+    nav_parent: ma.nav.structure.transaction
+    tier: label
+    wave: 1
+    description: >-
+      The operative clause that merges one entity into another, names the surviving entity, and describes
+      any second-step or holding-company merger.
+    canonical_terms:
+      - Bank Merger
+      - Subsidiary Bank Merger
+      - the Merger
+      - Merger Sub shall be merged with and into the Company
+      - Surviving Corporation
+      - constituent corporations
+      - First Merger; Second Merger
+    example_phrases:
+      - >-
+        Upon the terms and subject to the conditions set forth in this Agreement, and in accordance with
+        the DGCL, at the Effective Time Merger Sub shall be merged with and into the Company.
+      - >-
+        The Company shall be the Surviving Corporation and shall continue as a wholly owned Subsidiary
+        of Parent.
+    exclusion_cues:
+      - The time at which the merger takes effect is ma.structure.effective_time.
+      - What stockholders receive is ma.consideration.merger_consideration.
+    crosswalk:
+      section_v1:
+        - id: 8224a27287811951
+          relation: narrower
+      section_v2:
+        - id: 77acaf04badfbf9e
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.structure.purchase_and_sale
+    label: Purchase and Sale of Shares or Interests
+    kind: provision
+    nav_parent: ma.nav.structure.transaction
+    tier: label
+    wave: 1
+    description: >-
+      The operative clause of an equity purchase: the seller sells and the buyer buys the shares, units
+      or membership interests.
+    canonical_terms:
+      - purchase and sale of the Shares
+      - sell, assign, transfer and deliver
+      - free and clear of all Liens
+      - Purchased Interests
+    example_phrases:
+      - >-
+        Upon the terms and subject to the conditions of this Agreement, at the Closing, Seller shall sell,
+        assign, transfer and deliver to Buyer, and Buyer shall purchase from Seller, all of the Shares,
+        free and clear of all Liens.
+    exclusion_cues:
+      - A sale of assets is ma.asset.purchased_assets.
+      - The amount paid is ma.consideration.purchase_price.
+    crosswalk:
+      section_v1:
+        - id: 8224a27287811951
+          relation: narrower
+      section_v2:
+        - id: 77acaf04badfbf9e
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.structure.effective_time
+    label: Effective Time; Effects of the Merger; Surviving Entity
+    kind: provision
+    nav_parent: ma.nav.structure.transaction
+    tier: label
+    wave: 1
+    description: >-
+      When the merger takes effect and the filing that makes it effective, the legal effects of the merger
+      under the corporate statute, and the charter, bylaws, directors and officers of the surviving
+      entity.
+    canonical_terms:
+      - Effective Time
+      - Certificate of Merger
+      - Articles of Merger
+      - filed with the Secretary of State
+      - effects of the Merger
+      - as provided in the DGCL
+      - >-
+        all property, rights, privileges, powers and franchises shall vest in the Surviving Corporation
+      - certificate of incorporation of the Surviving Corporation
+      - bylaws of the Surviving Corporation
+      - amended and restated in its entirety
+      - directors of Merger Sub immediately prior to the Effective Time
+      - officers of the Surviving Corporation
+      - until their successors are duly elected
+    example_phrases:
+      - >-
+        The Merger shall become effective at the time the Certificate of Merger is duly filed with the
+        Secretary of State of the State of Delaware, or at such later time as the parties agree and specify
+        in the Certificate of Merger (the "Effective Time").
+      - >-
+        The Merger shall have the effects set forth in this Agreement and in the applicable provisions
+        of the DGCL.
+      - >-
+        At the Effective Time, the certificate of incorporation of the Company shall be amended and restated
+        in its entirety to read as set forth in Exhibit [•].
+      - >-
+        The directors of Merger Sub immediately prior to the Effective Time shall be the directors of
+        the Surviving Corporation, and the officers of the Company shall be the officers of the Surviving
+        Corporation.
+    exclusion_cues:
+      - The date and place of the closing meeting is ma.closing.time_and_place.
+      - How shares convert into the consideration is ma.consideration.merger_consideration.
+      - >-
+        A representation that a party has delivered its organizational documents is ma.rep.organization.
+      - >-
+        Board seats and management of the combined public company are ma.governance.post_closing.
+      - Resignation letters delivered at closing are ma.governance.resignations.
+      - >-
+        Board seats and officer roles at the parent after closing, as in a merger of equals, are
+        ma.governance.post_closing.
+    crosswalk:
+      section_v1:
+        - id: 92d4aee1b80c2134
+          relation: exact
+      section_v2:
+        - id: 4e259fa432ddf707
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.structure.alternative_structure
+    label: Alternative Structure; Change of Method
+    kind: provision
+    nav_parent: ma.nav.structure.transaction
+    tier: label
+    wave: 1
+    description: >-
+      A right to change the structure or method of the combination, for example to a direct merger, if
+      the change does not alter the consideration or delay closing.
+    canonical_terms:
+      - change the method of effecting the combination
+      - alternative structure
+      - shall not alter or change the Merger Consideration
+    example_phrases:
+      - >-
+        Parent may at any time change the method of effecting the combination if and to the extent it
+        deems such change desirable; provided that no such change shall alter the amount or kind of the
+        Merger Consideration.
+    introduced_in: '2026.1'
+
+  - id: ma.asset.purchased_assets
+    label: Purchased Assets
+    kind: provision
+    nav_parent: ma.nav.structure.asset_deal
+    tier: label
+    wave: 1
+    description: The assets the buyer acquires in an asset purchase.
+    canonical_terms:
+      - Purchased Assets
+      - Acquired Assets
+      - Transferred Assets
+      - all right, title and interest in and to
+    example_phrases:
+      - >-
+        At the Closing, Seller shall sell, convey, assign and transfer to Buyer all of Seller's right,
+        title and interest in and to the following assets (the "Purchased Assets"):
+    exclusion_cues:
+      - Assets left with the seller are ma.asset.excluded_assets.
+      - A representation on title to the assets is ma.rep.title_sufficiency_assets.
+    crosswalk:
+      section_v2:
+        - id: eb4322c2cf4f699e
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.asset.excluded_assets
+    label: Excluded Assets
+    kind: provision
+    nav_parent: ma.nav.structure.asset_deal
+    tier: label
+    wave: 1
+    description: The assets the seller keeps in an asset purchase.
+    canonical_terms:
+      - Excluded Assets
+      - shall not include
+      - retained by Seller
+    example_phrases:
+      - >-
+        Notwithstanding Section [•], the Purchased Assets shall not include the following assets (the
+        "Excluded Assets"):
+    crosswalk:
+      section_v2:
+        - id: eb4322c2cf4f699e
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.asset.assumed_liabilities
+    label: Assumed Liabilities
+    kind: provision
+    nav_parent: ma.nav.structure.asset_deal
+    tier: label
+    wave: 1
+    description: The liabilities the buyer takes on in an asset purchase.
+    canonical_terms:
+      - Assumed Liabilities
+      - Buyer shall assume and agree to pay, perform and discharge
+    example_phrases:
+      - >-
+        At the Closing, Buyer shall assume and agree to pay, perform and discharge when due only the following
+        Liabilities of Seller (the "Assumed Liabilities"):
+    exclusion_cues:
+      - Liabilities left with the seller are ma.asset.excluded_liabilities.
+    crosswalk:
+      section_v2:
+        - id: 0f300351061e2efe
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.asset.excluded_liabilities
+    label: Excluded Liabilities
+    kind: provision
+    nav_parent: ma.nav.structure.asset_deal
+    tier: label
+    wave: 1
+    description: The liabilities the seller keeps in an asset purchase.
+    canonical_terms:
+      - Excluded Liabilities
+      - Retained Liabilities
+      - Buyer shall not assume
+    example_phrases:
+      - >-
+        Buyer shall not assume and shall not be responsible for any Liabilities of Seller other than the
+        Assumed Liabilities (the "Excluded Liabilities").
+    crosswalk:
+      section_v2:
+        - id: 0f300351061e2efe
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.asset.nonassignable_assets
+    label: Non-Assignable Assets and Contracts
+    kind: provision
+    nav_parent: ma.nav.structure.asset_deal
+    tier: label
+    wave: 1
+    description: >-
+      What happens to a contract or permit that cannot be transferred without a consent not yet obtained
+      at closing: no assignment, continued efforts, and a pass-through of the benefits.
+    canonical_terms:
+      - Non-Assignable Assets
+      - shall not constitute an agreement to assign
+      - obtain for Buyer the benefits
+      - subcontract, sublicense
+    example_phrases:
+      - >-
+        This Agreement shall not constitute an agreement to assign any Purchased Asset if an attempted
+        assignment, without the consent of a third party, would constitute a breach thereof.
+    exclusion_cues:
+      - The general covenant to seek third-party consents is ma.efforts.third_party_consents.
+      - Assets or payments that end up with the wrong party after closing are ma.wrong_pockets.
+    introduced_in: '2026.1'
+
+  - id: ma.asset.bulk_sales
+    label: Bulk Sales Laws
+    kind: provision
+    nav_parent: ma.nav.structure.asset_deal
+    tier: label
+    wave: 1
+    description: >-
+      A waiver of compliance with bulk sales or bulk transfer laws, often with a seller indemnity.
+    canonical_terms:
+      - bulk sales
+      - bulk transfer laws
+      - waive compliance
+    example_phrases:
+      - >-
+        The parties hereby waive compliance with the provisions of any bulk sales, bulk transfer or similar
+        Laws of any jurisdiction that may otherwise apply.
+    introduced_in: '2026.1'
+
+  - id: ma.asset.risk_of_loss
+    label: Risk of Loss; Casualty and Condemnation
+    kind: provision
+    nav_parent: ma.nav.structure.asset_deal
+    tier: label
+    wave: 1
+    description: >-
+      Which party bears the risk of damage, destruction or condemnation of the assets before closing,
+      and the remedy if it occurs.
+    canonical_terms:
+      - risk of loss
+      - casualty
+      - condemnation
+      - insurance proceeds
+    example_phrases:
+      - >-
+        The risk of loss or damage to the Purchased Assets shall remain with Seller until the Closing.
+    introduced_in: '2026.1'
+
+  - id: ma.asset.title_and_survey
+    label: Title, Survey and Defect Procedures
+    kind: provision
+    nav_parent: ma.nav.structure.asset_deal
+    tier: label
+    wave: 1
+    description: >-
+      Procedures on title to real property or oil and gas properties before closing: title commitments
+      and insurance, surveys, notices of title or environmental defects, and the cure or price reduction
+      that follows.
+    canonical_terms:
+      - title insurance
+      - Title Commitment
+      - survey
+      - Title Defect
+      - Environmental Defect
+      - Defect Notice
+      - Title Benefit
+    example_phrases:
+      - >-
+        Buyer shall deliver to Seller, on or before the Defect Notice Date, a written notice of any Title
+        Defect, including a description of the affected property and the amount by which Buyer believes
+        its value is reduced.
+    exclusion_cues:
+      - The representation on real property is ma.rep.real_property.
+      - Damage to the assets before closing is ma.asset.risk_of_loss.
+    introduced_in: '2026.1'
+
+  - id: ma.tender.offer
+    label: The Offer
+    kind: provision
+    nav_parent: ma.nav.structure.tender_offer
+    tier: label
+    wave: 1
+    description: >-
+      The buyer's duty to start a tender or exchange offer, the offer price, the expiration date, and
+      when the offer must or may be extended.
+    canonical_terms:
+      - the Offer
+      - Offer Price
+      - commence the Offer
+      - Expiration Time
+      - extend the Offer
+      - Schedule TO
+    example_phrases:
+      - >-
+        Merger Sub shall commence the Offer to purchase all outstanding Shares at the Offer Price as promptly
+        as practicable.
+    exclusion_cues:
+      - The conditions to the offer are ma.tender.offer_conditions.
+      - The target's duties in the offer are ma.tender.company_actions.
+    value_schema:
+      status: stub
+      fields:
+        - name: offer_price
+          type: Money
+        - name: initial_expiration
+          type: DateRule
+        - name: extension_rights
+          type: text
+    crosswalk:
+      section_v2:
+        - id: 966f343de9937fdf
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.tender.offer_conditions
+    label: Offer Conditions; Minimum Condition
+    kind: provision
+    nav_parent: ma.nav.structure.tender_offer
+    also_listed_under:
+      - ma.nav.conditions.party
+    tier: label
+    wave: 2
+    description: >-
+      The conditions to the buyer's duty to accept shares in the offer, including the minimum tender condition.
+      They often sit in an annex.
+    canonical_terms:
+      - Offer Conditions
+      - Minimum Condition
+      - Annex I
+      - validly tendered and not validly withdrawn
+    example_phrases:
+      - >-
+        Merger Sub shall not be required to accept for payment any tendered Shares if the number of Shares
+        validly tendered and not validly withdrawn does not represent at least a majority of the Shares
+        then outstanding (the "Minimum Condition").
+    exclusion_cues:
+      - Conditions to a one-step merger are under ma.nav.conditions.
+    value_schema:
+      status: stub
+      fields:
+        - name: minimum_condition_pct
+          type: number
+        - name: conditions
+          type: list
+    crosswalk:
+      section_v2:
+        - id: 966f343de9937fdf
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.tender.company_actions
+    label: Company Actions; Schedule 14D-9; Board Designees; Rule 14d-10
+    kind: provision
+    nav_parent: ma.nav.structure.tender_offer
+    tier: label
+    wave: 1
+    description: >-
+      The target's duties in the offer: the board recommendation in the Schedule 14D-9, stockholder lists
+      and help with mailing, and approval of employee arrangements under Rule 14d-10(d). It also covers
+      the buyer's right to name directors to the target's board once it accepts shares in the offer.
+    canonical_terms:
+      - Schedule 14D-9
+      - Company Actions
+      - stockholder lists
+      - mailing labels
+      - Rule 14d-10(d)
+      - employment compensation, severance or other employee benefit arrangement
+      - Compensation Committee
+      - Section 14(f)
+      - Rule 14f-1
+      - Parent's designees
+      - Continuing Directors
+    example_phrases:
+      - >-
+        On the date the Offer Documents are filed with the SEC, the Company shall file with the SEC a
+        Solicitation/Recommendation Statement on Schedule 14D-9 containing the Company Board Recommendation.
+      - >-
+        Prior to the Offer Closing, the Compensation Committee of the Company Board shall take all steps
+        necessary to approve each Company Compensation Arrangement as an "employment compensation, severance
+        or other employee benefit arrangement" within the meaning of Rule 14d-10(d)(1).
+      - >-
+        Promptly upon the Offer Closing, Parent shall be entitled to designate such number of directors
+        on the Company Board as will give Parent representation proportionate to its ownership of Shares.
+    exclusion_cues:
+      - The proxy statement for a stockholder vote is ma.approval.proxy_statement.
+    crosswalk:
+      section_v2:
+        - id: 966f343de9937fdf
+          relation: related
+    introduced_in: '2026.1'
+
+  - id: ma.tender.top_up_option
+    label: Top-Up Option
+    kind: provision
+    nav_parent: ma.nav.structure.tender_offer
+    tier: label
+    wave: 1
+    description: >-
+      An option for the buyer to purchase newly issued target shares after the offer so that it reaches
+      the short-form merger threshold.
+    canonical_terms:
+      - Top-Up Option
+      - Top-Up Shares
+      - one share more than 90%
+    example_phrases:
+      - >-
+        The Company hereby grants to Merger Sub an irrevocable option (the "Top-Up Option") to purchase
+        that number of Shares equal to the lowest number of Shares that, when added to the Shares owned
+        by Parent, shall constitute one share more than 90% of the Shares then outstanding.
+    crosswalk:
+      section_v2:
+        - id: 966f343de9937fdf
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.tender.back_end_merger
+    label: Back-End Merger Without a Stockholder Vote
+    kind: provision
+    nav_parent: ma.nav.structure.tender_offer
+    tier: label
+    wave: 1
+    description: >-
+      The merger that follows the offer without a vote of the target's stockholders, under Section 251(h)
+      of the DGCL or a short-form merger statute.
+    canonical_terms:
+      - Section 251(h)
+      - short-form merger
+      - without a meeting of stockholders
+      - Section 253
+    example_phrases:
+      - >-
+        The Merger shall be governed by Section 251(h) of the DGCL and shall be effected as soon as practicable
+        following the consummation of the Offer, without a vote of the stockholders of the Company.
+    exclusion_cues:
+      - A stockholder meeting for a one-step merger is ma.approval.stockholder_meeting.
+    crosswalk:
+      section_v2:
+        - id: 966f343de9937fdf
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.closing.time_and_place
+    label: Closing; Time and Place
+    kind: provision
+    nav_parent: ma.nav.structure.closing
+    tier: label
+    wave: 1
+    description: >-
+      When and where the closing takes place, usually a set number of business days after the conditions
+      are satisfied or waived.
+    canonical_terms:
+      - the Closing
+      - Closing Date
+      - third Business Day after satisfaction or waiver
+      - by electronic exchange of documents
+    example_phrases:
+      - >-
+        The closing of the transactions contemplated by this Agreement (the 'Closing') shall take place
+        at the offices of [•], or remotely by exchange of documents and signatures, at 10:00 a.m. local
+        time.
+      - >-
+        The Closing shall occur on the third Business Day after the satisfaction or waiver of the conditions
+        set forth in Article [•] (other than conditions that by their nature are to be satisfied at the
+        Closing).
+    exclusion_cues:
+      - The moment the merger takes legal effect is ma.structure.effective_time.
+      - The date after which a party may terminate is ma.termination.outside_date.
+    value_schema:
+      status: stub
+      fields:
+        - name: timing
+          type: Duration
+        - name: anchor
+          type: text
+    crosswalk:
+      section_v1:
+        - id: d74d26190df0db97
+          relation: narrower
+      section_v2:
+        - id: e677bd0435f6818c
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.closing.deliverables
+    label: Closing Deliverables
+    kind: provision
+    nav_parent: ma.nav.structure.closing
+    tier: label
+    wave: 1
+    attributes:
+      party: obligor
+    description: The documents and other items each party must deliver at closing.
+    canonical_terms:
+      - Closing deliveries
+      - deliver or cause to be delivered
+      - officer's certificate
+      - bill of sale
+      - ancillary agreements
+    example_phrases:
+      - >-
+        At the Closing, the Company shall deliver to Parent a certificate signed by an executive officer
+        certifying that the conditions set forth in Sections [•] have been satisfied.
+      - >-
+        At the Closing, Seller shall deliver duly executed instruments of assignment and assumption and
+        a bill of sale.
+    exclusion_cues:
+      - A condition that a party receive a certificate is ma.condition.other.
+      - Resignation letters are ma.governance.resignations.
+      - Tax forms such as a Form W-9 are tax.withholding.form_delivery.
+    crosswalk:
+      section_v1:
+        - id: d74d26190df0db97
+          relation: narrower
+      section_v2:
+        - id: 054fd370628538fb
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.closing.payments
+    label: Closing Payments; Flow of Funds
+    kind: provision
+    nav_parent: ma.nav.structure.closing
+    tier: label
+    wave: 1
+    description: >-
+      The payments the buyer makes at closing: the closing payment to sellers, payoff of debt, payment
+      of transaction expenses and funding of escrows.
+    canonical_terms:
+      - Closing Payment
+      - by wire transfer of immediately available funds
+      - flow of funds
+      - payment of Closing Indebtedness
+    example_phrases:
+      - >-
+        At the Closing, Buyer shall pay, by wire transfer of immediately available funds, (a) the Closing
+        Indebtedness to the lenders identified in the Payoff Letters, (b) the Transaction Expenses, (c)
+        the Escrow Amount to the Escrow Agent and (d) the Closing Payment to Sellers.
+    exclusion_cues:
+      - The payoff letters themselves are ma.financing.payoff_letters.
+      - The formula for the price is ma.consideration.purchase_price.
+    crosswalk:
+      section_v1:
+        - id: d74d26190df0db97
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.spac.trust_account
+    label: Trust Account; Waiver of Claims Against the Trust
+    kind: provision
+    nav_parent: ma.nav.structure.spac
+    tier: label
+    wave: 1
+    description: >-
+      Representations and covenants about the SPAC's trust account: the amount held, the trust agreement
+      and the release of the funds at closing. It also covers the target's waiver of any claim against the
+      trust.
+    canonical_terms:
+      - Trust Account
+      - Trust Agreement
+      - funds held in the Trust Account
+      - disbursement of Trust Account
+      - waives any right, title, interest or claim
+      - Trust Account waiver
+      - no recourse against the Trust Account
+    example_phrases:
+      - >-
+        As of the date hereof, Acquiror has at least $[•] in the Trust Account, such monies invested in
+        United States government securities or money market funds.
+      - >-
+        The Company hereby irrevocably waives any right, title, interest or claim of any kind it has or
+        may have in the future in or to any monies in the Trust Account.
+    introduced_in: '2026.1'
+
+  - id: ma.spac.pipe
+    label: PIPE Investment; Subscription Agreements
+    kind: provision
+    nav_parent: ma.nav.structure.spac
+    tier: label
+    wave: 1
+    description: >-
+      Terms on the private investment that funds a SPAC deal: the subscription agreements, the amount
+      committed and limits on changing them.
+    canonical_terms:
+      - PIPE Investment
+      - Subscription Agreements
+      - PIPE Investors
+      - forward purchase agreement
+    example_phrases:
+      - >-
+        Acquiror has delivered to the Company true and complete copies of each Subscription Agreement,
+        pursuant to which the PIPE Investors have committed to purchase shares of Acquiror for an aggregate
+        of $[•].
+    introduced_in: '2026.1'
+
+  - id: ma.spac.minimum_cash
+    label: Minimum Cash Condition
+    kind: provision
+    nav_parent: ma.nav.structure.spac
+    also_listed_under:
+      - ma.nav.conditions.party
+    tier: label
+    wave: 2
+    description: >-
+      A closing condition that the SPAC have at least a stated amount of cash after redemptions.
+    canonical_terms:
+      - Minimum Cash Condition
+      - Available Closing Cash
+      - after giving effect to the Acquiror Share Redemptions
+    example_phrases:
+      - The Available Closing Cash shall be no less than $[•].
+    value_schema:
+      status: stub
+      fields:
+        - name: amount
+          type: Money
+        - name: waivable_by
+          type: PartyRole
+    introduced_in: '2026.1'
+
+  - id: ma.spac.redemption
+    label: SPAC Stockholder Redemptions
+    kind: provision
+    nav_parent: ma.nav.structure.spac
+    tier: label
+    wave: 1
+    description: >-
+      Terms on the right of the SPAC's public stockholders to redeem their shares in connection with the
+      deal.
+    canonical_terms:
+      - Acquiror Share Redemption
+      - redemption rights
+      - Redeeming Stockholders
+    example_phrases:
+      - >-
+        Acquiror shall provide its public stockholders with the opportunity to elect redemption of their
+        shares in connection with the Acquiror Stockholders' Meeting, as required by its Governing Documents.
+    introduced_in: '2026.1'
+
+  - id: ma.spac.sponsor_support
+    label: Sponsor Support Agreement
+    kind: provision
+    nav_parent: ma.nav.structure.spac
+    tier: label
+    wave: 1
+    description: >-
+      Terms on the sponsor's agreement to vote for the deal, waive anti-dilution rights, and forfeit or
+      lock up founder shares.
+    canonical_terms:
+      - Sponsor Support Agreement
+      - Sponsor Agreement
+      - founder shares
+      - waive anti-dilution
+    example_phrases:
+      - >-
+        Concurrently with the execution of this Agreement, the Sponsor has entered into the Sponsor Support
+        Agreement, pursuant to which the Sponsor has agreed to vote in favor of the Transactions.
+    exclusion_cues:
+      - Voting agreements by the target's stockholders are ma.approval.voting_agreements.
+    introduced_in: '2026.1'
+
+  - id: ma.spac.extension
+    label: Extension of the SPAC Deadline
+    kind: provision
+    nav_parent: ma.nav.structure.spac
+    tier: label
+    wave: 1
+    description: >-
+      The SPAC's duty or right to extend the deadline by which it must complete a business combination,
+      including the stockholder vote on the extension and who pays for it.
+    canonical_terms:
+      - Extension
+      - extend the deadline to consummate a Business Combination
+      - Extension Proposal
+      - Extension Meeting
+      - Business Combination Deadline
+    example_phrases:
+      - >-
+        If the Closing has not occurred by [•], Acquiror shall seek the approval of its stockholders to
+        extend the deadline by which it must complete a Business Combination.
+    exclusion_cues:
+      - The outside date of the merger agreement is ma.termination.outside_date.
+      - Redemptions by the public stockholders are ma.spac.redemption.
+    introduced_in: '2026.1'
+
+  - id: ma.spac.domestication
+    label: SPAC Domestication
+    kind: provision
+    nav_parent: ma.nav.structure.spac
+    also_listed_under:
+      - tax.nav.deal.restructuring
+    tier: label
+    wave: 1
+    description: >-
+      The SPAC's change of its jurisdiction of incorporation before closing, usually from the Cayman Islands
+      to Delaware.
+    canonical_terms:
+      - Domestication
+      - continue as a Delaware corporation
+      - de-register as an exempted company
+      - Certificate of Domestication
+    example_phrases:
+      - >-
+        Prior to the Closing, Acquiror shall change its jurisdiction of incorporation by de-registering
+        as a Cayman Islands exempted company and domesticating as a Delaware corporation (the "Domestication").
+    exclusion_cues:
+      - A restructuring of the target before closing is tax.restructuring.pre_closing.
+      - >-
+        The statement that the Domestication is intended to qualify as a reorganization is
+        tax.treatment.reorganization.
+    introduced_in: '2026.1'
