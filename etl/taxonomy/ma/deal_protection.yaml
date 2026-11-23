@@ -48,6 +48,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.deal_protection.no_shop
     tier: label
+    wave: 1
     attributes:
       party: obligor
     description: >-
@@ -90,6 +91,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.deal_protection.no_shop
     tier: label
+    wave: 2
     description: >-
       A period after signing in which the target may actively solicit competing proposals, and the treatment
       of bidders found in that period.
@@ -127,6 +129,7 @@ concepts:
     nav_parent: ma.nav.deal_protection.no_shop
     parent: ma.noshop.non_solicitation
     tier: label
+    wave: 2
     description: >-
       The exception that lets the target give information to, and negotiate with, a bidder that makes
       an unsolicited proposal, if the board finds the proposal is or could lead to a superior proposal
@@ -170,6 +173,7 @@ concepts:
     nav_parent: ma.nav.deal_protection.no_shop
     parent: ma.noshop.non_solicitation
     tier: label
+    wave: 2
     description: >-
       The duty to tell the buyer promptly of any competing proposal or inquiry, its terms and the identity
       of the bidder, and to keep the buyer informed.
@@ -203,6 +207,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.deal_protection.no_shop
     tier: label
+    wave: 1
     description: >-
       Whether the target may or must waive or enforce standstill agreements with other bidders, including
       a ban on waiving them.
@@ -223,6 +228,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.deal_protection.recommendation
     tier: label
+    wave: 2
     attributes:
       party: obligor
     description: >-
@@ -256,6 +262,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.deal_protection.recommendation
     tier: label
+    wave: 2
     description: >-
       The board's right to change its recommendation in response to a superior proposal, and the fiduciary
       finding it must make first.
@@ -293,6 +300,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.deal_protection.recommendation
     tier: label
+    wave: 2
     description: >-
       The board's right to change its recommendation because of a new event that is not a competing proposal.
     canonical_terms:
@@ -328,6 +336,7 @@ concepts:
     nav_parent: ma.nav.deal_protection.recommendation
     parent: ma.recommendation.board_recommendation
     tier: label
+    wave: 2
     description: >-
       The buyer's right to notice and a negotiation period before the board changes its recommendation
       or terminates, and the shorter period that applies after an amended proposal.
@@ -368,6 +377,7 @@ concepts:
     nav_parent: ma.nav.deal_protection.recommendation
     parent: ma.recommendation.board_recommendation
     tier: label
+    wave: 2
     description: >-
       The statement that nothing stops the board from making a disclosure that the tender offer rules
       or its duties require, such as a "stop, look and listen" communication, and whether such a disclosure
@@ -397,6 +407,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.deal_protection.stockholder_approval
     tier: label
+    wave: 1
     attributes:
       party: obligor
     description: >-
@@ -434,6 +445,7 @@ concepts:
     nav_parent: ma.nav.deal_protection.stockholder_approval
     parent: ma.approval.stockholder_meeting
     tier: label
+    wave: 2
     description: >-
       The duty to submit the deal to a stockholder vote even if the board has changed its recommendation.
     canonical_terms:
@@ -467,6 +479,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.deal_protection.stockholder_approval
     tier: label
+    wave: 1
     description: >-
       The duty to prepare and file the proxy statement, Form S-4 or other SEC document for the stockholder
       vote, to answer SEC comments, and to correct the document.
@@ -502,6 +515,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.deal_protection.stockholder_approval
     tier: label
+    wave: 1
     description: >-
       Approval of the deal by written consent of stockholders instead of a meeting, the deadline to deliver
       the consent, and the information statement sent to the other holders.
@@ -532,6 +546,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.deal_protection.stockholder_approval
     tier: label
+    wave: 1
     description: >-
       Terms on agreements under which named stockholders promise to vote for the deal or tender their
       shares.
@@ -568,6 +583,7 @@ concepts:
     also_listed_under:
       - ma.nav.reps.transaction
     tier: label
+    wave: 1
     description: >-
       The statement that anti-takeover statutes do not apply to the deal because the board has approved
       it, and the duty to act so that none applies.
@@ -600,6 +616,7 @@ concepts:
     also_listed_under:
       - ma.nav.reps.transaction
     tier: label
+    wave: 1
     description: >-
       Statements and duties about a stockholder rights plan: that it has been amended so that the deal
       does not trigger it, or that the target has none and will adopt none.

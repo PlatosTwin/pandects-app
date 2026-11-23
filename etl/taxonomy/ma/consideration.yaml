@@ -48,6 +48,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.consideration.price
     tier: label
+    wave: 1
     description: >-
       What each target share converts into at the effective time: cash, buyer stock or both. It also covers
       the cancellation of treasury and buyer-owned shares and the conversion of merger sub shares.
@@ -92,6 +93,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.consideration.price
     tier: label
+    wave: 1
     description: >-
       The number of buyer shares paid for each target share, whether it is fixed or floats with the buyer's
       stock price, and how it is computed. It includes any collar on the ratio or the deal value and any
@@ -139,6 +141,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.consideration.price
     tier: label
+    wave: 1
     description: >-
       The stockholder's right to elect cash or stock, the election deadline, and the proration that applies
       when one form is oversubscribed.
@@ -167,6 +170,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.consideration.price
     tier: label
+    wave: 1
     description: >-
       The price in a private purchase of shares, interests or assets: the base amount and the formula
       that leads to the amount paid at closing.
@@ -206,6 +210,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.consideration.price
     tier: label
+    wave: 1
     description: >-
       Terms on buyer stock issued as consideration: the duty to reserve the shares, private placement
       status, legends, lock-up and registration rights.
@@ -232,6 +237,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.consideration.price
     tier: label
+    wave: 2
     description: >-
       A part of the price that the buyer pays later under a promissory note to the sellers, or as a fixed
       deferred payment. It covers the amount, the term, interest, security and subordination.
@@ -267,6 +273,7 @@ concepts:
     also_listed_under:
       - ma.nav.financing.arrangements
     tier: label
+    wave: 2
     description: >-
       Terms under which some holders exchange target equity for equity of the buyer or its parent instead
       of cash.
@@ -292,6 +299,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.consideration.price
     tier: label
+    wave: 1
     description: >-
       Additional price that is paid after closing if the business meets stated financial or operating
       targets, with the measurement rules and the buyer's operating duties.
@@ -338,6 +346,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.consideration.price
     tier: label
+    wave: 1
     description: >-
       A contingent value right issued to target stockholders as part of the consideration, and the agreement
       that governs it.
@@ -374,6 +383,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.consideration.price
     tier: label
+    wave: 1
     description: >-
       An earnest money deposit paid at signing: its amount, who holds it, and when it is credited, returned
       or forfeited.
@@ -402,6 +412,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.consideration.price
     tier: label
+    wave: 1
     description: >-
       An adjustment to the consideration if either party's shares change before closing through a stock
       split, stock dividend, reclassification or similar event.
@@ -423,6 +434,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.consideration.equity_awards
     tier: label
+    wave: 1
     description: >-
       What happens to stock options, restricted stock, restricted stock units and performance awards at
       closing: cash-out, assumption, rollover or cancellation, and whether vesting accelerates.
@@ -472,6 +484,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.consideration.equity_awards
     tier: label
+    wave: 1
     description: >-
       Treatment of the employee stock purchase plan: no new offering periods, a final purchase date and
       termination of the plan.
@@ -496,6 +509,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.consideration.equity_awards
     tier: label
+    wave: 1
     description: >-
       Treatment of warrants, convertible notes, preferred stock and other securities that are not employee
       awards.
@@ -521,14 +535,15 @@ concepts:
     introduced_in: '2026.1'
 
   - id: ma.exchange.procedures
-    label: Exchange Procedures; Paying Agent
+    label: Exchange Procedures; Paying Agent; Fractional Shares
     kind: provision
     nav_parent: ma.nav.consideration.exchange
     tier: label
+    wave: 1
     description: >-
-      How holders receive the consideration: the paying or exchange agent, the exchange fund, letters
-      of transmittal, surrender of certificates and book-entry shares, lost certificates, closing of the
-      transfer books and return of unclaimed funds.
+      How holders receive the consideration: the paying or exchange agent, the exchange fund, letters of
+      transmittal, surrender of certificates and book-entry shares, lost certificates, closing of the
+      transfer books, return of unclaimed funds, and cash or rounding in place of fractional shares.
     canonical_terms:
       - Paying Agent
       - Exchange Agent
@@ -539,6 +554,9 @@ concepts:
       - lost, stolen or destroyed Certificates
       - stock transfer books
       - no further ownership rights
+      - no fractional shares
+      - cash in lieu of fractional shares
+      - rounded to the nearest whole share
     example_phrases:
       - >-
         Prior to the Effective Time, Parent shall appoint a Paying Agent and shall deposit with the Paying
@@ -546,6 +564,9 @@ concepts:
       - >-
         Upon surrender of a Certificate together with a duly completed and executed Letter of Transmittal,
         the holder shall be entitled to receive the Merger Consideration in respect thereof.
+      - >-
+        No fractional shares of Parent Common Stock shall be issued in the Merger, and each holder who
+        would otherwise be entitled to a fraction of a share shall receive cash in lieu thereof.
     exclusion_cues:
       - The amount each share receives is ma.consideration.merger_consideration.
       - The payor's right to withhold taxes is tax.withholding.provision.
@@ -555,7 +576,7 @@ concepts:
           relation: narrower
       section_v2:
         - id: dffa35414901279b
-          relation: exact
+          relation: broader
     introduced_in: '2026.1'
 
   - id: ma.exchange.dissenting_shares
@@ -563,6 +584,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.consideration.exchange
     tier: label
+    wave: 1
     description: >-
       Treatment of shares whose holders demand appraisal, and the target's duties to give notice of demands
       and not to settle them without consent.
@@ -592,31 +614,12 @@ concepts:
           relation: exact
     introduced_in: '2026.1'
 
-  - id: ma.exchange.fractional_shares
-    label: Fractional Shares
-    kind: provision
-    nav_parent: ma.nav.consideration.exchange
-    tier: label
-    description: No fractional buyer shares are issued. Holders receive cash or rounding instead.
-    canonical_terms:
-      - no fractional shares
-      - cash in lieu of fractional shares
-      - rounded to the nearest whole share
-    example_phrases:
-      - >-
-        No fractional shares of Parent Common Stock shall be issued in the Merger, and each holder who
-        would otherwise be entitled to a fraction of a share shall receive cash in lieu thereof.
-    crosswalk:
-      section_v1:
-        - id: e6472f83aba370e6
-          relation: narrower
-    introduced_in: '2026.1'
-
   - id: ma.exchange.payment_schedule
     label: Allocation Schedule; Payment Spreadsheet
     kind: provision
     nav_parent: ma.nav.consideration.exchange
     tier: label
+    wave: 1
     description: >-
       The schedule the target delivers before closing that shows what each holder receives, and the buyer's
       right to rely on it.
@@ -641,6 +644,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.consideration.adjustment
     tier: label
+    wave: 1
     description: >-
       The adjustment of the price for working capital, cash, debt and transaction expenses: the estimate
       delivered before closing and the payment that settles the difference after closing.
@@ -690,6 +694,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.consideration.adjustment
     tier: label
+    wave: 2
     description: >-
       The post-closing statement of the final figures, the other side's review period, access to records
       and the notice of disagreement.
@@ -718,6 +723,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.consideration.adjustment
     tier: label
+    wave: 2
     description: >-
       Referral of a disputed closing statement to an independent accounting firm: its scope, whether it
       acts as an expert or an arbitrator, and who pays its fees.
@@ -747,6 +753,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.consideration.adjustment
     tier: label
+    wave: 2
     description: An escrow or holdback that secures the seller's duty to pay a downward price adjustment.
     canonical_terms:
       - Adjustment Escrow Amount

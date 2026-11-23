@@ -36,6 +36,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.conduct.interim
     tier: label
+    wave: 1
     attributes:
       party: obligor
     description: >-
@@ -76,6 +77,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.conduct.interim
     tier: label
+    wave: 2
     attributes:
       party: obligor
     description: >-
@@ -110,6 +112,7 @@ concepts:
     nav_parent: ma.nav.conduct.interim
     parent: ma.conduct.negative_covenants
     tier: label
+    wave: 2
     attributes:
       party: obligor
     description: >-
@@ -142,6 +145,7 @@ concepts:
     nav_parent: ma.nav.conduct.interim
     parent: ma.conduct.negative_covenants
     tier: label
+    wave: 2
     attributes:
       party: obligor
     description: >-
@@ -167,6 +171,7 @@ concepts:
     nav_parent: ma.nav.conduct.interim
     parent: ma.conduct.negative_covenants
     tier: label
+    wave: 2
     attributes:
       party: obligor
     description: No new debt, guarantees, loans or liens above a stated amount.
@@ -197,6 +202,7 @@ concepts:
     nav_parent: ma.nav.conduct.interim
     parent: ma.conduct.negative_covenants
     tier: label
+    wave: 2
     attributes:
       party: obligor
     description: No capital expenditures above the budget or a stated amount.
@@ -225,6 +231,7 @@ concepts:
     nav_parent: ma.nav.conduct.interim
     parent: ma.conduct.negative_covenants
     tier: label
+    wave: 2
     attributes:
       party: obligor
     description: >-
@@ -256,6 +263,7 @@ concepts:
     nav_parent: ma.nav.conduct.interim
     parent: ma.conduct.negative_covenants
     tier: label
+    wave: 2
     attributes:
       party: obligor
     description: >-
@@ -286,6 +294,7 @@ concepts:
     nav_parent: ma.nav.conduct.interim
     parent: ma.conduct.negative_covenants
     tier: label
+    wave: 2
     attributes:
       party: obligor
     description: >-
@@ -310,6 +319,7 @@ concepts:
     nav_parent: ma.nav.conduct.interim
     parent: ma.conduct.negative_covenants
     tier: label
+    wave: 2
     attributes:
       party: obligor
     description: >-
@@ -334,6 +344,7 @@ concepts:
     nav_parent: ma.nav.conduct.interim
     parent: ma.conduct.negative_covenants
     tier: label
+    wave: 2
     attributes:
       party: obligor
     description: >-
@@ -366,6 +377,7 @@ concepts:
     nav_parent: ma.nav.conduct.interim
     parent: ma.conduct.negative_covenants
     tier: label
+    wave: 2
     attributes:
       party: obligor
     description: No change in financial accounting methods or policies, except as GAAP requires.
@@ -391,6 +403,7 @@ concepts:
     nav_parent: ma.nav.conduct.interim
     parent: ma.conduct.ordinary_course
     tier: label
+    wave: 2
     attributes:
       party: obligor
     description: >-
@@ -412,6 +425,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.conduct.interim
     tier: label
+    wave: 1
     description: >-
       A statement that the agreement gives the buyer no right to control or direct the target's operations
       before closing.
@@ -430,6 +444,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.conduct.interim
     tier: label
+    wave: 1
     description: >-
       Cooperation before closing to plan the integration of the two businesses, such as the conversion
       of data processing systems in a bank merger.
@@ -453,6 +468,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.conduct.access
     tier: label
+    wave: 1
     attributes:
       party: obligor
     description: >-
@@ -488,6 +504,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.conduct.access
     tier: label
+    wave: 1
     attributes:
       party: obligor
     description: >-
@@ -524,6 +541,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.conduct.access
     tier: label
+    wave: 1
     description: >-
       A right or duty to supplement the disclosure schedules before closing, and whether an update cures
       a breach for the closing condition or for indemnification.
@@ -549,6 +567,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.conduct.access
     tier: label
+    wave: 1
     description: >-
       The duty to keep information confidential before closing, including the statement that an existing
       confidentiality agreement stays in force.
@@ -584,6 +603,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.conduct.access
     tier: label
+    wave: 1
     description: >-
       Limits on press releases and other public statements about the deal, usually a duty to consult the
       other party first, with exceptions for legal requirements and for a change of recommendation.

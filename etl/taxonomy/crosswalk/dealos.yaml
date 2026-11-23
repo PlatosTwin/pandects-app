@@ -178,9 +178,9 @@ links:
   - concept: ma.employee.comp_benefits_continuation
     dealos_id: econ:160
     relation: broader
-  - concept: ma.employee.service_credit
+  - concept: ma.employee.comp_benefits_continuation
     dealos_id: econ:161
-    relation: exact
+    relation: broader
   - concept: ma.employee.retention_severance
     dealos_id: econ:r-closing-year-bonus-honoring
     relation: broader
@@ -232,9 +232,9 @@ links:
   - concept: ma.condition.third_party_consents
     dealos_id: cra:131
     relation: related
-  - concept: ma.condition.frustration
+  - concept: ma.condition.other
     dealos_id: cra:39
-    relation: narrower
+    relation: related
   - concept: ma.termination.right.mutual_consent
     dealos_id: cra:113
     relation: narrower
@@ -286,9 +286,6 @@ links:
   - concept: ma.indemn.claims_procedure
     dealos_id: pcra:79
     relation: narrower
-  - concept: ma.indemn.third_party_claims
-    dealos_id: pcra:79
-    relation: narrower
   - concept: ma.indemn.escrow
     dealos_id: pcra:93
     relation: exact
@@ -319,9 +316,9 @@ links:
   - concept: ma.attorneys_fees
     dealos_id: ai:r-prevailing-party-attorneys-fees
     relation: exact
-  - concept: ma.remedies_cumulative
+  - concept: ma.severability
     dealos_id: ai:77
-    relation: exact
+    relation: broader
   - concept: ma.definitions.general
     dealos_id: ai:r-definitions
     relation: exact
@@ -373,9 +370,6 @@ links:
   - concept: ma.amendment
     dealos_id: ai:r-amendment-and-waiver
     relation: narrower
-  - concept: ma.waiver
-    dealos_id: ai:r-amendment-and-waiver
-    relation: narrower
   - concept: ma.assignment
     dealos_id: ai:r-successors-and-assigns
     relation: exact
@@ -385,9 +379,9 @@ links:
   - concept: ma.severability
     dealos_id: ai:87
     relation: exact
-  - concept: ma.counterparts
+  - concept: ma.severability
     dealos_id: ai:r-counterparts-and-electronic-execution
-    relation: exact
+    relation: broader
   - concept: ma.expenses
     dealos_id: econ:r-general-expenses-provision-each-party-bears-its-own
     relation: exact

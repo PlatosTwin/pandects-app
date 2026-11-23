@@ -96,6 +96,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.fundamental
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -135,6 +136,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.fundamental
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -181,6 +183,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.fundamental
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -224,6 +227,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.fundamental
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -260,6 +264,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.fundamental
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -284,6 +289,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.fundamental
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -331,6 +337,7 @@ concepts:
     also_listed_under:
       - ma.nav.reps.transaction
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -362,6 +369,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.financial
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -400,6 +408,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.financial
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -442,6 +451,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.financial
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -479,6 +489,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.financial
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -516,6 +527,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.financial
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -554,6 +566,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.financial
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -597,6 +610,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.financial
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -619,6 +633,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.legal
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -661,6 +676,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.legal
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -704,6 +720,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.legal
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -739,6 +756,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.legal
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: The party is not an investment company under the Investment Company Act of 1940.
@@ -756,6 +774,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.commercial
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -799,6 +818,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.commercial
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -831,6 +851,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.commercial
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -865,6 +886,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.commercial
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -886,6 +908,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.commercial
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: Statements about product warranties, product liability claims and recalls.
@@ -905,6 +928,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.commercial
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -949,6 +973,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.assets
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -990,6 +1015,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.assets
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -1033,6 +1059,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.assets
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -1075,6 +1102,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.assets
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -1115,6 +1143,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.assets
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -1157,6 +1186,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.employees
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -1202,6 +1232,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.employees
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -1243,6 +1274,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.transaction
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -1269,6 +1301,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.transaction
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -1290,6 +1323,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.transaction
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -1330,6 +1364,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.transaction
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -1355,6 +1390,7 @@ concepts:
     also_listed_under:
       - ma.nav.financing.arrangements
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -1401,6 +1437,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.buyer
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -1423,6 +1460,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.buyer
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -1447,6 +1485,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.buyer
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -1470,6 +1509,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.buyer
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -1493,6 +1533,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.buyer
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -1515,6 +1556,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.disclaimers
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -1557,6 +1599,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.disclaimers
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -1604,6 +1647,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.industry
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -1633,6 +1677,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.industry
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -1657,6 +1702,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.industry
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -1680,6 +1726,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.industry
     tier: label
+    wave: 1
     attributes:
       party: maker
     description: >-
@@ -1704,9 +1751,21 @@ concepts:
     kind: provision
     nav_parent: ma.nav.reps.industry
     tier: label
+    wave: 1
     attributes:
       party: maker
-    description: A representation that fits no other concept in this branch. Use it rarely.
+    description: >-
+      A representation that fits no other concept in this branch. Use it rarely. It includes a SPAC's
+      statement that it has carried on no business other than its search for a business combination.
+    canonical_terms:
+      - Business Activities
+      - has not conducted any business activities other than
+      - directed toward the accomplishment of a Business Combination
+    example_phrases:
+      - >-
+        Since its incorporation, Acquiror has not conducted any business activities other than activities
+        directed toward the accomplishment of a Business Combination.
     exclusion_cues:
       - Check the industry-specific concepts first.
+      - The matching statement about a merger subsidiary is ma.rep.merger_sub.
     introduced_in: '2026.1'

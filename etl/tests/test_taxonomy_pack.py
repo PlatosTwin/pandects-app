@@ -42,6 +42,30 @@ PILOT_SIBLING_IDS = (
     "ma.regulatory.filing_fee_allocation",
 )
 
+# Leaves folded into a sibling on 2026-11-22 (docs/plans/full-taxonomy.md, section 4.4).
+MERGED_2026_11_22 = (
+    "ma.structure.effects_of_merger",
+    "ma.structure.governing_documents",
+    "ma.structure.directors_officers",
+    "ma.exchange.fractional_shares",
+    "ma.counterparts",
+    "ma.remedies_cumulative",
+    "ma.waiver",
+    "ma.tender.rule_14d10",
+    "ma.tender.board_designees",
+    "ma.spac.trust_waiver",
+    "ma.spac.business_activities",
+    "ma.spac.extension",
+    "ma.spac.domestication",
+    "ma.employee.service_credit",
+    "ma.employee.no_third_party_rights",
+    "ma.employee.plan_termination",
+    "ma.condition.covenant_performance",
+    "ma.condition.frustration",
+    "ma.termination.notice",
+    "ma.indemn.third_party_claims",
+)
+
 Change = Callable[[dict[str, Any]], None]
 
 
@@ -118,6 +142,30 @@ class ShippedPacksTest(unittest.TestCase):
         self.assertIn("ma.nav.reps.financial", nodes["tax.nav.reps"].data["also_listed_under"])
         self.assertIn("tax.nav.other", nodes["ma.employee.section_280g"].data["also_listed_under"])
         self.assertNotIn("ma.election.338h10", nodes)
+
+    def test_every_ma_concept_has_a_wave(self) -> None:
+        """Wave 1 holds provisions only. Parts and definitions wait for wave 2. The tax pack has no waves."""
+        waves: dict[int, int] = {1: 0, 2: 0}
+        for node in self.taxonomy.nodes.values():
+            if not node.is_concept:
+                continue
+            if node.pack == "tax":
+                self.assertNotIn("wave", node.data, node.id)
+                continue
+            wave = node.data["wave"]
+            self.assertIn(wave, taxonomy_pack.WAVES, node.id)
+            waves[wave] += 1
+            if node.kind != "provision" or node.data.get("parent"):
+                self.assertEqual(wave, 2, node.id)
+        self.assertGreater(waves[1], 0)
+        self.assertGreater(waves[2], 0)
+
+    def test_merged_leaves_are_gone(self) -> None:
+        """The 20 leaves merged on 2026-11-22 were never released, so they are removed, not deprecated."""
+        for concept_id in MERGED_2026_11_22:
+            self.assertNotIn(concept_id, self.taxonomy.nodes)
+        for node in self.taxonomy.nodes.values():
+            self.assertNotIn("deprecated_in", node.data, node.id)
 
 
 class ValidatorCatchesProblemsTest(unittest.TestCase):
@@ -212,6 +260,22 @@ class ValidatorCatchesProblemsTest(unittest.TestCase):
     def test_value_tier_without_piloted_schema(self) -> None:
         self._edit(lambda doc: _concept(doc, "ma.governing_law").update(tier="value"))
         self._assert_reported("ma.governing_law: tier value needs a piloted value_schema")
+
+    def test_missing_wave(self) -> None:
+        self._edit(lambda doc: _concept(doc, "ma.governing_law").pop("wave"))
+        self._assert_reported("ma.governing_law: wave must be one of (1, 2)")
+
+    def test_unknown_wave(self) -> None:
+        self._edit(lambda doc: _concept(doc, "ma.governing_law").update(wave=3))
+        self._assert_reported("ma.governing_law: wave must be one of (1, 2)")
+
+    def test_part_in_wave_one(self) -> None:
+        self._edit(lambda doc: _concept(doc, "ma.mae.carveout").update(wave=1), "ma/definitions.yaml")
+        self._assert_reported("ma.mae.carveout: a component belongs to wave 2")
+
+    def test_wave_on_navigation_node(self) -> None:
+        self._edit(lambda doc: doc["groups"][0].update(wave=1))
+        self._assert_reported("a navigation node cannot have wave")
 
     def test_exclusion_cue_with_unknown_id(self) -> None:
         self._edit(lambda doc: _concept(doc, "ma.governing_law")["exclusion_cues"].append("See ma.no_such_concept."))

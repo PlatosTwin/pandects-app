@@ -39,6 +39,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.financing.arrangements
     tier: value
+    wave: 2
     description: >-
       A summary concept for how the deal is funded and how firm the funding is: whether closing depends
       on financing, the committed sources, the efforts standard and the marketing period. Its spans come
@@ -76,6 +77,7 @@ concepts:
     nav_parent: ma.nav.financing.arrangements
     parent: ma.rep.financing
     tier: label
+    wave: 2
     description: >-
       The part of the financing representation that describes the debt commitment: the lenders, the amount,
       the conditions to funding and the fee letter.
@@ -112,6 +114,7 @@ concepts:
     nav_parent: ma.nav.financing.arrangements
     parent: ma.rep.financing
     tier: label
+    wave: 2
     description: >-
       The part of the financing representation that describes the equity commitment from a sponsor or
       other investor: the investor, the amount, and the target's right to enforce the commitment as a
@@ -150,6 +153,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.financing.arrangements
     tier: label
+    wave: 1
     description: >-
       A guarantee by a sponsor or parent company of the buyer's payment duties, such as the reverse termination
       fee.
@@ -172,6 +176,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.financing.covenants
     tier: label
+    wave: 1
     description: >-
       The buyer's duty to obtain the financing on the committed terms, not to amend the commitment letters
       in harmful ways, to arrange alternative financing if needed, and to keep the target informed.
@@ -207,6 +212,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.financing.covenants
     tier: label
+    wave: 1
     description: >-
       The target's duty to help the buyer arrange its financing: management meetings, financial information,
       offering documents and know-your-customer materials.
@@ -245,6 +251,7 @@ concepts:
     nav_parent: ma.nav.financing.covenants
     parent: ma.financing.cooperation
     tier: label
+    wave: 2
     description: >-
       The buyer's duty to reimburse the target's costs of financing cooperation and to indemnify it against
       related losses.
@@ -270,6 +277,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.financing.covenants
     tier: label
+    wave: 1
     description: >-
       Delivery of payoff letters and lien releases for the target's debt, and steps for existing notes
       such as redemptions, tender offers, consent solicitations and assumption by the buyer under a supplemental
@@ -303,6 +311,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.financing.sources
     tier: label
+    wave: 1
     description: >-
       Clauses that protect the lenders: no recourse against them, New York law and forum for claims against
       them, a jury waiver, their status as third-party beneficiaries, and a bar on amending these clauses

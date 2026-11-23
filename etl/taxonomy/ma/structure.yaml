@@ -55,6 +55,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.structure.transaction
     tier: label
+    wave: 1
     description: >-
       The operative clause that merges one entity into another, names the surviving entity, and describes
       any second-step or holding-company merger.
@@ -88,6 +89,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.structure.transaction
     tier: label
+    wave: 1
     description: >-
       The operative clause of an equity purchase: the seller sells and the buyer buys the shares, units
       or membership interests.
@@ -114,117 +116,60 @@ concepts:
     introduced_in: '2026.1'
 
   - id: ma.structure.effective_time
-    label: Effective Time; Certificate of Merger
+    label: Effective Time; Effects of the Merger; Surviving Entity
     kind: provision
     nav_parent: ma.nav.structure.transaction
     tier: label
+    wave: 1
     description: >-
-      When the merger takes effect, and the filing of the certificate or articles of merger that makes
-      it effective.
+      When the merger takes effect and the filing that makes it effective, the legal effects of the merger
+      under the corporate statute, and the charter, bylaws, directors and officers of the surviving
+      entity.
     canonical_terms:
       - Effective Time
       - Certificate of Merger
       - Articles of Merger
       - filed with the Secretary of State
-    example_phrases:
-      - >-
-        The Merger shall become effective at the time the Certificate of Merger is duly filed with the
-        Secretary of State of the State of Delaware, or at such later time as the parties agree and specify
-        in the Certificate of Merger (the "Effective Time").
-    exclusion_cues:
-      - The date and place of the closing meeting is ma.closing.time_and_place.
-    crosswalk:
-      section_v1:
-        - id: 92d4aee1b80c2134
-          relation: narrower
-      section_v2:
-        - id: 4e259fa432ddf707
-          relation: narrower
-    introduced_in: '2026.1'
-
-  - id: ma.structure.effects_of_merger
-    label: Effects of the Merger
-    kind: provision
-    nav_parent: ma.nav.structure.transaction
-    tier: label
-    description: >-
-      The legal effects of the merger under the governing corporate statute: the surviving entity takes
-      all property, rights, debts and duties of the merged entities.
-    canonical_terms:
       - effects of the Merger
       - as provided in the DGCL
       - >-
         all property, rights, privileges, powers and franchises shall vest in the Surviving Corporation
-    example_phrases:
-      - >-
-        The Merger shall have the effects set forth in this Agreement and in the applicable provisions
-        of the DGCL.
-    exclusion_cues:
-      - How shares convert into the consideration is ma.consideration.merger_consideration.
-    crosswalk:
-      section_v1:
-        - id: 92d4aee1b80c2134
-          relation: narrower
-      section_v2:
-        - id: 4e259fa432ddf707
-          relation: narrower
-    introduced_in: '2026.1'
-
-  - id: ma.structure.governing_documents
-    label: Charter and Bylaws of the Surviving Entity
-    kind: provision
-    nav_parent: ma.nav.structure.transaction
-    tier: label
-    description: >-
-      The certificate of incorporation, bylaws or other governing documents of the surviving entity from
-      the effective time.
-    canonical_terms:
       - certificate of incorporation of the Surviving Corporation
       - bylaws of the Surviving Corporation
       - amended and restated in its entirety
-    example_phrases:
-      - >-
-        At the Effective Time, the certificate of incorporation of the Company shall be amended and restated
-        in its entirety to read as set forth in Exhibit [•].
-    exclusion_cues:
-      - >-
-        A representation that a party has delivered its organizational documents is ma.rep.organization.
-    crosswalk:
-      section_v1:
-        - id: 92d4aee1b80c2134
-          relation: narrower
-      section_v2:
-        - id: 4e259fa432ddf707
-          relation: narrower
-    introduced_in: '2026.1'
-
-  - id: ma.structure.directors_officers
-    label: Directors and Officers of the Surviving Entity
-    kind: provision
-    nav_parent: ma.nav.structure.transaction
-    tier: label
-    description: >-
-      Who serves as the directors and officers of the surviving entity from the effective time.
-    canonical_terms:
       - directors of Merger Sub immediately prior to the Effective Time
       - officers of the Surviving Corporation
       - until their successors are duly elected
     example_phrases:
       - >-
+        The Merger shall become effective at the time the Certificate of Merger is duly filed with the
+        Secretary of State of the State of Delaware, or at such later time as the parties agree and specify
+        in the Certificate of Merger (the "Effective Time").
+      - >-
+        The Merger shall have the effects set forth in this Agreement and in the applicable provisions
+        of the DGCL.
+      - >-
+        At the Effective Time, the certificate of incorporation of the Company shall be amended and restated
+        in its entirety to read as set forth in Exhibit [•].
+      - >-
         The directors of Merger Sub immediately prior to the Effective Time shall be the directors of
         the Surviving Corporation, and the officers of the Company shall be the officers of the Surviving
         Corporation.
     exclusion_cues:
+      - The date and place of the closing meeting is ma.closing.time_and_place.
+      - How shares convert into the consideration is ma.consideration.merger_consideration.
+      - >-
+        A representation that a party has delivered its organizational documents is ma.rep.organization.
       - >-
         Board seats and management of the combined public company are ma.governance.post_closing.
       - Resignation letters delivered at closing are ma.governance.resignations.
     crosswalk:
       section_v1:
         - id: 92d4aee1b80c2134
-          relation: narrower
+          relation: exact
       section_v2:
         - id: 4e259fa432ddf707
-          relation: narrower
+          relation: exact
     introduced_in: '2026.1'
 
   - id: ma.structure.alternative_structure
@@ -232,6 +177,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.structure.transaction
     tier: label
+    wave: 1
     description: >-
       A right to change the structure or method of the combination, for example to a direct merger, if
       the change does not alter the consideration or delay closing.
@@ -251,6 +197,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.structure.asset_deal
     tier: label
+    wave: 1
     description: The assets the buyer acquires in an asset purchase.
     canonical_terms:
       - Purchased Assets
@@ -275,6 +222,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.structure.asset_deal
     tier: label
+    wave: 1
     description: The assets the seller keeps in an asset purchase.
     canonical_terms:
       - Excluded Assets
@@ -295,6 +243,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.structure.asset_deal
     tier: label
+    wave: 1
     description: The liabilities the buyer takes on in an asset purchase.
     canonical_terms:
       - Assumed Liabilities
@@ -316,6 +265,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.structure.asset_deal
     tier: label
+    wave: 1
     description: The liabilities the seller keeps in an asset purchase.
     canonical_terms:
       - Excluded Liabilities
@@ -336,6 +286,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.structure.asset_deal
     tier: label
+    wave: 1
     description: >-
       What happens to a contract or permit that cannot be transferred without a consent not yet obtained
       at closing: no assignment, continued efforts, and a pass-through of the benefits.
@@ -358,6 +309,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.structure.asset_deal
     tier: label
+    wave: 1
     description: >-
       A waiver of compliance with bulk sales or bulk transfer laws, often with a seller indemnity.
     canonical_terms:
@@ -375,6 +327,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.structure.asset_deal
     tier: label
+    wave: 1
     description: >-
       Which party bears the risk of damage, destruction or condemnation of the assets before closing,
       and the remedy if it occurs.
@@ -393,6 +346,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.structure.asset_deal
     tier: label
+    wave: 1
     description: >-
       Procedures on title to real property or oil and gas properties before closing: title commitments
       and insurance, surveys, notices of title or environmental defects, and the cure or price reduction
@@ -420,6 +374,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.structure.tender_offer
     tier: label
+    wave: 1
     description: >-
       The buyer's duty to start a tender or exchange offer, the offer price, the expiration date, and
       when the offer must or may be extended.
@@ -459,6 +414,7 @@ concepts:
     also_listed_under:
       - ma.nav.conditions.party
     tier: label
+    wave: 2
     description: >-
       The conditions to the buyer's duty to accept shares in the offer, including the minimum tender condition.
       They often sit in an annex.
@@ -488,28 +444,44 @@ concepts:
     introduced_in: '2026.1'
 
   - id: ma.tender.company_actions
-    label: Company Actions; Schedule 14D-9
+    label: Company Actions; Schedule 14D-9; Board Designees; Rule 14d-10
     kind: provision
     nav_parent: ma.nav.structure.tender_offer
     tier: label
+    wave: 1
     description: >-
       The target's duties in the offer: the board recommendation in the Schedule 14D-9, stockholder lists
-      and help with mailing.
+      and help with mailing, and approval of employee arrangements under Rule 14d-10(d). It also covers
+      the buyer's right to name directors to the target's board once it accepts shares in the offer.
     canonical_terms:
       - Schedule 14D-9
       - Company Actions
       - stockholder lists
       - mailing labels
+      - Rule 14d-10(d)
+      - employment compensation, severance or other employee benefit arrangement
+      - Compensation Committee
+      - Section 14(f)
+      - Rule 14f-1
+      - Parent's designees
+      - Continuing Directors
     example_phrases:
       - >-
         On the date the Offer Documents are filed with the SEC, the Company shall file with the SEC a
         Solicitation/Recommendation Statement on Schedule 14D-9 containing the Company Board Recommendation.
+      - >-
+        Prior to the Offer Closing, the Compensation Committee of the Company Board shall take all steps
+        necessary to approve each Company Compensation Arrangement as an "employment compensation, severance
+        or other employee benefit arrangement" within the meaning of Rule 14d-10(d)(1).
+      - >-
+        Promptly upon the Offer Closing, Parent shall be entitled to designate such number of directors
+        on the Company Board as will give Parent representation proportionate to its ownership of Shares.
     exclusion_cues:
       - The proxy statement for a stockholder vote is ma.approval.proxy_statement.
     crosswalk:
       section_v2:
         - id: 966f343de9937fdf
-          relation: narrower
+          relation: related
     introduced_in: '2026.1'
 
   - id: ma.tender.top_up_option
@@ -517,6 +489,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.structure.tender_offer
     tier: label
+    wave: 1
     description: >-
       An option for the buyer to purchase newly issued target shares after the offer so that it reaches
       the short-form merger threshold.
@@ -540,6 +513,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.structure.tender_offer
     tier: label
+    wave: 1
     description: >-
       The merger that follows the offer without a vote of the target's stockholders, under Section 251(h)
       of the DGCL or a short-form merger statute.
@@ -560,49 +534,12 @@ concepts:
           relation: narrower
     introduced_in: '2026.1'
 
-  - id: ma.tender.rule_14d10
-    label: Rule 14d-10(d) Compensation Approvals
-    kind: provision
-    nav_parent: ma.nav.structure.tender_offer
-    tier: label
-    description: >-
-      The target's duty to have its compensation committee approve employee arrangements as employment
-      compensation under Rule 14d-10(d).
-    canonical_terms:
-      - Rule 14d-10(d)
-      - employment compensation, severance or other employee benefit arrangement
-      - Compensation Committee
-    example_phrases:
-      - >-
-        Prior to the Offer Closing, the Compensation Committee of the Company Board shall take all steps
-        necessary to approve each Company Compensation Arrangement as an "employment compensation, severance
-        or other employee benefit arrangement" within the meaning of Rule 14d-10(d)(1).
-    introduced_in: '2026.1'
-
-  - id: ma.tender.board_designees
-    label: Board Designees After the Offer
-    kind: provision
-    nav_parent: ma.nav.structure.tender_offer
-    tier: label
-    description: >-
-      The buyer's right to name directors to the target's board once it accepts shares in the offer, and
-      the role of continuing directors until the merger.
-    canonical_terms:
-      - Section 14(f)
-      - Rule 14f-1
-      - Parent's designees
-      - Continuing Directors
-    example_phrases:
-      - >-
-        Promptly upon the Offer Closing, Parent shall be entitled to designate such number of directors
-        on the Company Board as will give Parent representation proportionate to its ownership of Shares.
-    introduced_in: '2026.1'
-
   - id: ma.closing.time_and_place
     label: Closing; Time and Place
     kind: provision
     nav_parent: ma.nav.structure.closing
     tier: label
+    wave: 1
     description: >-
       When and where the closing takes place, usually a set number of business days after the conditions
       are satisfied or waived.
@@ -644,6 +581,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.structure.closing
     tier: label
+    wave: 1
     attributes:
       party: obligor
     description: The documents and other items each party must deliver at closing.
@@ -678,6 +616,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.structure.closing
     tier: label
+    wave: 1
     description: >-
       The payments the buyer makes at closing: the closing payment to sellers, payoff of debt, payment
       of transaction expenses and funding of escrows.
@@ -701,37 +640,27 @@ concepts:
     introduced_in: '2026.1'
 
   - id: ma.spac.trust_account
-    label: Trust Account
+    label: Trust Account; Waiver of Claims Against the Trust
     kind: provision
     nav_parent: ma.nav.structure.spac
     tier: label
+    wave: 1
     description: >-
       Representations and covenants about the SPAC's trust account: the amount held, the trust agreement
-      and the release of the funds at closing.
+      and the release of the funds at closing. It also covers the target's waiver of any claim against the
+      trust.
     canonical_terms:
       - Trust Account
       - Trust Agreement
       - funds held in the Trust Account
       - disbursement of Trust Account
-    example_phrases:
-      - >-
-        As of the date hereof, Acquiror has at least $[•] in the Trust Account, such monies invested in
-        United States government securities or money market funds.
-    exclusion_cues:
-      - The target's waiver of claims against the trust is ma.spac.trust_waiver.
-    introduced_in: '2026.1'
-
-  - id: ma.spac.trust_waiver
-    label: Waiver of Claims Against the Trust
-    kind: provision
-    nav_parent: ma.nav.structure.spac
-    tier: label
-    description: The target's waiver of any claim against the SPAC's trust account.
-    canonical_terms:
       - waives any right, title, interest or claim
       - Trust Account waiver
       - no recourse against the Trust Account
     example_phrases:
+      - >-
+        As of the date hereof, Acquiror has at least $[•] in the Trust Account, such monies invested in
+        United States government securities or money market funds.
       - >-
         The Company hereby irrevocably waives any right, title, interest or claim of any kind it has or
         may have in the future in or to any monies in the Trust Account.
@@ -742,6 +671,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.structure.spac
     tier: label
+    wave: 1
     description: >-
       Terms on the private investment that funds a SPAC deal: the subscription agreements, the amount
       committed and limits on changing them.
@@ -764,6 +694,7 @@ concepts:
     also_listed_under:
       - ma.nav.conditions.party
     tier: label
+    wave: 2
     description: >-
       A closing condition that the SPAC have at least a stated amount of cash after redemptions.
     canonical_terms:
@@ -786,6 +717,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.structure.spac
     tier: label
+    wave: 1
     description: >-
       Terms on the right of the SPAC's public stockholders to redeem their shares in connection with the
       deal.
@@ -804,6 +736,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.structure.spac
     tier: label
+    wave: 1
     description: >-
       Terms on the sponsor's agreement to vote for the deal, waive anti-dilution rights, and forfeit or
       lock up founder shares.
@@ -818,60 +751,4 @@ concepts:
         Agreement, pursuant to which the Sponsor has agreed to vote in favor of the Transactions.
     exclusion_cues:
       - Voting agreements by the target's stockholders are ma.approval.voting_agreements.
-    introduced_in: '2026.1'
-
-  - id: ma.spac.domestication
-    label: SPAC Domestication
-    kind: provision
-    nav_parent: ma.nav.structure.spac
-    tier: label
-    description: >-
-      The SPAC's change of its jurisdiction of incorporation before closing, usually from the Cayman Islands
-      to Delaware.
-    canonical_terms:
-      - Domestication
-      - continue as a Delaware corporation
-      - de-register as an exempted company
-      - Certificate of Domestication
-    example_phrases:
-      - >-
-        Prior to the Closing, Acquiror shall change its jurisdiction of incorporation by de-registering
-        as a Cayman Islands exempted company and domesticating as a Delaware corporation (the "Domestication").
-    introduced_in: '2026.1'
-
-  - id: ma.spac.business_activities
-    label: SPAC Business Activities
-    kind: provision
-    nav_parent: ma.nav.structure.spac
-    tier: label
-    description: >-
-      The SPAC's statement that it has carried on no business other than its formation, its public offering
-      and its search for a business combination, and that it is bound by no other deal.
-    canonical_terms:
-      - Business Activities
-      - has not conducted any business activities other than
-      - directed toward the accomplishment of a Business Combination
-    example_phrases:
-      - >-
-        Since its incorporation, Acquiror has not conducted any business activities other than activities
-        directed toward the accomplishment of a Business Combination.
-    exclusion_cues:
-      - The matching statement about a merger subsidiary is ma.rep.merger_sub.
-    introduced_in: '2026.1'
-
-  - id: ma.spac.extension
-    label: Extension of the SPAC Deadline
-    kind: provision
-    nav_parent: ma.nav.structure.spac
-    tier: label
-    description: >-
-      The SPAC's duty or right to extend the deadline by which it must complete a business combination.
-    canonical_terms:
-      - Extension
-      - extend the deadline to consummate a Business Combination
-      - Extension Proposal
-    example_phrases:
-      - >-
-        If the Closing has not occurred by [•], Acquiror shall seek the approval of its stockholders to
-        extend the deadline by which it must complete a Business Combination.
     introduced_in: '2026.1'

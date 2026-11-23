@@ -41,6 +41,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.regulatory.efforts
     tier: label
+    wave: 1
     description: >-
       The general promise to use a stated level of efforts to satisfy the closing conditions and complete
       the deal.
@@ -78,6 +79,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.regulatory.efforts
     tier: label
+    wave: 1
     description: >-
       The duty to seek consents from contract counterparties, and the statement that no party has to pay
       for a consent.
@@ -100,6 +102,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.regulatory.antitrust
     tier: label
+    wave: 1
     description: >-
       The duty to make HSR Act and foreign antitrust filings by a deadline, to respond to requests for
       information, and to cooperate and share communications with regulators.
@@ -141,6 +144,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.regulatory.antitrust
     tier: label
+    wave: 2
     description: >-
       How far a party must go to obtain clearance: divestitures, hold-separate arrangements and conduct
       limits, whether the duty is unlimited (hell or high water), and any cap on what must be given up.
@@ -185,6 +189,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.regulatory.antitrust
     tier: label
+    wave: 2
     description: >-
       Whether a party must contest, through litigation and appeal, a governmental action that would block
       the deal.
@@ -217,6 +222,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.regulatory.antitrust
     tier: label
+    wave: 2
     description: >-
       Which party directs the regulatory strategy, and limits on withdrawing a filing or agreeing to a
       timing agreement.
@@ -249,6 +255,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.regulatory.antitrust
     tier: label
+    wave: 2
     attributes:
       party: obligor
     description: >-
@@ -276,6 +283,7 @@ concepts:
     also_listed_under:
       - ma.nav.general.costs
     tier: label
+    wave: 2
     description: Which party pays the HSR Act and other regulatory filing fees.
     canonical_terms:
       - filing fees under the HSR Act
@@ -293,6 +301,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.regulatory.other_approvals
     tier: label
+    wave: 1
     description: >-
       Filings with and approval by the Committee on Foreign Investment in the United States or a foreign
       investment regulator, and any mitigation a party must accept.
@@ -327,6 +336,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.regulatory.other_approvals
     tier: label
+    wave: 1
     description: >-
       Filings with and approvals by industry regulators, such as bank regulators, insurance departments,
       the FCC, FERC, state utility commissions and gaming authorities.

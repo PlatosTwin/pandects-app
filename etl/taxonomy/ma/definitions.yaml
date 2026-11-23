@@ -43,6 +43,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.definitions.defined_terms
     tier: label
+    wave: 1
     description: >-
       A definition, or a whole definitions section, that has no concept of its own, and the index of terms
       defined elsewhere.
@@ -74,6 +75,7 @@ concepts:
     also_listed_under:
       - ma.nav.conditions.party
     tier: value
+    wave: 2
     attributes:
       party: subject
     description: >-
@@ -112,6 +114,7 @@ concepts:
     nav_parent: ma.nav.definitions.key_terms
     parent: ma.mae.definition
     tier: value
+    wave: 2
     description: >-
       An event or change that the definition excludes, such as general economic conditions, industry changes,
       changes in law, war, pandemics or the announcement of the deal.
@@ -143,6 +146,7 @@ concepts:
     nav_parent: ma.nav.definitions.key_terms
     parent: ma.mae.definition
     tier: label
+    wave: 2
     description: >-
       The exception that brings an excluded event back into the definition to the extent it affects the
       company more than others in its industry.
@@ -162,6 +166,7 @@ concepts:
     kind: definition
     nav_parent: ma.nav.definitions.key_terms
     tier: label
+    wave: 2
     description: >-
       Whose knowledge counts, and whether it is actual knowledge or includes what the person would learn
       after reasonable inquiry.
@@ -191,6 +196,7 @@ concepts:
     also_listed_under:
       - ma.nav.deal_protection.no_shop
     tier: label
+    wave: 2
     description: The definition of a competing proposal for the no-shop, with its percentage threshold.
     canonical_terms:
       - '"Acquisition Proposal" means'
@@ -218,6 +224,7 @@ concepts:
     also_listed_under:
       - ma.nav.deal_protection.recommendation
     tier: label
+    wave: 2
     description: >-
       The definition of a proposal the board may accept in place of the deal, with its percentage threshold
       and the board's standard.
@@ -248,6 +255,7 @@ concepts:
     also_listed_under:
       - ma.nav.deal_protection.recommendation
     tier: label
+    wave: 2
     description: >-
       The definition of a new event, not a competing proposal, that may justify a change of recommendation,
       with its exclusions.
@@ -270,6 +278,7 @@ concepts:
     also_listed_under:
       - ma.nav.termination.effect
     tier: label
+    wave: 2
     description: The definition of the kind of breach for which liability survives termination.
     canonical_terms:
       - '"Willful Breach" means'
@@ -297,6 +306,7 @@ concepts:
     also_listed_under:
       - ma.nav.indemnification.limits
     tier: label
+    wave: 2
     description: >-
       The definition of fraud that limits the fraud exception to the caps and the exclusive remedy clause,
       for example to intentional common law fraud in the making of the representations.
@@ -327,6 +337,7 @@ concepts:
     also_listed_under:
       - ma.nav.regulatory.antitrust
     tier: label
+    wave: 2
     description: The definition of a regulatory remedy that the buyer need not accept.
     canonical_terms:
       - '"Burdensome Condition" means'
@@ -347,6 +358,7 @@ concepts:
     also_listed_under:
       - ma.nav.financing.covenants
     tier: label
+    wave: 2
     description: >-
       The definition of the period the buyer has to market its debt financing before it must close, with
       its start conditions and blackout dates.
@@ -375,6 +387,7 @@ concepts:
     also_listed_under:
       - ma.nav.conduct.interim
     tier: label
+    wave: 2
     description: >-
       The definition of ordinary course, including whether it requires consistency with past practice.
     canonical_terms:
@@ -391,6 +404,7 @@ concepts:
     kind: definition
     nav_parent: ma.nav.definitions.key_terms
     tier: label
+    wave: 2
     description: The list of liens that do not breach the title representations or the interim covenants.
     canonical_terms:
       - '"Permitted Liens" means'
@@ -411,6 +425,7 @@ concepts:
     also_listed_under:
       - ma.nav.consideration.adjustment
     tier: label
+    wave: 2
     description: >-
       The list of obligations treated as debt for the price calculation and the interim covenants.
     canonical_terms:
@@ -433,6 +448,7 @@ concepts:
     also_listed_under:
       - ma.nav.consideration.adjustment
     tier: label
+    wave: 2
     description: >-
       The definitions of working capital, the working capital target and the accounting principles used
       to measure them.
@@ -454,6 +470,7 @@ concepts:
     also_listed_under:
       - ma.nav.consideration.adjustment
     tier: label
+    wave: 2
     description: >-
       The list of deal costs that reduce the price paid to the sellers, such as advisor fees and change
       of control payments.
@@ -477,6 +494,7 @@ concepts:
     also_listed_under:
       - ma.nav.indemnification.scope
     tier: label
+    wave: 2
     description: >-
       The definition of the harm that can be claimed under the indemnity, including whether it covers
       consequential damages, lost profits and diminution in value.
@@ -501,6 +519,7 @@ concepts:
     also_listed_under:
       - ma.nav.indemnification.scope
     tier: label
+    wave: 2
     description: >-
       The list of representations that get longer survival, a higher cap or a stricter bring-down.
     canonical_terms:
@@ -518,6 +537,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.definitions.interpretation
     tier: label
+    wave: 1
     description: >-
       Rules for reading the agreement: headings, gender and number, the meaning of including, references
       to sections and statutes, counting of days, and no presumption against the drafter.
@@ -549,6 +569,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.definitions.interpretation
     tier: label
+    wave: 1
     description: >-
       How the disclosure schedules work: a disclosure in one section counts for others where its relevance
       is clear, and listing an item is no admission that it is material.
@@ -579,6 +600,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.definitions.interpretation
     tier: label
+    wave: 1
     description: 'The opening of the agreement: the parties, the date and the recitals.'
     canonical_terms:
       - WHEREAS

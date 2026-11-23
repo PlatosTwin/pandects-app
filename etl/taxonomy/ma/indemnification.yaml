@@ -52,6 +52,7 @@ concepts:
     also_listed_under:
       - ma.nav.general.agreement
     tier: value
+    wave: 1
     description: >-
       How long the representations, warranties and covenants last after closing. It includes the public-deal
       clause that they do not survive at all.
@@ -93,6 +94,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.indemnification.scope
     tier: label
+    wave: 1
     attributes:
       party: indemnitor
     description: >-
@@ -136,6 +138,7 @@ concepts:
     nav_parent: ma.nav.indemnification.scope
     parent: ma.indemn.obligation
     tier: label
+    wave: 2
     attributes:
       party: indemnitor
     description: >-
@@ -159,6 +162,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.indemnification.limits
     tier: value
+    wave: 2
     description: >-
       The most an indemnifying party must pay, with separate caps for general representations, fundamental
       representations and other items, and the claims that fall outside the cap.
@@ -196,6 +200,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.indemnification.limits
     tier: value
+    wave: 2
     description: >-
       The amount of losses that must build up before the indemnifying party pays, whether it is a deductible
       or a tipping basket, and any per-claim minimum.
@@ -238,6 +243,7 @@ concepts:
     nav_parent: ma.nav.indemnification.limits
     parent: ma.indemn.obligation
     tier: label
+    wave: 2
     description: >-
       For indemnification, materiality and material adverse effect qualifiers in the representations are
       ignored, either to measure losses only or also to decide whether a breach exists.
@@ -272,6 +278,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.indemnification.limits
     tier: label
+    wave: 1
     description: >-
       Whether an indemnified party's knowledge of a breach before closing affects its right to recover:
       a pro-sandbagging clause keeps the right, and an anti-sandbagging clause removes it.
@@ -304,6 +311,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.indemnification.limits
     tier: label
+    wave: 1
     description: >-
       After closing, indemnification is the only remedy for breaches of the agreement, with stated exceptions
       such as fraud and specific performance.
@@ -340,6 +348,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.indemnification.limits
     tier: label
+    wave: 1
     description: The indemnified party's duty to take reasonable steps to mitigate its losses.
     canonical_terms:
       - mitigate
@@ -362,6 +371,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.indemnification.limits
     tier: label
+    wave: 1
     description: >-
       Reduction of an indemnity claim for insurance proceeds, third-party recoveries and tax benefits,
       and the rule against recovering twice for the same loss.
@@ -384,49 +394,31 @@ concepts:
     introduced_in: '2026.1'
 
   - id: ma.indemn.claims_procedure
-    label: Indemnification Claims Procedure
+    label: Indemnification Claims Procedure; Third-Party Claims
     kind: provision
     nav_parent: ma.nav.indemnification.procedure
     tier: label
+    wave: 1
     description: >-
       How an indemnified party makes a claim: the claim notice, its contents and timing, the response
-      period, and how direct claims are settled.
+      period, and how direct claims are settled. For a claim brought by an outside person, it also covers
+      the indemnifying party's right to take over the defense, the limits on that right, and consent to
+      settlement.
     canonical_terms:
       - indemnification procedures
       - Claim Notice
       - direct claims
       - within 30 days after receipt
       - Objection Notice
-    example_phrases:
-      - >-
-        An Indemnified Party seeking indemnification shall deliver a written notice (a "Claim Notice")
-        to the Indemnifying Party describing the claim in reasonable detail and the amount of Losses,
-        and the Indemnifying Party shall respond within 30 days after receipt.
-    exclusion_cues:
-      - Claims brought by an outside person are ma.indemn.third_party_claims.
-    crosswalk:
-      section_v1:
-        - id: 361e70447fa67575
-          relation: narrower
-      section_v2:
-        - id: 710cc9ed4c7c5296
-          relation: narrower
-    introduced_in: '2026.1'
-
-  - id: ma.indemn.third_party_claims
-    label: Third-Party Claims; Defense and Settlement
-    kind: provision
-    nav_parent: ma.nav.indemnification.procedure
-    tier: label
-    description: >-
-      For a claim brought by an outside person: notice, the indemnifying party's right to take over the
-      defense, the limits on that right, and consent to settlement.
-    canonical_terms:
       - Third Party Claim
       - assume the defense
       - counsel reasonably satisfactory
       - shall not settle without the prior written consent
     example_phrases:
+      - >-
+        An Indemnified Party seeking indemnification shall deliver a written notice (a "Claim Notice")
+        to the Indemnifying Party describing the claim in reasonable detail and the amount of Losses,
+        and the Indemnifying Party shall respond within 30 days after receipt.
       - >-
         The Indemnifying Party shall have the right to assume the defense of any Third Party Claim with
         counsel of its choice, and shall not settle such claim without the consent of the Indemnified
@@ -434,10 +426,10 @@ concepts:
     crosswalk:
       section_v1:
         - id: 361e70447fa67575
-          relation: narrower
+          relation: exact
       section_v2:
         - id: 710cc9ed4c7c5296
-          relation: narrower
+          relation: exact
     introduced_in: '2026.1'
 
   - id: ma.indemn.escrow
@@ -447,6 +439,7 @@ concepts:
     also_listed_under:
       - ma.nav.consideration.adjustment
     tier: label
+    wave: 1
     description: >-
       An amount held in escrow or held back from the price to secure indemnity claims: its size, how long
       it is held, and when it is released.
@@ -487,6 +480,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.indemnification.procedure
     tier: label
+    wave: 1
     description: >-
       The buyer's right to set off indemnifiable losses against amounts it owes the sellers, such as earnout
       payments or seller notes.
@@ -514,6 +508,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.indemnification.procedure
     tier: label
+    wave: 1
     description: >-
       The order in which an indemnified party must look to the escrow, the insurance policy and the sellers,
       and whether the escrow or the policy is its only source.
@@ -540,6 +535,7 @@ concepts:
     also_listed_under:
       - ma.nav.general.costs
     tier: label
+    wave: 1
     description: >-
       Appointment of a representative to act for the sellers or stockholders after closing: its powers,
       its fund for expenses, its indemnity and its replacement.
@@ -560,6 +556,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.indemnification.insurance
     tier: label
+    wave: 1
     description: >-
       Terms on a representation and warranty insurance policy: binding the policy, who pays the premium
       and the retention, the insurer's waiver of subrogation against the sellers, and the policy as a

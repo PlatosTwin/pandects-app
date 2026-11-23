@@ -27,13 +27,6 @@ groups:
     nav_parent: ma.nav.conditions
     description: Conditions to the obligations of the buyer only or of the target or seller only.
     introduced_in: '2026.1'
-
-  - id: ma.nav.conditions.mechanics
-    label: Condition Mechanics
-    kind: group
-    nav_parent: ma.nav.conditions
-    description: Rules on how conditions work.
-    introduced_in: '2026.1'
 concepts:
 
   - id: ma.condition.stockholder_approval
@@ -41,6 +34,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.conditions.mutual
     tier: label
+    wave: 1
     description: Closing depends on approval of the deal by the required stockholder vote.
     canonical_terms:
       - Company Stockholder Approval shall have been obtained
@@ -77,6 +71,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.conditions.mutual
     tier: label
+    wave: 1
     description: >-
       Closing depends on the end of the HSR Act waiting period and on the other listed antitrust, foreign
       investment and industry approvals, sometimes with no burdensome condition attached.
@@ -116,6 +111,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.conditions.mutual
     tier: label
+    wave: 1
     description: Closing depends on there being no law, order or injunction that prohibits the deal.
     canonical_terms:
       - no injunction
@@ -144,6 +140,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.conditions.mutual
     tier: label
+    wave: 1
     description: >-
       Closing depends on the Form S-4 being effective with no stop order, and on approval of the new shares
       for listing.
@@ -166,22 +163,27 @@ concepts:
     introduced_in: '2026.1'
 
   - id: ma.condition.reps_bringdown
-    label: Accuracy of Representations (Bring-Down)
+    label: Bring-Down of Representations; Performance of Covenants
     kind: provision
     nav_parent: ma.nav.conditions.party
     tier: label
+    wave: 1
     attributes:
       party: tested_party
     description: >-
-      Closing depends on the other party's representations being true at signing and at closing, under
-      a stated standard: in all respects, in all material respects, or except where the failure has no
-      material adverse effect.
+      Closing depends on the other party's representations being true at signing and at closing, under a
+      stated standard (in all respects, in all material respects, or except where the failure has no
+      material adverse effect), and on the other party having performed its covenants in all material
+      respects.
     canonical_terms:
       - representations and warranties shall be true and correct
       - as of the Closing Date as though made on such date
       - without giving effect to any materiality or Material Adverse Effect qualifiers
       - other than de minimis inaccuracies
       - bring-down
+      - shall have performed in all material respects
+      - all obligations required to be performed by it
+      - at or prior to the Closing
     example_phrases:
       - >-
         The representations and warranties of the Company set forth in Article [•] shall be true and correct
@@ -192,10 +194,15 @@ concepts:
       - >-
         The Fundamental Representations shall be true and correct in all respects (other than de minimis
         inaccuracies) as of the Closing Date.
+      - >-
+        The Company shall have performed or complied in all material respects with all agreements and
+        covenants required by this Agreement to be performed or complied with by it on or prior to the
+        Closing Date.
     exclusion_cues:
       - The representations are under ma.nav.reps.
       - >-
         The separate condition that no material adverse effect has occurred is ma.condition.no_mae.
+      - The officer's certificate that confirms the conditions is ma.condition.other.
     value_schema:
       status: stub
       fields:
@@ -208,46 +215,21 @@ concepts:
     crosswalk:
       section_v1:
         - id: 7d48665e743cf70e
-          relation: exact
+          relation: broader
+        - id: 2f824e0e518c0009
+          relation: broader
       section_v2:
         - id: 599e2650722eff66
-          relation: exact
+          relation: broader
           party: target
         - id: 375b798822ae7ee5
-          relation: exact
+          relation: broader
           party: buyer
-    introduced_in: '2026.1'
-
-  - id: ma.condition.covenant_performance
-    label: Performance of Covenants
-    kind: provision
-    nav_parent: ma.nav.conditions.party
-    tier: label
-    attributes:
-      party: tested_party
-    description: >-
-      Closing depends on the other party having performed its covenants in all material respects.
-    canonical_terms:
-      - shall have performed in all material respects
-      - all obligations required to be performed by it
-      - at or prior to the Closing
-    example_phrases:
-      - >-
-        The Company shall have performed or complied in all material respects with all agreements and
-        covenants required by this Agreement to be performed or complied with by it on or prior to the
-        Closing Date.
-    exclusion_cues:
-      - The officer's certificate that confirms the conditions is ma.condition.other.
-    crosswalk:
-      section_v1:
-        - id: 2f824e0e518c0009
-          relation: exact
-      section_v2:
         - id: 452a003ee641f64b
-          relation: exact
+          relation: broader
           party: target
         - id: 949c5df3928699f5
-          relation: exact
+          relation: broader
           party: buyer
     introduced_in: '2026.1'
 
@@ -256,6 +238,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.conditions.party
     tier: label
+    wave: 1
     attributes:
       party: tested_party
     description: Closing depends on no material adverse effect having occurred since signing.
@@ -289,6 +272,7 @@ concepts:
     also_listed_under:
       - ma.nav.financing.arrangements
     tier: label
+    wave: 2
     description: >-
       Closing depends on the buyer receiving its financing. It is rare in public deals. A statement that
       there is no such condition belongs to ma.financing.structure.
@@ -317,6 +301,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.conditions.party
     tier: label
+    wave: 2
     description: >-
       Closing depends on holders of no more than a stated share of the stock having demanded appraisal.
     canonical_terms:
@@ -344,6 +329,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.conditions.party
     tier: label
+    wave: 1
     description: >-
       Closing depends on receipt of listed consents from contract counterparties or other third parties.
     canonical_terms:
@@ -367,6 +353,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.conditions.party
     tier: label
+    wave: 1
     description: >-
       Closing depends on there being no pending or threatened suit, usually by a governmental body, that
       seeks to block the deal or to impose limits on the buyer.
@@ -391,43 +378,35 @@ concepts:
     kind: provision
     nav_parent: ma.nav.conditions.party
     tier: label
+    wave: 1
     attributes:
       party: tested_party
     description: >-
       Another closing condition, such as delivery of an officer's certificate or an ancillary agreement,
-      continued employment of key employees, or a payoff letter.
+      continued employment of key employees, or a payoff letter. It also covers the rule that a party may
+      not rely on the failure of a condition that its own breach caused.
     canonical_terms:
       - officer's certificate
       - certificate signed by an executive officer
       - Key Employees
       - ancillary agreements shall have been executed
-    example_phrases:
-      - >-
-        Parent shall have received a certificate signed by an executive officer of the Company certifying
-        that the conditions set forth in Sections [•] and [•] have been satisfied.
-    exclusion_cues:
-      - A tax opinion condition is tax.opinion.closing_condition.
-    crosswalk:
-      section_v2:
-        - id: d6c13c12f0313084
-          relation: narrower
-        - id: 8e652eaa2ad91753
-          relation: exact
-    introduced_in: '2026.1'
-
-  - id: ma.condition.frustration
-    label: Frustration of Closing Conditions
-    kind: provision
-    nav_parent: ma.nav.conditions.mechanics
-    tier: label
-    description: A party may not rely on the failure of a condition that its own breach caused.
-    canonical_terms:
       - frustration of closing conditions
       - may not rely on the failure of any condition
       - if such failure was caused by such party's breach
     example_phrases:
       - >-
+        Parent shall have received a certificate signed by an executive officer of the Company certifying
+        that the conditions set forth in Sections [•] and [•] have been satisfied.
+      - >-
         None of the parties may rely on the failure of any condition set forth in this Article to be satisfied
         if such failure was caused by such party's failure to perform any of its obligations under this
         Agreement.
+    exclusion_cues:
+      - A tax opinion condition is tax.opinion.closing_condition.
+    crosswalk:
+      section_v2:
+        - id: d6c13c12f0313084
+          relation: related
+        - id: 8e652eaa2ad91753
+          relation: broader
     introduced_in: '2026.1'

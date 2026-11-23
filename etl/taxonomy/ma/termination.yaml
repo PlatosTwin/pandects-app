@@ -40,6 +40,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.termination.rights
     tier: label
+    wave: 1
     description: The parties may terminate by mutual written consent.
     canonical_terms:
       - by mutual written consent
@@ -62,6 +63,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.termination.rights
     tier: value
+    wave: 2
     description: >-
       The date after which either party may terminate if the deal has not closed, any extensions of that
       date, and the rule that bars a party in breach from using the right.
@@ -105,6 +107,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.termination.rights
     tier: label
+    wave: 2
     description: >-
       Either party may terminate if a final and non-appealable order or law prohibits the deal.
     canonical_terms:
@@ -130,6 +133,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.termination.rights
     tier: label
+    wave: 2
     description: A party may terminate if the stockholders vote and do not approve the deal.
     canonical_terms:
       - Company Stockholder Approval shall not have been obtained
@@ -159,6 +163,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.termination.rights
     tier: label
+    wave: 2
     attributes:
       party: holder
     description: >-
@@ -193,6 +198,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.termination.rights
     tier: label
+    wave: 2
     attributes:
       party: holder
     description: >-
@@ -224,6 +230,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.termination.rights
     tier: label
+    wave: 2
     attributes:
       party: holder
     description: >-
@@ -255,6 +262,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.termination.rights
     tier: label
+    wave: 2
     attributes:
       party: holder
     description: >-
@@ -286,6 +294,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.termination.rights
     tier: label
+    wave: 2
     attributes:
       party: holder
     description: >-
@@ -302,52 +311,43 @@ concepts:
           relation: narrower
     introduced_in: '2026.1'
 
-  - id: ma.termination.notice
-    label: Notice and Procedure for Termination
+  - id: ma.termination.effect
+    label: Effect of Termination; Notice of Termination
     kind: provision
-    nav_parent: ma.nav.termination.rights
+    nav_parent: ma.nav.termination.effect
     tier: label
+    wave: 1
     description: >-
-      How a party exercises a termination right: written notice that names the provision relied on, and
-      any required board action.
+      How a party exercises a termination right (written notice that names the provision relied on), and
+      the effect of termination: the agreement becomes void, except for listed provisions that survive.
     canonical_terms:
+      - effect of termination
+      - shall forthwith become void and have no effect
+      - shall survive any termination
+      - without liability on the part of any party
       - notice of termination
       - written notice to the other party
       - specifying the provision hereof pursuant to which such termination is made
       - procedure for termination
     example_phrases:
       - >-
-        A party terminating this Agreement shall deliver written notice to the other parties specifying
-        the provision of this Agreement pursuant to which such termination is made.
-    introduced_in: '2026.1'
-
-  - id: ma.termination.effect
-    label: Effect of Termination
-    kind: provision
-    nav_parent: ma.nav.termination.effect
-    tier: label
-    description: On termination the agreement becomes void, except for listed provisions that survive.
-    canonical_terms:
-      - effect of termination
-      - shall forthwith become void and have no effect
-      - shall survive any termination
-      - without liability on the part of any party
-    example_phrases:
-      - >-
         In the event of the termination of this Agreement pursuant to this Article, this Agreement shall
         forthwith become void and there shall be no liability on the part of any party hereto, except
         that the provisions of this Section, Section [•] (Confidentiality), Section [•] (Fees and Expenses),
         and Article [•] (Miscellaneous) shall survive termination.
+      - >-
+        A party terminating this Agreement shall deliver written notice to the other parties specifying
+        the provision of this Agreement pursuant to which such termination is made.
     exclusion_cues:
       - >-
         Liability that remains after termination for a willful breach or fraud is ma.termination.willful_breach_liability.
     crosswalk:
       section_v1:
         - id: 84826dbe2b6940b8
-          relation: narrower
+          relation: related
       section_v2:
         - id: 0329ef4a1239aa3f
-          relation: narrower
+          relation: related
     introduced_in: '2026.1'
 
   - id: ma.termination.willful_breach_liability
@@ -355,6 +355,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.termination.effect
     tier: label
+    wave: 2
     description: >-
       Termination does not release a party from liability for fraud or for a willful or intentional breach.
       It also covers a statement that damages may include the premium lost by stockholders.
@@ -396,6 +397,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.termination.fees
     tier: value
+    wave: 2
     description: >-
       The fee the target pays the buyer on stated terminations: its amount, the triggers, the tail period,
       and the timing of payment.
@@ -441,6 +443,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.termination.fees
     tier: value
+    wave: 2
     description: >-
       The fee the buyer pays the target on stated terminations, such as a failure to close, a financing
       failure or a failure to obtain regulatory approval.
@@ -484,6 +487,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.termination.fees
     tier: value
+    wave: 1
     description: >-
       A duty to reimburse the other party's deal expenses on stated terminations, usually up to a cap,
       and whether the amount is credited against a later fee.
@@ -526,6 +530,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.termination.fees
     tier: label
+    wave: 2
     description: >-
       A statement that payment of the fee is the only remedy of the party that receives it, and any dollar
       cap on a party's total liability for damages before closing.
@@ -558,6 +563,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.termination.fees
     tier: label
+    wave: 2
     description: >-
       If a party does not pay a fee when due and the other party sues, the paying party owes interest
       and the costs of the suit.

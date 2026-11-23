@@ -49,6 +49,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.covenants.governance
     tier: label
+    wave: 1
     description: >-
       The surviving company's duty to keep indemnifying the target's directors and officers for acts before
       closing, to advance their expenses, and to keep the charter and bylaw protections for a set period.
@@ -88,6 +89,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.covenants.governance
     tier: label
+    wave: 1
     description: >-
       The duty to keep or buy directors' and officers' liability insurance for claims about acts before
       closing, usually a six-year tail policy with a cap on the premium.
@@ -123,6 +125,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.covenants.governance
     tier: label
+    wave: 1
     description: >-
       Agreements on the combined company after closing: board seats, the chair and chief executive, headquarters,
       name and ticker symbol.
@@ -137,7 +140,7 @@ concepts:
         Parent shall take all actions necessary so that, as of the Effective Time, the Parent Board consists
         of [•] directors, of whom [•] shall be designated by the Company.
     exclusion_cues:
-      - Directors and officers of the merged subsidiary are ma.structure.directors_officers.
+      - Directors and officers of the merged subsidiary are ma.structure.effective_time.
     value_schema:
       status: stub
       fields:
@@ -154,6 +157,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.covenants.governance
     tier: label
+    wave: 1
     description: >-
       The duty to deliver resignations of the target's directors and officers, effective at closing.
     canonical_terms:
@@ -171,6 +175,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.covenants.governance
     tier: label
+    wave: 1
     description: >-
       Board action so that dispositions and acquisitions of equity by insiders in the deal are exempt
       under Rule 16b-3.
@@ -195,6 +200,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.covenants.securities_litigation
     tier: label
+    wave: 1
     description: >-
       Listing of the buyer shares issued in the deal, and delisting and deregistration of the target's
       shares after closing.
@@ -229,6 +235,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.covenants.securities_litigation
     tier: label
+    wave: 1
     description: >-
       Coordination of the record and payment dates of the two parties' dividends so that holders do not
       receive two dividends, or miss one, for the same quarter.
@@ -250,6 +257,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.covenants.securities_litigation
     tier: label
+    wave: 1
     description: >-
       In older stock deals, the target's duty to list its affiliates under Rule 145 and to obtain their
       letters agreeing to limits on resale of the buyer shares they receive. It also covers covenants
@@ -275,6 +283,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.covenants.securities_litigation
     tier: label
+    wave: 1
     description: >-
       Handling of stockholder suits about the deal: notice, the buyer's right to take part in the defense,
       and its consent to any settlement.
@@ -305,6 +314,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.covenants.post_closing
     tier: label
+    wave: 1
     attributes:
       party: obligor
     description: >-
@@ -337,6 +347,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.covenants.post_closing
     tier: label
+    wave: 1
     attributes:
       party: obligor
     description: >-
@@ -365,6 +376,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.covenants.post_closing
     tier: label
+    wave: 2
     attributes:
       party: obligor
     description: >-
@@ -397,6 +409,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.covenants.post_closing
     tier: label
+    wave: 1
     attributes:
       party: obligor
     description: >-
@@ -416,7 +429,7 @@ concepts:
         and forever discharges the Company from any and all claims arising on or prior to the Closing
         Date.
     exclusion_cues:
-      - The waiver of claims against a SPAC trust is ma.spac.trust_waiver.
+      - The waiver of claims against a SPAC trust is ma.spac.trust_account.
     introduced_in: '2026.1'
 
   - id: ma.further_assurances
@@ -424,6 +437,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.covenants.post_closing
     tier: label
+    wave: 1
     description: >-
       The promise to sign further documents and take further steps needed to carry out the deal.
     canonical_terms:
@@ -454,6 +468,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.covenants.post_closing
     tier: label
+    wave: 1
     description: >-
       The duty to keep the business's books and records for a set period after closing, to give the other
       side access to them, and to help with later claims and audits.
@@ -477,6 +492,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.covenants.post_closing
     tier: label
+    wave: 1
     description: The duty to hand over assets, payments or mail that reach the wrong party after closing.
     canonical_terms:
       - wrong pockets
@@ -496,6 +512,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.covenants.post_closing
     tier: label
+    wave: 1
     description: >-
       The buyer's duty to stop using the seller's names and marks after a transition period, or the seller's
       duty to change its name.
@@ -521,6 +538,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.covenants.post_closing
     tier: label
+    wave: 1
     description: >-
       The duty to enter into a transition services agreement or to provide services for a time after closing.
     canonical_terms:
@@ -538,6 +556,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.covenants.post_closing
     tier: label
+    wave: 1
     description: >-
       The duty to end contracts between the target and the seller group at closing and to settle intercompany
       balances.
@@ -561,6 +580,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.covenants.post_closing
     tier: label
+    wave: 1
     attributes:
       party: obligor
     description: >-
@@ -589,5 +609,23 @@ concepts:
     kind: provision
     nav_parent: ma.nav.covenants.post_closing
     tier: label
-    description: A covenant that fits no other concept. Use it rarely.
+    wave: 1
+    description: >-
+      A covenant that fits no other concept. Use it rarely. It includes a SPAC's extension of its deadline
+      and its change of jurisdiction before closing (domestication).
+    canonical_terms:
+      - Extension
+      - extend the deadline to consummate a Business Combination
+      - Extension Proposal
+      - Domestication
+      - continue as a Delaware corporation
+      - de-register as an exempted company
+      - Certificate of Domestication
+    example_phrases:
+      - >-
+        If the Closing has not occurred by [•], Acquiror shall seek the approval of its stockholders to
+        extend the deadline by which it must complete a Business Combination.
+      - >-
+        Prior to the Closing, Acquiror shall change its jurisdiction of incorporation by de-registering
+        as a Cayman Islands exempted company and domesticating as a Delaware corporation (the "Domestication").
     introduced_in: '2026.1'

@@ -28,26 +28,49 @@ groups:
 concepts:
 
   - id: ma.employee.comp_benefits_continuation
-    label: Continuation of Compensation and Benefits
+    label: Continuing Employees; Compensation, Benefits and Plan Transition
     kind: provision
     nav_parent: ma.nav.employees.continuing
     tier: label
+    wave: 1
     description: >-
-      The buyer's promise to give continuing employees pay and benefits at stated levels for a stated
-      period after closing.
+      The covenants for employees who stay after closing: pay and benefits at stated levels for a stated
+      period, credit for past service and waiver of pre-existing condition limits under the buyer's plans,
+      and termination of the target's 401(k) plan if the buyer asks. It also covers the statement that
+      these covenants create no rights for employees and amend no plan.
     canonical_terms:
       - Continuing Employees
       - for a period of one year following the Effective Time
       - no less favorable in the aggregate
       - base salary and target bonus opportunity
+      - service credit
+      - credited for purposes of eligibility and vesting
+      - pre-existing condition
+      - deductibles and co-payments
+      - nothing in this Section shall confer any rights on any employee
+      - shall not be treated as an amendment of any benefit plan
+      - no third-party beneficiary rights
+      - Company 401(k) Plan
+      - terminate effective as of the day prior to the Closing Date
+      - rollover contributions
     example_phrases:
       - >-
         Parent shall, or shall cause the Surviving Corporation to, maintain the Company Benefit Plans,
         or provide benefits that are substantially comparable in the aggregate, until the first anniversary
         of the Closing.
+      - >-
+        Parent shall cause each Continuing Employee to be credited with his or her years of service with
+        the Company for purposes of eligibility, vesting and level of benefits under the Parent Benefit
+        Plans.
+      - >-
+        Nothing in this Section shall be construed to create any third-party beneficiary rights in any
+        Continuing Employee or to amend any Company Benefit Plan.
+      - >-
+        If requested by Parent at least ten Business Days prior to the Closing Date, the Company shall
+        terminate the Company 401(k) Plan effective as of the day immediately preceding the Closing Date.
     exclusion_cues:
-      - Credit for past service is ma.employee.service_credit.
       - The interim limit on raising pay before closing is ma.conduct.restriction.compensation.
+      - The general no third-party beneficiaries clause is ma.third_party_beneficiaries.
     value_schema:
       status: stub
       fields:
@@ -63,87 +86,7 @@ concepts:
         - id: e8bf9419566b043c
           relation: narrower
         - id: 7ea0e3846121a19c
-          relation: narrower
-    introduced_in: '2026.1'
-
-  - id: ma.employee.service_credit
-    label: Service Credit; Welfare Plan Transition
-    kind: provision
-    nav_parent: ma.nav.employees.continuing
-    tier: label
-    description: >-
-      Credit for service with the target under the buyer's plans, waiver of pre-existing condition limits,
-      and credit for deductibles already paid.
-    canonical_terms:
-      - service credit
-      - credited for purposes of eligibility and vesting
-      - pre-existing condition
-      - deductibles and co-payments
-    example_phrases:
-      - >-
-        Parent shall cause each Continuing Employee to be credited with his or her years of service with
-        the Company for purposes of eligibility, vesting and level of benefits under the Parent Benefit
-        Plans.
-    crosswalk:
-      section_v1:
-        - id: 079056f26925e599
-          relation: narrower
-      section_v2:
-        - id: e8bf9419566b043c
-          relation: narrower
-    introduced_in: '2026.1'
-
-  - id: ma.employee.plan_termination
-    label: 401(k) Plan Termination
-    kind: provision
-    nav_parent: ma.nav.employees.continuing
-    tier: label
-    description: >-
-      The target's duty, if the buyer asks, to terminate its 401(k) plan before closing, and the rollover
-      of accounts to the buyer's plan.
-    canonical_terms:
-      - Company 401(k) Plan
-      - terminate effective as of the day prior to the Closing Date
-      - rollover contributions
-    example_phrases:
-      - >-
-        If requested by Parent at least ten Business Days prior to the Closing Date, the Company shall
-        terminate the Company 401(k) Plan effective as of the day immediately preceding the Closing Date.
-    crosswalk:
-      section_v1:
-        - id: 079056f26925e599
-          relation: narrower
-      section_v2:
-        - id: e8bf9419566b043c
-          relation: narrower
-    introduced_in: '2026.1'
-
-  - id: ma.employee.no_third_party_rights
-    label: No Employee Third-Party Rights
-    kind: component
-    nav_parent: ma.nav.employees.continuing
-    parent: ma.employee.comp_benefits_continuation
-    tier: label
-    description: >-
-      A statement that the employee covenants create no rights for employees, amend no plan, and do not
-      limit the buyer's right to end employment or change plans.
-    canonical_terms:
-      - nothing in this Section shall confer any rights on any employee
-      - shall not be treated as an amendment of any benefit plan
-      - no third-party beneficiary rights
-    example_phrases:
-      - >-
-        Nothing in this Section shall be construed to create any third-party beneficiary rights in any
-        Continuing Employee or to amend any Company Benefit Plan.
-    exclusion_cues:
-      - The general no third-party beneficiaries clause is ma.third_party_beneficiaries.
-    crosswalk:
-      section_v1:
-        - id: 079056f26925e599
-          relation: narrower
-      section_v2:
-        - id: e8bf9419566b043c
-          relation: narrower
+          relation: related
     introduced_in: '2026.1'
 
   - id: ma.employee.retention_severance
@@ -151,6 +94,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.employees.transaction
     tier: label
+    wave: 1
     description: >-
       Covenants to honor severance plans, pay annual bonuses for the closing year, or set up a retention
       program.
@@ -178,6 +122,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.employees.transaction
     tier: label
+    wave: 1
     description: >-
       Covenants on plant closings and mass layoffs under the WARN Act: who is responsible, and limits
       on layoffs around closing.
@@ -208,6 +153,7 @@ concepts:
     also_listed_under:
       - tax.nav.other
     tier: label
+    wave: 1
     description: >-
       The target's duty to seek waivers from disqualified individuals and a stockholder vote so that payments
       are not parachute payments under Section 280G.
@@ -231,6 +177,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.employees.transaction
     tier: label
+    wave: 1
     description: >-
       In an asset or carve-out deal, the buyer's duty to offer jobs to the business's employees, the terms
       of the offers, and the split of employee liabilities.

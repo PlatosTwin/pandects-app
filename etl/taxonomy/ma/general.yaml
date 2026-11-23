@@ -41,6 +41,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.general.agreement
     tier: label
+    wave: 1
     description: How notices under the agreement must be given and when they take effect.
     canonical_terms:
       - notices
@@ -70,6 +71,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.general.agreement
     tier: label
+    wave: 1
     description: >-
       The agreement and the named related documents are the whole agreement of the parties and replace
       earlier ones.
@@ -96,17 +98,23 @@ concepts:
     introduced_in: '2026.1'
 
   - id: ma.amendment
-    label: Amendment
+    label: Amendment; Waiver; Extension
     kind: provision
     nav_parent: ma.nav.general.agreement
     tier: label
+    wave: 1
     description: >-
-      How the agreement may be amended, including limits on amendments after the stockholder vote.
+      How the agreement may be amended, including limits on amendments after the stockholder vote, and how
+      a party may waive a right or extend the time for performance.
     canonical_terms:
       - amendment
       - modification
       - may be amended only by an instrument in writing
       - after receipt of the Company Stockholder Approval
+      - waiver
+      - extension; waiver
+      - no failure or delay shall operate as a waiver
+      - extend the time for the performance
     example_phrases:
       - >-
         This Agreement may be amended, modified, or supplemented only by a written instrument duly executed
@@ -114,28 +122,6 @@ concepts:
       - >-
         After the Company Stockholder Approval has been obtained, no amendment shall be made that by Law
         requires further approval of the Company's stockholders without such approval.
-    crosswalk:
-      section_v1:
-        - id: 5fddb016bfeff147
-          relation: narrower
-      section_v2:
-        - id: 5a37b2bc58e3784b
-          relation: exact
-    introduced_in: '2026.1'
-
-  - id: ma.waiver
-    label: Waiver; Extension
-    kind: provision
-    nav_parent: ma.nav.general.agreement
-    tier: label
-    description: >-
-      How a party may waive a right or extend the time for performance, and that a delay is not a waiver.
-    canonical_terms:
-      - waiver
-      - extension; waiver
-      - no failure or delay shall operate as a waiver
-      - extend the time for the performance
-    example_phrases:
       - >-
         Any agreement on the part of a party to any extension or waiver shall be valid only if set forth
         in a written instrument signed on behalf of such party.
@@ -146,10 +132,12 @@ concepts:
     crosswalk:
       section_v1:
         - id: 5fddb016bfeff147
-          relation: narrower
-      section_v2:
-        - id: 78fd5d5468f81aa4
           relation: exact
+      section_v2:
+        - id: 5a37b2bc58e3784b
+          relation: broader
+        - id: 78fd5d5468f81aa4
+          relation: broader
     introduced_in: '2026.1'
 
   - id: ma.assignment
@@ -157,6 +145,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.general.agreement
     tier: label
+    wave: 1
     description: >-
       Whether a party may assign the agreement, the exceptions, and that the agreement binds successors.
     canonical_terms:
@@ -187,6 +176,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.general.agreement
     tier: label
+    wave: 1
     description: >-
       The agreement gives rights only to the parties, with listed exceptions such as indemnified directors
       and officers.
@@ -207,7 +197,7 @@ concepts:
         are intended third-party beneficiaries of the right to receive the Merger Consideration.
     exclusion_cues:
       - The lenders' rights are ma.financing.source_protections.
-      - The rule for employees is ma.employee.no_third_party_rights.
+      - The rule for employees is ma.employee.comp_benefits_continuation.
     crosswalk:
       section_v1:
         - id: e63ceec3215c234b
@@ -218,15 +208,27 @@ concepts:
     introduced_in: '2026.1'
 
   - id: ma.severability
-    label: Severability
+    label: Severability; Counterparts; Remedies Cumulative
     kind: provision
     nav_parent: ma.nav.general.agreement
     tier: label
-    description: If a term is invalid or unenforceable, the rest of the agreement stays in force.
+    wave: 1
+    description: >-
+      Three standard clauses. An invalid term does not affect the rest of the agreement. The agreement may
+      be signed in counterparts and by electronic means. The remedies in the agreement add to those
+      available at law or in equity.
     canonical_terms:
       - severability
       - invalid, illegal or incapable of being enforced
       - remain in full force and effect
+      - counterparts
+      - electronic signature
+      - facsimile
+      - .pdf
+      - effectiveness
+      - remedies cumulative
+      - cumulative and not exclusive
+      - other remedies
     example_phrases:
       - >-
         If any term or other provision of this Agreement is held to be invalid, illegal, or incapable
@@ -236,42 +238,24 @@ concepts:
         Upon a determination that any term or provision is invalid, illegal, or incapable of being enforced,
         the parties shall negotiate in good faith to modify this Agreement so as to effect the original
         intent of the parties as closely as possible in an acceptable manner.
-    crosswalk:
-      section_v1:
-        - id: e63ceec3215c234b
-          relation: narrower
-      section_v2:
-        - id: 0d45fa1a398d6a35
-          relation: exact
-    introduced_in: '2026.1'
-
-  - id: ma.counterparts
-    label: Counterparts; Electronic Signatures
-    kind: provision
-    nav_parent: ma.nav.general.agreement
-    tier: label
-    description: >-
-      The agreement may be signed in counterparts and by electronic means, and when it becomes effective.
-    canonical_terms:
-      - counterparts
-      - electronic signature
-      - facsimile
-      - .pdf
-      - effectiveness
-    example_phrases:
       - >-
         This Agreement may be executed in two or more counterparts, each of which shall be deemed an original,
         but all of which together shall constitute one and the same instrument.
       - >-
         Delivery of an executed counterpart of a signature page by facsimile or by email in .pdf or other
         electronic format shall be as effective as delivery of a manually executed counterpart.
+      - >-
+        All rights and remedies under this Agreement are cumulative and not exclusive of any rights or
+        remedies provided by Law.
     crosswalk:
       section_v1:
         - id: e63ceec3215c234b
-          relation: narrower
+          relation: related
       section_v2:
+        - id: 0d45fa1a398d6a35
+          relation: broader
         - id: 83418c5cdc530887
-          relation: exact
+          relation: broader
     introduced_in: '2026.1'
 
   - id: ma.expenses
@@ -279,6 +263,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.general.costs
     tier: label
+    wave: 1
     description: >-
       The general rule on who pays the costs of the deal, usually each party its own, with listed exceptions.
     canonical_terms:
@@ -309,6 +294,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.general.costs
     tier: label
+    wave: 1
     description: >-
       The buyer's promise to cause its merger subsidiary to perform, its guarantee of the subsidiary's
       duties, and its vote as the subsidiary's sole stockholder.
@@ -331,6 +317,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.general.costs
     tier: label
+    wave: 1
     description: >-
       Waiver of conflicts so that the sellers' law firm may act for them after closing, and the rule that
       pre-closing privileged communications about the deal stay with the sellers.
@@ -352,6 +339,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.general.other
     tier: label
+    wave: 1
     description: >-
       A standard term that fits no other concept, such as time of the essence, currency, or a statement
       about a party's capacity.
@@ -370,6 +358,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.general.other
     tier: label
+    wave: 1
     description: A placeholder section with no operative text.
     canonical_terms:
       - '[Reserved]'
@@ -382,6 +371,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.general.other
     tier: label
+    wave: 1
     description: >-
       Text that fits no concept in the M&A pack or the tax pack. Use it rarely, and review what lands
       here to find gaps.

@@ -32,6 +32,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.remedies.law_forum
     tier: label
+    wave: 1
     description: The law that governs the agreement and claims that arise from it.
     canonical_terms:
       - governing law
@@ -68,6 +69,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.remedies.law_forum
     tier: label
+    wave: 1
     description: >-
       The courts in which disputes must be brought, each party's submission to their jurisdiction, and
       service of process.
@@ -112,6 +114,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.remedies.law_forum
     tier: label
+    wave: 1
     description: Each party waives trial by jury.
     canonical_terms:
       - waiver of jury trial
@@ -145,6 +148,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.remedies.law_forum
     tier: label
+    wave: 1
     description: >-
       Disputes are settled by arbitration, mediation or a staged process of negotiation, with the rules,
       seat and number of arbitrators.
@@ -187,6 +191,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.remedies.enforcement
     tier: label
+    wave: 1
     description: >-
       The parties' right to an order that forces the other side to perform, including any limits on forcing
       the buyer to fund its equity and close.
@@ -231,6 +236,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.remedies.enforcement
     tier: label
+    wave: 1
     description: >-
       A limit on the kinds of damages a party may recover, such as consequential, special, punitive or
       lost-profit damages. It applies whether the clause sits in the indemnification article or in the
@@ -273,6 +279,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.remedies.enforcement
     tier: label
+    wave: 1
     description: >-
       Claims under the agreement may be made only against the named parties, and not against their past,
       present or future owners, directors, officers, affiliates or agents.
@@ -297,6 +304,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.remedies.enforcement
     tier: label
+    wave: 1
     description: The winning party in a dispute under the agreement may recover its legal fees and costs.
     canonical_terms:
       - attorneys' fees
@@ -309,22 +317,4 @@ concepts:
     exclusion_cues:
       - Costs of collecting an unpaid termination fee are ma.termination.collection_costs.
       - The general rule on deal expenses is ma.expenses.
-    introduced_in: '2026.1'
-
-  - id: ma.remedies_cumulative
-    label: Remedies Cumulative
-    kind: provision
-    nav_parent: ma.nav.remedies.enforcement
-    tier: label
-    description: >-
-      The remedies in the agreement add to, and do not replace, other remedies available at law or in
-      equity.
-    canonical_terms:
-      - remedies cumulative
-      - cumulative and not exclusive
-      - other remedies
-    example_phrases:
-      - >-
-        All rights and remedies under this Agreement are cumulative and not exclusive of any rights or
-        remedies provided by Law.
     introduced_in: '2026.1'

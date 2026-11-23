@@ -29,6 +29,8 @@ NAV_KINDS = ("branch", "group")
 CONCEPT_KINDS = ("provision", "component", "definition", "modifier")
 RELATIONS = ("exact", "narrower", "broader", "related")
 TIERS = ("value", "label")
+# Labeling wave of an M&A concept: 1 = section-level topics and catch-alls, 2 = clause-level concepts.
+WAVES = (1, 2)
 VALUE_SCHEMA_STATUSES = ("piloted", "stub")
 PARTY_ROLES = ("maker", "obligor", "tested_party", "holder", "indemnitor", "subject")
 CROSSWALK_PARTIES = ("target", "buyer")
@@ -220,7 +222,7 @@ def validate(taxonomy: Taxonomy) -> list[str]:
                 errors.append(f"{node.id}: also_listed_under {target} is not a navigation node")
 
         if node.is_nav:
-            for field in ("parent", "tier", "value_schema", "attributes"):
+            for field in ("parent", "tier", "wave", "value_schema", "attributes"):
                 if field in data:
                     errors.append(f"{node.id}: a navigation node cannot have {field}")
         else:
@@ -250,6 +252,17 @@ def validate(taxonomy: Taxonomy) -> list[str]:
             # A value concept is one whose schema has been piloted. A stub marks a candidate only.
             if (tier == "value") != (status == "piloted"):
                 errors.append(f"{node.id}: tier value needs a piloted value_schema, and only then")
+
+            # Each M&A concept states its labeling wave. The tax pack has no waves: one tax pass labels it.
+            wave = data.get("wave")
+            wave_ok = isinstance(wave, int) and not isinstance(wave, bool) and wave in WAVES
+            if node.pack == "ma" or wave is not None:
+                if not wave_ok:
+                    errors.append(f"{node.id}: wave must be one of {WAVES}")
+                elif wave == 1 and node.kind != "provision":
+                    errors.append(f"{node.id}: a {node.kind} belongs to wave 2")
+                elif wave == 1 and concept_parent is not None:
+                    errors.append(f"{node.id}: a concept with a parent belongs to wave 2")
 
             attributes = data.get("attributes")
             if attributes is not None:
@@ -333,6 +346,8 @@ def summary(taxonomy: Taxonomy) -> dict[str, Counter[str]]:
             bucket["concepts"] += 1
             if node.data.get("tier") == "value":
                 bucket["value_concepts"] += 1
+            if node.data.get("wave") in WAVES:
+                bucket[f"wave_{node.data['wave']}"] += 1
         if node.data.get("new_in_redesign"):
             bucket["new_in_redesign"] += 1
     return counts
