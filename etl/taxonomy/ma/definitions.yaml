@@ -430,7 +430,8 @@ concepts:
     tier: label
     wave: 2
     description: >-
-      The list of obligations treated as debt for the price calculation and the interim covenants.
+      "Indebtedness" means borrowed money, notes, capital leases and similar items that the price
+      formula deducts and the interim covenants restrict.
     canonical_terms:
       - '"Indebtedness" means'
       - Closing Indebtedness
@@ -475,8 +476,8 @@ concepts:
     tier: label
     wave: 2
     description: >-
-      The list of deal costs that reduce the price paid to the sellers, such as advisor fees and change
-      of control payments.
+      Fees and expenses incurred in connection with the transactions and unpaid at closing, which the
+      price formula deducts, such as advisor fees and change of control payments.
     canonical_terms:
       - '"Transaction Expenses" means'
       - Company Transaction Expenses

@@ -19,7 +19,7 @@ groups:
     kind: group
     nav_parent: ma.nav.conduct
     description: >-
-      The ordinary course covenant and the list of restricted actions. Tax interim covenants are listed
+      The ordinary course covenant and the interim restrictions (forbearances). Tax interim covenants are listed
       here from the tax pack.
     introduced_in: '2026.1'
 
@@ -78,7 +78,7 @@ concepts:
     introduced_in: '2026.1'
 
   - id: ma.conduct.negative_covenants
-    label: Negative Covenants (Restricted Actions)
+    label: Negative Covenants; Forbearances
     kind: provision
     nav_parent: ma.nav.conduct.interim
     tier: label

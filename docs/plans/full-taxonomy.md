@@ -136,7 +136,7 @@ Each node carries `introduced_in: '2026.1'`. The packs are a draft until the mai
 | Termination rights | The live tree has one leaf for all termination events. | 9 concepts: mutual consent, outside date, legal restraint, vote failure, breach, change of recommendation, superior proposal, failure to close, and other. The notice of termination is part of `ma.termination.effect`. |
 | Termination fees | One older leaf joined the target fee, the reverse fee and expenses. | 5 concepts. Three of them are pilot value concepts. |
 | No-shop and fiduciary out | "Superior Proposal" appears in 37.1% of agreements and "Intervening Event" in 19.0%. | Separate concepts for the non-solicitation covenant, the go-shop, the exception for unsolicited proposals, notice of proposals, and each ground for a change of recommendation. |
-| Negative covenants before closing | The restricted actions (dividends, new debt, capital spending and others) are studied one by one. | One provision with 10 components. |
+| Negative covenants before closing | The interim restrictions (dividends, new debt, capital spending and others) are studied one by one. | One provision with 10 components. |
 | Defined terms | The content of a few definitions drives the deal terms. | 16 definition concepts, such as Knowledge, Willful Breach, Fraud, Indebtedness and Working Capital. All other defined terms fall under `ma.definitions.general`. |
 | Representations | 49 topics, each with a party role. | 49 concepts in place of two copies of each. |
 | Collar and walk-away right | The title "collar" occurs once. "Walk away" appears in 0.6% of agreements. | Value fields of `ma.consideration.exchange_ratio`. |
@@ -227,8 +227,8 @@ Concepts restored on 2026-11-23, each with its old id (5 concepts). The heading 
 |---|---|---|---|---|
 | `ma.spac.extension` | `ma.covenant.other` (catch-all) | SPAC studies track deadline extensions, redemptions at the extension vote and who pays for the extension. | 443 agreements | 1 |
 | `ma.spac.domestication` | `ma.covenant.other` (catch-all) | The move of the SPAC from the Cayman Islands to Delaware is a research variable. The tax tree also lists it, under "Pre-Closing Restructuring". | 172 | 1 |
-| `ma.condition.frustration` | `ma.condition.other` (catch-all) | The heading occurs in 21% of agreements. The reviewer pointed to the prevention doctrine cases (Snow Phipps v. KCAKE, AB Stable). It now sits under "Mutual Conditions", because the rule applies to every party. | 2,569 | 1 |
-| `ma.condition.covenant_performance` | `ma.condition.reps_bringdown` | AB Stable v. MAPS Hotels turned on the covenant condition, and practitioners track the two standards separately. It has stub fields for the covenant standard and the cure right. | 870 | 1 |
+| `ma.condition.frustration` | `ma.condition.other` (catch-all) | The heading occurs in 21% of agreements (2,590 agreements by heading). It now sits under "Mutual Conditions", because the rule applies to every party. | 2,569 | 1 |
+| `ma.condition.covenant_performance` | `ma.condition.reps_bringdown` | Headings for the covenant condition appear in 870 agreements, and both legacy trees kept it as a separate leaf from the bring-down of the representations. It has stub fields for the covenant standard and the cure right. | 870 | 1 |
 | `ma.employee.no_third_party_rights` | `ma.employee.comp_benefits_continuation` | It is the variable for studies of whether employees can enforce the covenants. It is a component of the surviving concept. | 256 | 2 |
 
 The first count for the frustration heading was wrong. The title rule for the conditions group matched "Frustration of Closing Conditions" before the frustration rule did, so the heading seemed to occur in 42 agreements. The rule order is fixed. The same fix moved about 400 "Performance of Obligations" headings to the covenant condition.
@@ -307,7 +307,7 @@ Three results of the audit need a note:
 | Other Covenants | 4 | 24 | Directors, Officers and Governance (5); Securities, Listing and Deal Litigation (4); Post-Closing and Separation (15); Tax Matters (lists tax pack nodes only) |
 | Conditions to Closing | 2 | 13 | Mutual Conditions (5); Conditions for One Party (8) |
 | Termination | 3 | 16 | Termination Rights (9); Effect of Termination (2); Termination Fees and Expenses (5) |
-| Indemnification and Risk Allocation | 4 | 16 | Survival and Scope (3); Limits on Recovery (7); Claims and Sources of Recovery (5); R&W Insurance (1) |
+| Survival and Indemnification | 4 | 16 | Survival and Scope (3); Limits on Recovery (7); Claims and Sources of Recovery (5); R&W Insurance (1) |
 | Dispute Resolution and Remedies | 2 | 8 | Governing Law and Forum (4); Remedies and Enforcement (4) |
 | Definitions and Interpretation | 3 | 22 | Defined Terms (1); Key Defined Terms (18); Interpretation (3) |
 | General Provisions | 3 | 13 | The Agreement (6); Costs and Parties (3); Other (4) |

@@ -137,7 +137,7 @@ In the M&A pack, † after a group name means that the group can be the label of
 | Group | Id | Label | Marks |
 |---|---|---|---|
 | Interim Operations | `ma.conduct.ordinary_course` | Ordinary Course Covenant | value stub; party: obligor |
-| Interim Operations | `ma.conduct.negative_covenants` | Negative Covenants (Restricted Actions) | party: obligor |
+| Interim Operations | `ma.conduct.negative_covenants` | Negative Covenants; Forbearances | party: obligor |
 | Interim Operations | `ma.conduct.restriction.dividends` | Restriction on Dividends and Repurchases | component; wave 2; value stub; party: obligor; part of `ma.conduct.negative_covenants` |
 | Interim Operations | `ma.conduct.restriction.equity_issuance` | Restriction on Issuing Equity | component; wave 2; party: obligor; part of `ma.conduct.negative_covenants` |
 | Interim Operations | `ma.conduct.restriction.indebtedness` | Restriction on Indebtedness and Liens | component; wave 2; value stub; party: obligor; part of `ma.conduct.negative_covenants` |
@@ -303,7 +303,7 @@ In the M&A pack, † after a group name means that the group can be the label of
 | Termination Fees and Expenses † | `ma.termination.fee.exclusive_remedy` | Termination Fee as Exclusive Remedy; Liability Cap | wave 2 |
 | Termination Fees and Expenses † | `ma.termination.collection_costs` | Collection Costs and Interest on Unpaid Fees | wave 2 |
 
-### Indemnification and Risk Allocation
+### Survival and Indemnification
 
 `ma.nav.indemnification`
 
