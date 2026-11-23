@@ -41,9 +41,54 @@ LEGACY_SCHEMES = {
     "tax_v1": "tax_v1.yaml",
 }
 
-_ID_RE = re.compile(r"^(?:ma|tax)(?:\.[a-z0-9_]+)+$")
+# DealOS knowledge graph v6 domains. An id is the domain, a colon, and a number or `r-<slug>`.
+DEALOS_DOMAINS = ("ai", "cra", "econ", "pcor", "pcra", "rw")
+DEALOS_SOURCE = "crosswalk/dealos.yaml"
+
+# The fields each kind of node may carry (etl/taxonomy/README.md, "Fields").
+COMMON_FIELDS = (
+    "id",
+    "label",
+    "kind",
+    "description",
+    "also_listed_under",
+    "crosswalk",
+    "new_in_redesign",
+    "introduced_in",
+    "deprecated_in",
+    "replaced_by",
+)
+CONCEPT_ONLY_FIELDS = (
+    "parent",
+    "tier",
+    "wave",
+    "derived",
+    "attributes",
+    "canonical_terms",
+    "example_phrases",
+    "exclusion_cues",
+    "value_schema",
+)
+FIELDS_BY_KIND: dict[str, tuple[str, ...]] = {
+    "branch": COMMON_FIELDS + ("order", "assignable"),
+    "group": COMMON_FIELDS + ("nav_parent", "assignable"),
+    **{kind: COMMON_FIELDS + ("nav_parent",) + CONCEPT_ONLY_FIELDS for kind in CONCEPT_KINDS},
+}
+KNOWN_FIELDS = frozenset(field for fields in FIELDS_BY_KIND.values() for field in fields)
+FILE_FIELDS = ("pack", "release", "branch", "groups", "concepts")
+VALUE_SCHEMA_FIELDS = ("status", "version", "source", "fields")
+VALUE_FIELD_KEYS = ("name", "type")
+CROSSWALK_ENTRY_FIELDS = ("id", "relation", "party")
+DEALOS_FILE_FIELDS = ("scheme", "links")
+DEALOS_LINK_FIELDS = ("concept", "dealos_id", "relation")
+# The kinds that each list of a pack file holds.
+SECTION_KINDS = {"branch": ("branch",), "groups": ("group",), "concepts": CONCEPT_KINDS}
+
+_ID_RE = re.compile(r"(?:ma|tax)(?:\.[a-z0-9_]+)+")
 _ID_IN_TEXT_RE = re.compile(r"\b(?:ma|tax)\.[a-z0-9_]+(?:\.[a-z0-9_]+)*")
-_RELEASE_RE = re.compile(r"^\d{4}\.\d+$")
+_RELEASE_RE = re.compile(r"\d{4}\.\d+")
+_DEALOS_ID_RE = re.compile(rf"(?:{'|'.join(DEALOS_DOMAINS)}):(?:\d+|r-[a-z0-9]+(?:-[a-z0-9]+)*)")
+_YAML_MERGE_TAG = "tag:yaml.org,2002:merge"
 
 
 @dataclass(frozen=True)
@@ -77,21 +122,81 @@ class Taxonomy:
     load_errors: list[str]
 
 
-def _read_yaml(path: Path) -> Any:
-    with path.open(encoding="utf-8") as handle:
-        return yaml.safe_load(handle)
+class _UniqueKeyLoader(yaml.SafeLoader):
+    """A safe loader that rejects a mapping that states the same key twice. Plain PyYAML keeps the last one."""
+
+    def construct_mapping(self, node: yaml.MappingNode, deep: bool = False) -> dict[Any, Any]:
+        seen: set[Any] = set()
+        for key_node, _ in node.value:
+            if key_node.tag == _YAML_MERGE_TAG:
+                continue
+            key = self.construct_object(key_node, deep=deep)
+            try:
+                duplicate = key in seen
+            except TypeError:
+                continue  # An unhashable key. The base loader reports it.
+            if duplicate:
+                raise yaml.constructor.ConstructorError(None, None, f"duplicate key {key!r}", key_node.start_mark)
+            seen.add(key)
+        return super().construct_mapping(node, deep=deep)
+
+
+def _yaml_problem(exc: yaml.YAMLError) -> str:
+    """One line that says what is wrong and where."""
+    if isinstance(exc, yaml.MarkedYAMLError):
+        mark = exc.problem_mark or exc.context_mark
+        where = f"line {mark.line + 1}: " if mark is not None else ""
+        return f"{where}{exc.problem or exc.context or 'invalid YAML'}"
+    return (str(exc).splitlines() or [type(exc).__name__])[0]
+
+
+def _read_mapping(path: Path, source: str, errors: list[str]) -> dict[str, Any] | None:
+    """Parse one YAML file that must hold a mapping. A problem goes to `errors`, and the result is None."""
+    try:
+        with path.open(encoding="utf-8") as handle:
+            doc = yaml.load(handle, Loader=_UniqueKeyLoader)  # noqa: S506 - a safe loader
+    except yaml.YAMLError as exc:
+        errors.append(f"{source}: cannot parse YAML: {_yaml_problem(exc)}")
+        return None
+    except UnicodeDecodeError:
+        errors.append(f"{source}: is not UTF-8 text")
+        return None
+    if not isinstance(doc, dict):
+        errors.append(f"{source}: not a mapping")
+        return None
+    return doc
 
 
 def _as_list(value: Any) -> list[Any]:
     return value if isinstance(value, list) else []
 
 
-def load(root: Path = DEFAULT_ROOT) -> Taxonomy:
-    """Read every pack file under `root`. Problems that stop a file from loading go to `load_errors`."""
-    nodes: dict[str, Node] = {}
-    errors: list[str] = []
+def _unknown_keys(mapping: dict[Any, Any], allowed: Iterable[str]) -> list[Any]:
+    allowed_set = set(allowed)
+    return [key for key in mapping if key not in allowed_set]
 
-    def add(raw: Any, pack: str, source: str, default_kind: str | None = None) -> None:
+
+def _release_errors(owner: str, field: str, value: Any) -> Iterable[str]:
+    """A release must be a quoted string. Unquoted, 2026.10 loads as the number 2026.1."""
+    if value is None:
+        yield f"{owner}: {field} is missing"
+    elif not isinstance(value, str):
+        yield f"{owner}: {field} must be a quoted string such as '2026.1', found {value!r}"
+    elif not _RELEASE_RE.fullmatch(value):
+        yield f"{owner}: {field} must look like 2026.1"
+
+
+def _load_pack_file(path: Path, pack: str, source: str, nodes: dict[str, Node], errors: list[str]) -> None:
+    doc = _read_mapping(path, source, errors)
+    if doc is None:
+        return
+    for key in _unknown_keys(doc, FILE_FIELDS):
+        errors.append(f"{source}: unknown field {key}")
+    if doc.get("pack") != pack:
+        errors.append(f"{source}: pack is {doc.get('pack')!r}, expected {pack!r}")
+    errors.extend(_release_errors(source, "release", doc.get("release")))
+
+    def add(raw: Any, section: str) -> None:
         if not isinstance(raw, dict) or not isinstance(raw.get("id"), str):
             errors.append(f"{source}: a node has no string id")
             return
@@ -99,49 +204,89 @@ def load(root: Path = DEFAULT_ROOT) -> Taxonomy:
         if node_id in nodes:
             errors.append(f"{source}: duplicate id {node_id} (also in {nodes[node_id].source})")
             return
+        expected = SECTION_KINDS[section]
+        default_kind = expected[0] if len(expected) == 1 else ""
+        kind = str(raw.get("kind") or default_kind)
+        if kind in NAV_KINDS + CONCEPT_KINDS and kind not in expected:
+            wanted = f"kind {expected[0]}" if len(expected) == 1 else "a concept kind"
+            errors.append(f"{node_id}: a row under {section} must have {wanted}")
         nav_parent = raw.get("nav_parent")
         nodes[node_id] = Node(
             id=node_id,
             pack=pack,
-            kind=str(raw.get("kind") or default_kind or ""),
+            kind=kind,
             label=str(raw.get("label") or ""),
             nav_parent=nav_parent if isinstance(nav_parent, str) else None,
             source=source,
             data=raw,
         )
 
+    add(doc.get("branch"), "branch")
+    for section in ("groups", "concepts"):
+        rows = doc.get(section)
+        if rows is not None and not isinstance(rows, list):
+            errors.append(f"{source}: {section} must be a list")
+            continue
+        for raw in rows or []:
+            add(raw, section)
+
+
+def _load_legacy(root: Path, errors: list[str]) -> dict[str, dict[str, dict[str, Any]]]:
+    legacy: dict[str, dict[str, dict[str, Any]]] = {}
+    for scheme, filename in LEGACY_SCHEMES.items():
+        source = f"legacy/{filename}"
+        path = root / "legacy" / filename
+        rows: dict[str, dict[str, Any]] = {}
+        legacy[scheme] = rows
+        if not path.exists():
+            errors.append(f"{source}: missing")
+            continue
+        doc = _read_mapping(path, source, errors)
+        if doc is None:
+            continue
+        if not isinstance(doc.get("nodes"), list):
+            errors.append(f"{source}: nodes must be a list")
+            continue
+        for row in doc["nodes"]:
+            if not isinstance(row, dict) or not isinstance(row.get("id"), str):
+                errors.append(f"{source}: a row has no string id")
+            elif row["id"] in rows:
+                errors.append(f"{source}: duplicate id {row['id']}")
+            else:
+                rows[row["id"]] = row
+    return legacy
+
+
+def _load_dealos(root: Path, errors: list[str]) -> list[Any]:
+    path = root / DEALOS_SOURCE
+    if not path.exists():
+        errors.append(f"{DEALOS_SOURCE}: missing")
+        return []
+    doc = _read_mapping(path, DEALOS_SOURCE, errors)
+    if doc is None:
+        return []
+    for key in _unknown_keys(doc, DEALOS_FILE_FIELDS):
+        errors.append(f"{DEALOS_SOURCE}: unknown field {key}")
+    links = doc.get("links")
+    if not isinstance(links, list):
+        errors.append(f"{DEALOS_SOURCE}: links must be a list")
+        return []
+    return links
+
+
+def load(root: Path = DEFAULT_ROOT) -> Taxonomy:
+    """Read every pack file under `root`. Problems that stop a file or a row from loading go to `load_errors`."""
+    nodes: dict[str, Node] = {}
+    errors: list[str] = []
     for pack in PACKS:
         pack_dir = root / pack
         files = sorted(pack_dir.glob("*.yaml"))
         if not files:
             errors.append(f"{pack_dir}: no YAML files")
         for path in files:
-            source = f"{pack}/{path.name}"
-            doc = _read_yaml(path)
-            if not isinstance(doc, dict):
-                errors.append(f"{source}: not a mapping")
-                continue
-            if doc.get("pack") != pack:
-                errors.append(f"{source}: pack is {doc.get('pack')!r}, expected {pack!r}")
-            if not _RELEASE_RE.match(str(doc.get("release") or "")):
-                errors.append(f"{source}: release must look like 2026.1")
-            add(doc.get("branch"), pack, source, "branch")
-            for raw in _as_list(doc.get("groups")):
-                add(raw, pack, source, "group")
-            for raw in _as_list(doc.get("concepts")):
-                add(raw, pack, source)
-
-    legacy: dict[str, dict[str, dict[str, Any]]] = {}
-    for scheme, filename in LEGACY_SCHEMES.items():
-        path = root / "legacy" / filename
-        if not path.exists():
-            errors.append(f"legacy/{filename}: missing")
-            legacy[scheme] = {}
-            continue
-        legacy[scheme] = {row["id"]: row for row in _as_list(_read_yaml(path).get("nodes"))}
-
-    dealos_path = root / "crosswalk" / "dealos.yaml"
-    dealos_links = _as_list(_read_yaml(dealos_path).get("links")) if dealos_path.exists() else []
+            _load_pack_file(path, pack, f"{pack}/{path.name}", nodes, errors)
+    legacy = _load_legacy(root, errors)
+    dealos_links = _load_dealos(root, errors)
     return Taxonomy(nodes=nodes, legacy=legacy, dealos_links=dealos_links, load_errors=errors)
 
 
@@ -172,21 +317,149 @@ def _cycle_errors(nodes: dict[str, Node], field: str) -> Iterable[str]:
             current = nxt if isinstance(nxt, str) else None
 
 
+def _ids_in(node: Node, field: str, errors: list[str]) -> list[str]:
+    """The ids that `field` lists. A value that is not a list of strings is reported."""
+    value = node.data.get(field)
+    if value is None:
+        return []
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        errors.append(f"{node.id}: {field} must be a list of ids")
+    return [item for item in _as_list(value) if isinstance(item, str)]
+
+
+def _field_errors(node: Node) -> Iterable[str]:
+    """Reject a field outside the documented list for the node's kind, such as a misspelled exclusion_cue."""
+    allowed = FIELDS_BY_KIND.get(node.kind, KNOWN_FIELDS)
+    for field in node.data:
+        if field in allowed:
+            continue
+        if field not in KNOWN_FIELDS:
+            yield f"{node.id}: unknown field {field}"
+        elif node.is_nav and field in CONCEPT_ONLY_FIELDS:
+            yield f"{node.id}: a navigation node cannot have {field}"
+        else:
+            yield f"{node.id}: a {node.kind} cannot have {field}"
+
+
+def _id_form_errors(node: Node) -> Iterable[str]:
+    if not _ID_RE.fullmatch(node.id):
+        yield f"{node.id}: id must be lowercase dotted, such as ma.governing_law"
+    if not node.id.startswith(node.pack + "."):
+        yield f"{node.id}: id must start with its pack prefix {node.pack}."
+    nav_prefix = f"{node.pack}.nav."
+    if node.is_nav and not node.id.startswith(nav_prefix):
+        yield f"{node.id}: a navigation node id must start with {nav_prefix}"
+    elif node.is_concept and node.id.startswith(nav_prefix):
+        yield f"{node.id}: a concept id must not start with {nav_prefix}"
+
+
+def _value_field_ok(entry: Any) -> bool:
+    """A value_schema field is a name, or a mapping with a name and an optional type."""
+    if isinstance(entry, str):
+        return bool(entry.strip())
+    return (
+        isinstance(entry, dict)
+        and not _unknown_keys(entry, VALUE_FIELD_KEYS)
+        and isinstance(entry.get("name"), str)
+        and bool(entry["name"].strip())
+        and isinstance(entry.get("type", ""), str)
+    )
+
+
+def _value_schema_errors(node: Node, schema: Any) -> Iterable[str]:
+    if not isinstance(schema, dict):
+        yield f"{node.id}: value_schema must be a mapping"
+        return
+    for key in _unknown_keys(schema, VALUE_SCHEMA_FIELDS):
+        yield f"{node.id}: value_schema has unknown field {key}"
+    if schema.get("status") not in VALUE_SCHEMA_STATUSES:
+        yield f"{node.id}: value_schema.status must be one of {VALUE_SCHEMA_STATUSES}"
+    for key in ("version", "source"):
+        if key in schema and not isinstance(schema[key], str):
+            yield f"{node.id}: value_schema.{key} must be a quoted string"
+    fields = schema.get("fields")
+    if not _as_list(fields):
+        yield f"{node.id}: value_schema.fields is empty"
+    for entry in _as_list(fields):
+        if not _value_field_ok(entry):
+            yield f"{node.id}: value_schema.fields entry {entry!r} must be a name or a mapping of name and type"
+
+
+def _crosswalk_errors(node: Node, legacy: dict[str, dict[str, dict[str, Any]]]) -> Iterable[str]:
+    """Check the links from a node to legacy ids."""
+    crosswalk = node.data.get("crosswalk")
+    if crosswalk is None:
+        return
+    if not isinstance(crosswalk, dict):
+        yield f"{node.id}: crosswalk must be a mapping"
+        return
+    for scheme, entries in crosswalk.items():
+        if scheme not in LEGACY_SCHEMES:
+            yield f"{node.id}: unknown crosswalk scheme {scheme}"
+            continue
+        if not isinstance(entries, list):
+            yield f"{node.id}: crosswalk {scheme} must be a list"
+            continue
+        for entry in entries:
+            legacy_id = entry.get("id") if isinstance(entry, dict) else None
+            if not isinstance(legacy_id, str) or legacy_id not in legacy[scheme]:
+                yield f"{node.id}: crosswalk id {legacy_id!r} is not in {scheme}"
+                continue
+            for key in _unknown_keys(entry, CROSSWALK_ENTRY_FIELDS):
+                yield f"{node.id}: crosswalk entry {legacy_id} in {scheme} has unknown field {key}"
+            if entry.get("relation") not in RELATIONS:
+                yield f"{node.id}: crosswalk relation for {legacy_id} must be one of {RELATIONS}"
+            if "party" in entry and entry["party"] not in CROSSWALK_PARTIES:
+                yield f"{node.id}: crosswalk party for {legacy_id} must be one of {CROSSWALK_PARTIES}"
+
+
+def _dealos_errors(taxonomy: Taxonomy) -> Iterable[str]:
+    """Check each DealOS link on its own, so that one bad field does not hide another."""
+    seen: set[tuple[str, str]] = set()
+    for link in taxonomy.dealos_links:
+        if not isinstance(link, dict):
+            yield f"{DEALOS_SOURCE}: a link is not a mapping"
+            continue
+        concept = link.get("concept")
+        name = concept if isinstance(concept, str) else repr(concept)
+        for key in _unknown_keys(link, DEALOS_LINK_FIELDS):
+            yield f"{DEALOS_SOURCE}: link for {name} has unknown field {key}"
+        target = taxonomy.nodes.get(concept) if isinstance(concept, str) else None
+        if target is None:
+            yield f"{DEALOS_SOURCE}: unknown concept {concept!r}"
+        elif not target.is_concept:
+            yield f"{DEALOS_SOURCE}: {concept} is not a concept"
+        if link.get("relation") not in RELATIONS:
+            yield f"{DEALOS_SOURCE}: relation for {name} must be one of {RELATIONS}"
+        dealos_id = link.get("dealos_id")
+        if not isinstance(dealos_id, str) or not _DEALOS_ID_RE.fullmatch(dealos_id):
+            yield f"{DEALOS_SOURCE}: dealos_id {dealos_id!r} for {name} must look like cra:39 or ai:r-definitions"
+            continue
+        if (name, dealos_id) in seen:
+            yield f"{DEALOS_SOURCE}: duplicate link {name} -> {dealos_id}"
+        seen.add((name, dealos_id))
+
+
 def groups_with_wave_two_content(taxonomy: Taxonomy) -> set[str]:
     """
     Ids of the M&A groups that hold a wave 2 provision or definition.
 
     A part (component or modifier) does not count: its text sits inside the text of its parent concept,
-    and the parent carries the label.
+    and the parent carries the label. A derived concept does not count either: it labels no spans of its own.
+    A concept placed directly under a branch is an error that the validator reports, and it adds nothing here.
     """
+    nodes = taxonomy.nodes
     return {
         node.nav_parent
-        for node in taxonomy.nodes.values()
+        for node in nodes.values()
         if node.pack == "ma"
         and node.is_concept
         and node.nav_parent is not None
+        and node.nav_parent in nodes
+        and nodes[node.nav_parent].kind == "group"
         and node.data.get("wave") == 2
         and node.data.get("parent") is None
+        and node.data.get("derived") is not True
     }
 
 
@@ -198,19 +471,20 @@ def validate(taxonomy: Taxonomy) -> list[str]:
 
     for node in nodes.values():
         data = node.data
-        if not _ID_RE.match(node.id):
-            errors.append(f"{node.id}: id must be lowercase dotted, such as ma.governing_law")
-        if not node.id.startswith(node.pack + "."):
-            errors.append(f"{node.id}: id must start with its pack prefix {node.pack}.")
-        if not node.label.strip():
+        errors.extend(_id_form_errors(node))
+        errors.extend(_field_errors(node))
+        label = data.get("label")
+        if label is not None and not isinstance(label, str):
+            errors.append(f"{node.id}: label must be a string")
+        elif not node.label.strip():
             errors.append(f"{node.id}: label is empty")
-        if not str(data.get("description") or "").strip():
-            errors.append(f"{node.id}: description is empty")
-        if not _RELEASE_RE.match(str(data.get("introduced_in") or "")):
-            errors.append(f"{node.id}: introduced_in must look like 2026.1")
-        if "deprecated_in" in data and not _RELEASE_RE.match(str(data["deprecated_in"])):
-            errors.append(f"{node.id}: deprecated_in must look like 2026.1")
-        for target in _as_list(data.get("replaced_by")):
+        description = data.get("description")
+        if not isinstance(description, str) or not description.strip():
+            errors.append(f"{node.id}: description must be a non-empty string")
+        errors.extend(_release_errors(node.id, "introduced_in", data.get("introduced_in")))
+        if "deprecated_in" in data:
+            errors.extend(_release_errors(node.id, "deprecated_in", data["deprecated_in"]))
+        for target in _ids_in(node, "replaced_by", errors):
             if target not in nodes:
                 errors.append(f"{node.id}: replaced_by names unknown id {target}")
 
@@ -218,11 +492,8 @@ def validate(taxonomy: Taxonomy) -> list[str]:
             errors.append(f"{node.id}: unknown kind {node.kind!r}")
             continue
 
-        # Navigation parent.
-        if node.kind == "branch":
-            if node.nav_parent is not None:
-                errors.append(f"{node.id}: a branch has no nav_parent")
-        else:
+        # Navigation parent. A branch has none: the field check reports one.
+        if node.kind != "branch":
             parent = nodes.get(node.nav_parent or "")
             if parent is None:
                 errors.append(f"{node.id}: nav_parent {node.nav_parent!r} does not exist")
@@ -232,21 +503,27 @@ def validate(taxonomy: Taxonomy) -> list[str]:
                 errors.append(f"{node.id}: a group's nav_parent must be a branch")
             elif node.is_concept and not parent.is_nav:
                 errors.append(f"{node.id}: nav_parent {parent.id} is not a navigation node")
+            elif node.is_concept and node.pack == "ma" and parent.kind == "branch":
+                # Some tax concepts sit directly under a branch on purpose. Every M&A concept has a group.
+                errors.append(f"{node.id}: an M&A concept must sit under a group, not under branch {parent.id}")
 
-        for target in _as_list(data.get("also_listed_under")):
+        for target in _ids_in(node, "also_listed_under", errors):
             listed = nodes.get(target)
             if listed is None:
                 errors.append(f"{node.id}: also_listed_under names unknown id {target}")
             elif not listed.is_nav:
                 errors.append(f"{node.id}: also_listed_under {target} is not a navigation node")
+            elif target == node.nav_parent:
+                errors.append(f"{node.id}: also_listed_under repeats its nav_parent {target}")
 
         if node.is_nav:
-            for field in ("parent", "tier", "wave", "value_schema", "attributes"):
-                if field in data:
-                    errors.append(f"{node.id}: a navigation node cannot have {field}")
             assignable = data.get("assignable")
             if assignable is not None and not isinstance(assignable, bool):
                 errors.append(f"{node.id}: assignable must be true or false")
+            elif node.pack == "tax":
+                # The tax labeler assigns a level 1 or level 2 node today.
+                if assignable is not True:
+                    errors.append(f"{node.id}: every tax navigation node needs assignable: true")
             elif node.pack == "ma":
                 # In wave 1, a section that holds only wave 2 concepts gets its group as the label.
                 if node.kind == "branch":
@@ -260,15 +537,22 @@ def validate(taxonomy: Taxonomy) -> list[str]:
             # Concept parent (part-of), separate from navigation.
             concept_parent = data.get("parent")
             if concept_parent is not None:
-                target_node = nodes.get(concept_parent)
-                if target_node is None:
+                target_node = nodes.get(concept_parent) if isinstance(concept_parent, str) else None
+                if not isinstance(concept_parent, str):
+                    errors.append(f"{node.id}: parent must be a concept id")
+                elif target_node is None:
                     errors.append(f"{node.id}: parent {concept_parent!r} does not exist")
                 elif not target_node.is_concept:
                     errors.append(f"{node.id}: parent {concept_parent} is not a concept")
+                elif target_node.pack != node.pack:
+                    errors.append(f"{node.id}: parent {concept_parent} is in another pack")
             elif node.kind in ("component", "modifier"):
                 errors.append(f"{node.id}: a {node.kind} needs a parent concept")
-            if "assignable" in data:
-                errors.append(f"{node.id}: assignable applies to navigation nodes only")
+
+            # A derived concept labels no spans of its own. Its value is built from the spans of other concepts.
+            derived = data.get("derived")
+            if derived is not None and not isinstance(derived, bool):
+                errors.append(f"{node.id}: derived must be true or false")
 
             tier = data.get("tier")
             if tier not in TIERS:
@@ -276,10 +560,7 @@ def validate(taxonomy: Taxonomy) -> list[str]:
             schema = data.get("value_schema")
             status = schema.get("status") if isinstance(schema, dict) else None
             if schema is not None:
-                if status not in VALUE_SCHEMA_STATUSES:
-                    errors.append(f"{node.id}: value_schema.status must be one of {VALUE_SCHEMA_STATUSES}")
-                elif not _as_list(schema.get("fields")):
-                    errors.append(f"{node.id}: value_schema.fields is empty")
+                errors.extend(_value_schema_errors(node, schema))
             # A value concept is one whose schema has been piloted. A stub marks a candidate only.
             if (tier == "value") != (status == "piloted"):
                 errors.append(f"{node.id}: tier value needs a piloted value_schema, and only then")
@@ -287,13 +568,15 @@ def validate(taxonomy: Taxonomy) -> list[str]:
             # Each M&A concept states its labeling wave. The tax pack has no waves: one tax pass labels it.
             wave = data.get("wave")
             wave_ok = isinstance(wave, int) and not isinstance(wave, bool) and wave in WAVES
-            if node.pack == "ma" or wave is not None:
-                if not wave_ok:
-                    errors.append(f"{node.id}: wave must be one of {WAVES}")
-                elif wave == 1 and node.kind != "provision":
-                    errors.append(f"{node.id}: a {node.kind} belongs to wave 2")
-                elif wave == 1 and concept_parent is not None:
-                    errors.append(f"{node.id}: a concept with a parent belongs to wave 2")
+            if node.pack != "ma":
+                if "wave" in data:
+                    errors.append(f"{node.id}: the {node.pack} pack has no waves")
+            elif not wave_ok:
+                errors.append(f"{node.id}: wave must be one of {WAVES}")
+            elif wave == 1 and node.kind != "provision":
+                errors.append(f"{node.id}: a {node.kind} belongs to wave 2")
+            elif wave == 1 and concept_parent is not None:
+                errors.append(f"{node.id}: a concept with a parent belongs to wave 2")
 
             attributes = data.get("attributes")
             if attributes is not None:
@@ -309,24 +592,7 @@ def validate(taxonomy: Taxonomy) -> list[str]:
                     if ref not in nodes:
                         errors.append(f"{node.id}: exclusion cue names unknown id {ref}")
 
-        # Crosswalks to legacy ids.
-        crosswalk = data.get("crosswalk")
-        if crosswalk is not None and not isinstance(crosswalk, dict):
-            errors.append(f"{node.id}: crosswalk must be a mapping")
-            crosswalk = None
-        for scheme, entries in (crosswalk or {}).items():
-            if scheme not in LEGACY_SCHEMES:
-                errors.append(f"{node.id}: unknown crosswalk scheme {scheme}")
-                continue
-            for entry in _as_list(entries):
-                legacy_id = entry.get("id") if isinstance(entry, dict) else None
-                if legacy_id not in taxonomy.legacy[scheme]:
-                    errors.append(f"{node.id}: crosswalk id {legacy_id!r} is not in {scheme}")
-                    continue
-                if entry.get("relation") not in RELATIONS:
-                    errors.append(f"{node.id}: crosswalk relation for {legacy_id} must be one of {RELATIONS}")
-                if "party" in entry and entry["party"] not in CROSSWALK_PARTIES:
-                    errors.append(f"{node.id}: crosswalk party for {legacy_id} must be one of {CROSSWALK_PARTIES}")
+        errors.extend(_crosswalk_errors(node, taxonomy.legacy))
 
     errors.extend(_cycle_errors(nodes, "nav_parent"))
     errors.extend(_cycle_errors(nodes, "parent"))
@@ -355,20 +621,12 @@ def validate(taxonomy: Taxonomy) -> list[str]:
         if exact["tax_v1"][legacy_id] != 1:
             errors.append(f"tax_v1: {legacy_id} must have exactly one exact crosswalk, found {exact['tax_v1'][legacy_id]}")
 
-    for link in taxonomy.dealos_links:
-        concept = link.get("concept") if isinstance(link, dict) else None
-        if concept not in nodes:
-            errors.append(f"crosswalk/dealos.yaml: unknown concept {concept!r}")
-        elif link.get("relation") not in RELATIONS:
-            errors.append(f"crosswalk/dealos.yaml: relation for {concept} must be one of {RELATIONS}")
-        elif not isinstance(link.get("dealos_id"), str):
-            errors.append(f"crosswalk/dealos.yaml: {concept} has no dealos_id")
-
+    errors.extend(_dealos_errors(taxonomy))
     return errors
 
 
 def summary(taxonomy: Taxonomy) -> dict[str, Counter[str]]:
-    """Node counts by pack and kind, plus counts of value concepts and nodes new in the redesign."""
+    """Node counts by pack and kind, plus counts of value, derived and wave concepts and nodes new in the redesign."""
     counts: dict[str, Counter[str]] = {pack: Counter() for pack in PACKS}
     for node in taxonomy.nodes.values():
         bucket = counts.setdefault(node.pack, Counter())
@@ -377,6 +635,8 @@ def summary(taxonomy: Taxonomy) -> dict[str, Counter[str]]:
             bucket["concepts"] += 1
             if node.data.get("tier") == "value":
                 bucket["value_concepts"] += 1
+            if node.data.get("derived") is True:
+                bucket["derived"] += 1
             if node.data.get("wave") in WAVES:
                 bucket[f"wave_{node.data['wave']}"] += 1
         elif node.data.get("assignable") is True:

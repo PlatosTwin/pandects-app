@@ -217,12 +217,23 @@ class ValidatorCatchesProblemsTest(unittest.TestCase):
         change(doc)
         path.write_text(yaml.safe_dump(doc, sort_keys=False, allow_unicode=True), encoding="utf-8")
 
+    def _edit_text(self, old: str, new: str, relative: str = "ma/remedies.yaml") -> None:
+        """Change the raw text of a file, for problems that a YAML dump cannot write."""
+        path = self.root / relative
+        text = path.read_text(encoding="utf-8")
+        self.assertIn(old, text)
+        path.write_text(text.replace(old, new, 1), encoding="utf-8")
+
     def _errors(self) -> list[str]:
         return taxonomy_pack.validate(taxonomy_pack.load(self.root))
 
-    def _assert_reported(self, fragment: str) -> None:
+    def _assert_reported(self, *fragments: str) -> None:
+        """Assert that one error holds every fragment."""
         errors = self._errors()
-        self.assertTrue(any(fragment in error for error in errors), f"{fragment!r} not in {errors[:5]}")
+        self.assertTrue(
+            any(all(fragment in error for fragment in fragments) for error in errors),
+            f"{fragments!r} not in {errors[:5]}",
+        )
 
     def test_untouched_copy_is_valid(self) -> None:
         self._edit(lambda doc: None)
@@ -232,14 +243,24 @@ class ValidatorCatchesProblemsTest(unittest.TestCase):
         self._edit(lambda doc: doc["concepts"].append(dict(_concept(doc, "ma.governing_law"))))
         self._assert_reported("duplicate id ma.governing_law")
 
-    def test_duplicate_id_across_packs_files(self) -> None:
+    def test_duplicate_id_across_files_of_one_pack(self) -> None:
         def change(doc: dict[str, Any]) -> None:
             clone = dict(doc["concepts"][0])
             clone["id"] = "ma.governing_law"
             doc["concepts"].append(clone)
 
         self._edit(change, "ma/general.yaml")
-        self._assert_reported("duplicate id ma.governing_law")
+        # Files load in name order, so the copy in general.yaml comes first.
+        self._assert_reported("ma/remedies.yaml: duplicate id ma.governing_law (also in ma/general.yaml)")
+
+    def test_duplicate_id_across_packs(self) -> None:
+        def change(doc: dict[str, Any]) -> None:
+            clone = dict(doc["concepts"][0])
+            clone["id"] = "ma.governing_law"
+            doc["concepts"].append(clone)
+
+        self._edit(change, "tax/deal.yaml")
+        self._assert_reported("tax/deal.yaml: duplicate id ma.governing_law (also in ma/remedies.yaml)")
 
     def test_missing_nav_parent(self) -> None:
         self._edit(lambda doc: _concept(doc, "ma.governing_law").update(nav_parent="ma.nav.no_such_group"))
@@ -331,6 +352,216 @@ class ValidatorCatchesProblemsTest(unittest.TestCase):
 
         self._edit(change, "crosswalk/dealos.yaml")
         self._assert_reported("crosswalk/dealos.yaml: unknown concept 'ma.no_such_concept'")
+
+    # Finding 1: a concept parent in the other pack.
+    def test_concept_parent_in_another_pack(self) -> None:
+        self._edit(lambda doc: _concept(doc, "ma.governing_law").update(parent="tax.election.338h10", wave=2))
+        self._assert_reported("ma.governing_law: parent tax.election.338h10 is in another pack")
+
+    def test_concept_parent_that_is_not_an_id(self) -> None:
+        self._edit(lambda doc: _concept(doc, "ma.governing_law").update(parent=["ma.forum_selection"], wave=2))
+        self._assert_reported("ma.governing_law: parent must be a concept id")
+
+    # Finding 2: an M&A concept directly under a branch.
+    def test_ma_concept_under_a_branch(self) -> None:
+        self._edit(lambda doc: _concept(doc, "ma.governing_law").update(nav_parent="ma.nav.remedies", wave=2))
+        self._assert_reported("ma.governing_law: an M&A concept must sit under a group, not under branch ma.nav.remedies")
+        wave_two = taxonomy_pack.groups_with_wave_two_content(taxonomy_pack.load(self.root))
+        self.assertNotIn("ma.nav.remedies", wave_two)
+
+    # Finding 3: a tax concept with a wave.
+    def test_wave_on_tax_concept(self) -> None:
+        self._edit(lambda doc: _concept(doc, "tax.election.338h10").update(wave=1), "tax/deal.yaml")
+        self._assert_reported("tax.election.338h10: the tax pack has no waves")
+
+    # Finding 4: a tax navigation node that is not assignable.
+    def test_tax_navigation_node_not_assignable(self) -> None:
+        def change(doc: dict[str, Any]) -> None:
+            doc["branch"]["assignable"] = False
+            doc["groups"][0].pop("assignable")
+
+        self._edit(change, "tax/deal.yaml")
+        self._assert_reported("tax.nav.deal: every tax navigation node needs assignable: true")
+        self._assert_reported("tax.nav.deal.treatment: every tax navigation node needs assignable: true")
+
+    # Finding 5: the DealOS crosswalk.
+    def test_missing_dealos_file(self) -> None:
+        (self.root / "crosswalk" / "dealos.yaml").unlink()
+        self._assert_reported("crosswalk/dealos.yaml: missing")
+
+    def test_duplicate_dealos_link(self) -> None:
+        self._edit(lambda doc: doc["links"].append(dict(doc["links"][0])), "crosswalk/dealos.yaml")
+        self._assert_reported("crosswalk/dealos.yaml: duplicate link")
+
+    def test_dealos_link_with_bad_relation_and_bad_id(self) -> None:
+        def change(doc: dict[str, Any]) -> None:
+            doc["links"].append({"concept": "ma.governing_law", "dealos_id": "cra-39", "relation": "same"})
+
+        self._edit(change, "crosswalk/dealos.yaml")
+        self._assert_reported("crosswalk/dealos.yaml: relation for ma.governing_law must be one of")
+        self._assert_reported("crosswalk/dealos.yaml: dealos_id 'cra-39' for ma.governing_law must look like")
+
+    def test_dealos_id_form(self) -> None:
+        for bad in ("cra-39", "cra:stub-termination", "dt:12", "cra:R-Foo", "cra:r-", "cra:39 ", 39):
+            with self.subTest(dealos_id=bad):
+                self.setUp()
+
+                def change(doc: dict[str, Any], bad: Any = bad) -> None:
+                    doc["links"].append({"concept": "ma.governing_law", "dealos_id": bad, "relation": "related"})
+
+                self._edit(change, "crosswalk/dealos.yaml")
+                self._assert_reported(f"crosswalk/dealos.yaml: dealos_id {bad!r} for ma.governing_law must look like")
+
+    # Finding 6: the loader reports instead of crashing.
+    def test_legacy_row_without_id(self) -> None:
+        self._edit(lambda doc: doc["nodes"].append({"label": "No id", "leaf": False}), "legacy/section_v1.yaml")
+        self._assert_reported("legacy/section_v1.yaml: a row has no string id")
+
+    def test_duplicate_legacy_id(self) -> None:
+        def change(doc: dict[str, Any]) -> None:
+            doc["nodes"].append(dict(doc["nodes"][0], label="Copy"))
+
+        self._edit(change, "legacy/section_v1.yaml")
+        self._assert_reported("legacy/section_v1.yaml: duplicate id")
+
+    def test_malformed_yaml(self) -> None:
+        self._edit_text("concepts:\n", "concepts: [unclosed\n")
+        self._assert_reported("ma/remedies.yaml", "cannot parse YAML")
+
+    # Finding 7: duplicate YAML keys.
+    def test_duplicate_yaml_key(self) -> None:
+        self._edit_text("    label: Governing Law\n", "    label: Governing Law\n    label: Choice of Law\n")
+        self._assert_reported("ma/remedies.yaml", "duplicate key 'label'")
+
+    # Finding 8: unknown fields.
+    def test_unknown_node_field(self) -> None:
+        self._edit(lambda doc: _concept(doc, "ma.governing_law").update(exclusion_cue=["Not forum."]))
+        self._assert_reported("ma.governing_law: unknown field exclusion_cue")
+
+    def test_field_of_another_kind(self) -> None:
+        def change(doc: dict[str, Any]) -> None:
+            doc["groups"][0]["order"] = 1
+            _concept(doc, "ma.governing_law")["assignable"] = True
+
+        self._edit(change)
+        self._assert_reported("ma.nav.remedies.law_forum: a group cannot have order")
+        self._assert_reported("ma.governing_law: a provision cannot have assignable")
+
+    def test_unknown_file_field(self) -> None:
+        self._edit(lambda doc: doc.update(notes="draft"))
+        self._assert_reported("ma/remedies.yaml: unknown field notes")
+
+    def test_unknown_value_schema_field(self) -> None:
+        def change(doc: dict[str, Any]) -> None:
+            schema = _concept(doc, "ma.termination.outside_date")["value_schema"]
+            schema["statuss"] = "piloted"
+            schema["fields"].append({"name": "notice_days", "kind": "int"})
+
+        self._edit(change, "ma/termination.yaml")
+        self._assert_reported("ma.termination.outside_date: value_schema has unknown field statuss")
+        self._assert_reported("ma.termination.outside_date: value_schema.fields entry", "must be a name or a mapping")
+
+    def test_unknown_crosswalk_entry_field(self) -> None:
+        self._edit(lambda doc: _concept(doc, "ma.governing_law")["crosswalk"]["section_v1"][0].update(relaton="exact"))
+        self._assert_reported("ma.governing_law: crosswalk entry", "has unknown field relaton")
+
+    def test_crosswalk_scheme_not_a_list(self) -> None:
+        def change(doc: dict[str, Any]) -> None:
+            crosswalk = _concept(doc, "ma.governing_law")["crosswalk"]
+            crosswalk["section_v1"] = crosswalk["section_v1"][0]
+
+        self._edit(change)
+        self._assert_reported("ma.governing_law: crosswalk section_v1 must be a list")
+
+    def test_unknown_dealos_link_field(self) -> None:
+        def change(doc: dict[str, Any]) -> None:
+            doc["links"].append({"concept": "ma.governing_law", "dealos_id": "rw:9999", "relation": "related", "note": "x"})
+
+        self._edit(change, "crosswalk/dealos.yaml")
+        self._assert_reported("crosswalk/dealos.yaml: link for ma.governing_law has unknown field note")
+
+    def test_row_kind_does_not_match_its_list(self) -> None:
+        self._edit(lambda doc: doc["groups"].append(dict(_concept(doc, "ma.governing_law"), id="ma.governing_law_two")))
+        self._assert_reported("ma.governing_law_two: a row under groups must have kind group")
+
+    # Finding 9: releases must be strings.
+    def test_unquoted_introduced_in(self) -> None:
+        self._edit(lambda doc: _concept(doc, "ma.governing_law").update(introduced_in=2026.10))
+        self._assert_reported("ma.governing_law: introduced_in must be a quoted string")
+
+    def test_unquoted_deprecated_in(self) -> None:
+        self._edit(lambda doc: _concept(doc, "ma.governing_law").update(deprecated_in=2026.2))
+        self._assert_reported("ma.governing_law: deprecated_in must be a quoted string")
+
+    def test_unquoted_release(self) -> None:
+        self._edit(lambda doc: doc.update(release=2026.1))
+        self._assert_reported("ma/remedies.yaml: release must be a quoted string")
+
+    # Finding 10: smaller checks.
+    def test_description_not_a_string(self) -> None:
+        self._edit(lambda doc: _concept(doc, "ma.governing_law").update(description=["One.", "Two."]))
+        self._assert_reported("ma.governing_law: description must be a non-empty string")
+
+    def test_also_listed_under_its_own_nav_parent(self) -> None:
+        self._edit(lambda doc: _concept(doc, "ma.governing_law").update(also_listed_under=["ma.nav.remedies.law_forum"]))
+        self._assert_reported("ma.governing_law: also_listed_under repeats its nav_parent ma.nav.remedies.law_forum")
+
+    def test_also_listed_under_not_a_list(self) -> None:
+        self._edit(lambda doc: _concept(doc, "ma.governing_law").update(also_listed_under="tax.nav.other"))
+        self._assert_reported("ma.governing_law: also_listed_under must be a list of ids")
+
+    def test_navigation_id_without_nav(self) -> None:
+        def change(doc: dict[str, Any]) -> None:
+            doc["groups"].append(
+                {
+                    "id": "ma.remedies_extra",
+                    "label": "Extra",
+                    "kind": "group",
+                    "nav_parent": "ma.nav.remedies",
+                    "description": "A group with a concept-style id.",
+                    "introduced_in": "2026.1",
+                }
+            )
+
+        self._edit(change)
+        self._assert_reported("ma.remedies_extra: a navigation node id must start with ma.nav.")
+
+    def test_concept_id_with_nav(self) -> None:
+        self._edit(
+            lambda doc: doc["concepts"].append(dict(_concept(doc, "ma.governing_law"), id="ma.nav.remedies.law_copy"))
+        )
+        self._assert_reported("ma.nav.remedies.law_copy: a concept id must not start with ma.nav.")
+
+    # Finding 11: the party attribute.
+    def test_unknown_party(self) -> None:
+        self._edit(lambda doc: _concept(doc, "ma.governing_law").update(attributes={"party": "seller"}))
+        self._assert_reported("ma.governing_law: attributes.party must be one of")
+
+    # Finding 12: derived concepts.
+    def test_derived_on_navigation_node(self) -> None:
+        self._edit(lambda doc: doc["groups"][0].update(derived=True))
+        self._assert_reported("ma.nav.remedies.law_forum: a navigation node cannot have derived")
+
+    def test_derived_not_boolean(self) -> None:
+        self._edit(lambda doc: _concept(doc, "ma.governing_law").update(derived="yes"))
+        self._assert_reported("ma.governing_law: derived must be true or false")
+
+    def test_derived_concept_does_not_make_a_group_assignable(self) -> None:
+        def change(doc: dict[str, Any]) -> None:
+            for row in doc["concepts"]:
+                if row["nav_parent"] == "ma.nav.termination.rights" and row["wave"] == 2 and "parent" not in row:
+                    row["derived"] = True
+
+        self._edit(change, "ma/termination.yaml")
+        wave_two = taxonomy_pack.groups_with_wave_two_content(taxonomy_pack.load(self.root))
+        self.assertNotIn("ma.nav.termination.rights", wave_two)
+        self._assert_reported("ma.nav.termination.rights: assignable is for a group that holds a wave 2 provision")
+
+    def test_summary_counts_derived_concepts(self) -> None:
+        before = taxonomy_pack.summary(taxonomy_pack.load(self.root))["ma"]["derived"]
+        self._edit(lambda doc: _concept(doc, "ma.governing_law").update(derived=True))
+        after = taxonomy_pack.summary(taxonomy_pack.load(self.root))["ma"]["derived"]
+        self.assertEqual(after, before + 1)
 
     def test_cli_reports_failure(self) -> None:
         self._edit(lambda doc: _concept(doc, "ma.governing_law").update(label=""))
