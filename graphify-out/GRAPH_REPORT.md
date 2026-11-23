@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `ee312139`
+- Built from commit: `9af4e093`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -1661,7 +1661,7 @@ Nodes (3): values(), __init__(), __init__()
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `10.21 Enricher 0.10.0: blind body sample, body clause rules and the second review (2026-11-20)` connect `_resolve` to `10. Phases`, `public_api.py`, `reader-index.ts`, `AgreementReader.tsx`?**
-  _High betweenness centrality (0.228) - this node is a cross-community bridge._
+  _High betweenness centrality (0.224) - this node is a cross-community bridge._
 - **Are the 8 inferred relationships involving `McpTests` (e.g. with `ExternalIdentity` and `FulltextSearchBusy`) actually correct?**
   _`McpTests` has 8 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `etl`, `RFC-8252`, `RFC-6749` to the rest of the system?**
@@ -1669,7 +1669,7 @@ _Questions this graph is uniquely positioned to answer:_
 - **Should `ref_react` be split into smaller, more focused modules?**
   _Cohesion score 0.03682170542635659 - nodes in this community are weakly interconnected._
 - **Why does `ReaderOutlineNode` connect `AgreementReader.tsx` to `_resolve`, `reader-index.ts`?**
-  _High betweenness centrality (0.205) - this node is a cross-community bridge._
+  _High betweenness centrality (0.201) - this node is a cross-community bridge._
 
 ### Low-confidence Hints
 _AMBIGUOUS edges — the extractor was unsure. Verify before acting on these._
