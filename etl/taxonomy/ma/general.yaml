@@ -309,6 +309,9 @@ concepts:
         the Merger on the terms and subject to the conditions set forth herein.
     exclusion_cues:
       - A sponsor's limited guarantee is ma.financing.limited_guarantee.
+      - >-
+        A guarantee of the buyer's own duties by its parent company or by a sponsor is
+        ma.financing.limited_guarantee, also when the heading says Parent Guarantee.
     introduced_in: '2026.1'
 
   - id: ma.legal_representation

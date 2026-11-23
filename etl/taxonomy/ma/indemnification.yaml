@@ -77,7 +77,7 @@ concepts:
     value_schema:
       status: piloted
       version: '2.16'
-      source: docs/plans/span-taxonomy.md, section 7.2
+      source: span taxonomy plan, section 7.2 (https://github.com/PlatosTwin/pandects-app/pull/189)
       fields:
         - periods
         - no_survival
@@ -120,6 +120,13 @@ concepts:
       - The tax indemnity is tax.indemnity.obligation.
       - An indemnity for one named matter is ma.indemn.specific.
       - The definition of losses is ma.def.losses.
+      - >-
+        The sellers' waiver of contribution or indemnity claims against the target for their own indemnity
+        payments is ma.release.
+      - >-
+        A listed item that names taxes, such as Pre-Closing Taxes or a breach of the tax representations,
+        takes the matching concept under tax.nav.indemnity.indemnified_taxes. The promise and its lead-in
+        stay here.
     crosswalk:
       section_v1:
         - id: ef994612a273fa90
@@ -164,6 +171,8 @@ concepts:
     nav_parent: ma.nav.indemnification.limits
     tier: value
     wave: 2
+    attributes:
+      party: indemnitor
     description: >-
       The most an indemnifying party must pay, with separate caps for general representations, fundamental
       representations and other items, and the claims that fall outside the cap.
@@ -182,7 +191,7 @@ concepts:
     value_schema:
       status: piloted
       version: '2.16'
-      source: docs/plans/span-taxonomy.md, section 7.2
+      source: span taxonomy plan, section 7.2 (https://github.com/PlatosTwin/pandects-app/pull/189)
       fields:
         - caps
         - escrow_sole_recourse
@@ -201,7 +210,9 @@ concepts:
     kind: provision
     nav_parent: ma.nav.indemnification.limits
     tier: value
-    wave: 2
+    wave: 1
+    attributes:
+      party: indemnitor
     description: >-
       The amount of losses that must build up before the indemnifying party pays, whether it is a deductible
       or a tipping basket, and any per-claim minimum.
@@ -222,7 +233,7 @@ concepts:
     value_schema:
       status: piloted
       version: '2.16'
-      source: docs/plans/span-taxonomy.md, section 7.2
+      source: span taxonomy plan, section 7.2 (https://github.com/PlatosTwin/pandects-app/pull/189)
       fields:
         - type
         - amount
@@ -424,6 +435,11 @@ concepts:
         The Indemnifying Party shall have the right to assume the defense of any Third Party Claim with
         counsel of its choice, and shall not settle such claim without the consent of the Indemnified
         Party unless the settlement provides solely for money damages.
+    exclusion_cues:
+      - >-
+        Control of an audit or other tax proceeding, and notice, participation and settlement rights in
+        it, are under tax.nav.compliance.contests, also when the clause sits in the indemnification
+        article. A statement that the tax section governs tax contests is tax.indemnity.exclusive_remedy.
     value_schema:
       status: stub
       fields:
@@ -463,6 +479,9 @@ concepts:
     exclusion_cues:
       - The escrow that secures the price adjustment is ma.price_adjustment.escrow.
       - A deposit paid at signing is ma.consideration.deposit.
+      - >-
+        One escrow that secures both indemnity claims and the price adjustment is this concept. Do not
+        also use ma.price_adjustment.escrow.
     value_schema:
       status: stub
       fields:

@@ -1210,6 +1210,9 @@ concepts:
     exclusion_cues:
       - Labor relations and employment law compliance are ma.rep.labor_employment.
       - The covenant on benefits after closing is ma.employee.comp_benefits_continuation.
+      - >-
+        A covenant that a payment will be made in compliance with Section 409A is part of the concept of
+        that payment: ma.consideration.earnout, ma.equity.awards or ma.employee.retention_severance.
     crosswalk:
       section_v1:
         - id: 09cecc7b4c746f45
@@ -1396,7 +1399,8 @@ concepts:
     description: >-
       The buyer has, or will have at closing, enough funds to pay the consideration. Where the deal is
       financed, it also covers the commitment letters: delivered, in force, with no side letters and no
-      conditions beyond those stated.
+      conditions beyond those stated. A statement in the buyer's representations that its duties do not
+      depend on financing is part of this concept.
     canonical_terms:
       - sufficient funds
       - available funds
@@ -1430,6 +1434,8 @@ concepts:
         - id: 8df9b2d6098cf1d1
           relation: exact
           party: target
+        - id: 9030f3aaa15165f0
+          relation: related
     introduced_in: '2026.1'
 
   - id: ma.rep.solvency
@@ -1584,6 +1590,10 @@ concepts:
       - >-
         The other party's statement that it did not rely on outside statements is ma.rep.non_reliance.
       - A clause limiting tax representations to the tax section is tax.rep.ring_fencing.
+      - >-
+        The speaker decides. The party that disclaims its own other representations takes this concept.
+        The other party's acknowledgment that no other representation is made takes ma.rep.non_reliance,
+        with the acknowledging party as the maker.
     crosswalk:
       section_v1:
         - id: a5ff5f6c1fb0d1cd
@@ -1611,7 +1621,8 @@ concepts:
       party: maker
     description: >-
       A party states that it made its own investigation and did not rely on any statement outside the
-      agreement.
+      agreement. It also covers that party's acknowledgment that the other side makes no representation
+      outside the agreement. The party that speaks is the maker.
     canonical_terms:
       - independent investigation
       - non-reliance

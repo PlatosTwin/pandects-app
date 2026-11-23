@@ -296,7 +296,7 @@ concepts:
     value_schema:
       status: piloted
       version: '2.16'
-      source: docs/plans/span-taxonomy.md, section 7.2
+      source: span taxonomy plan, section 7.2 (https://github.com/PlatosTwin/pandects-app/pull/189)
       fields:
         - election
         - decides

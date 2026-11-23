@@ -22,7 +22,7 @@ import yaml
 
 from etl.domain import taxonomy_pack
 
-# Concept ids that the value pilot already uses (docs/plans/span-taxonomy.md). They must not change.
+# Concept ids that the value pilot already uses (span taxonomy plan, draft PR 189). They must not change.
 PILOT_VALUE_IDS = (
     "ma.termination.fee.target",
     "ma.termination.fee.reverse",
@@ -149,12 +149,33 @@ class ShippedPacksTest(unittest.TestCase):
         nodes = self.taxonomy.nodes
         assignable = {node.id for node in nodes.values() if node.pack == "ma" and node.data.get("assignable")}
         self.assertEqual(assignable, taxonomy_pack.groups_with_wave_two_content(self.taxonomy))
-        self.assertEqual(len(assignable), 16)
+        self.assertEqual(len(assignable), 14)
         self.assertEqual({nodes[node_id].kind for node_id in assignable}, {"group"})
         self.assertIn("ma.nav.termination.rights", assignable)
         # Only wave 1 concepts, or wave 2 parts of wave 1 concepts: the section gets those concepts.
         self.assertNotIn("ma.nav.remedies.law_forum", assignable)
         self.assertNotIn("ma.nav.financing.covenants", assignable)
+        self.assertNotIn("ma.nav.conduct.interim", assignable)
+
+    def test_financing_structure_is_derived(self) -> None:
+        """The financing summary concept labels no spans, so it does not make its group assignable."""
+        nodes = self.taxonomy.nodes
+        self.assertIs(nodes["ma.financing.structure"].data.get("derived"), True)
+        self.assertNotIn("assignable", nodes["ma.nav.financing.arrangements"].data)
+        derived = [node.id for node in nodes.values() if node.data.get("derived")]
+        self.assertEqual(derived, ["ma.financing.structure"])
+
+    def test_waves_follow_the_heading_audit(self) -> None:
+        """Four provisions moved to wave 1 after the title-rule audit of 2026-11-23 (1% heading rule)."""
+        nodes = self.taxonomy.nodes
+        for concept_id in (
+            "ma.conduct.negative_covenants",
+            "ma.price_adjustment.closing_statement",
+            "ma.indemn.basket",
+            "ma.termination.fee.reverse",
+        ):
+            self.assertEqual(nodes[concept_id].data["wave"], 1, concept_id)
+        self.assertEqual(nodes["ma.termination.fee.target"].data["wave"], 2)
 
     def test_seam_concepts_have_one_owner(self) -> None:
         """A seam concept lives in one pack and is listed under a navigation node of the other pack."""

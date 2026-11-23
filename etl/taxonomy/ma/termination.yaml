@@ -67,6 +67,8 @@ concepts:
     nav_parent: ma.nav.termination.rights
     tier: value
     wave: 2
+    attributes:
+      party: holder
     description: >-
       The date after which either party may terminate if the deal has not closed, any extensions of that
       date, and the rule that bars a party in breach from using the right.
@@ -89,7 +91,7 @@ concepts:
     value_schema:
       status: piloted
       version: '2.16'
-      source: docs/plans/span-taxonomy.md, section 7.2
+      source: span taxonomy plan, section 7.2 (https://github.com/PlatosTwin/pandects-app/pull/189)
       fields:
         - initial
         - effect
@@ -111,6 +113,8 @@ concepts:
     nav_parent: ma.nav.termination.rights
     tier: label
     wave: 2
+    attributes:
+      party: holder
     description: >-
       Either party may terminate if a final and non-appealable order or law prohibits the deal.
     canonical_terms:
@@ -122,6 +126,10 @@ concepts:
         This Agreement may be terminated by either Parent or the Company if any Governmental Authority
         shall have issued an Order permanently enjoining the Merger and such Order shall have become final
         and non-appealable.
+    exclusion_cues:
+      - The closing condition that no order or law prohibits the deal is ma.condition.no_legal_restraint.
+      - Termination because the outside date has passed is ma.termination.outside_date.
+      - The duty to contest an order is ma.regulatory.litigation.
     crosswalk:
       section_v1:
         - id: 07f6697318f248d3
@@ -137,6 +145,8 @@ concepts:
     nav_parent: ma.nav.termination.rights
     tier: label
     wave: 2
+    attributes:
+      party: holder
     description: A party may terminate if the stockholders vote and do not approve the deal.
     canonical_terms:
       - Company Stockholder Approval shall not have been obtained
@@ -422,7 +432,7 @@ concepts:
     value_schema:
       status: piloted
       version: '2.16'
-      source: docs/plans/span-taxonomy.md, section 7.2
+      source: span taxonomy plan, section 7.2 (https://github.com/PlatosTwin/pandects-app/pull/189)
       fields:
         - payor
         - payee
@@ -438,7 +448,9 @@ concepts:
           relation: narrower
       section_v2:
         - id: 009b6ef7aa32ba1f
-          relation: exact
+          relation: broader
+        - id: f1bfd9033ca1155f
+          relation: related
     introduced_in: '2026.1'
 
   - id: ma.termination.fee.reverse
@@ -446,7 +458,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.termination.fees
     tier: value
-    wave: 2
+    wave: 1
     description: >-
       The fee the buyer pays the target on stated terminations, such as a failure to close, a financing
       failure or a failure to obtain regulatory approval.
@@ -466,7 +478,7 @@ concepts:
     value_schema:
       status: piloted
       version: '2.16'
-      source: docs/plans/span-taxonomy.md, section 7.2
+      source: span taxonomy plan, section 7.2 (https://github.com/PlatosTwin/pandects-app/pull/189)
       fields:
         - payor
         - payee
@@ -482,7 +494,9 @@ concepts:
           relation: narrower
       section_v2:
         - id: 0a1400c3405b72a3
-          relation: exact
+          relation: broader
+        - id: f1bfd9033ca1155f
+          relation: related
     introduced_in: '2026.1'
 
   - id: ma.termination.expense_reimbursement
@@ -512,7 +526,7 @@ concepts:
     value_schema:
       status: piloted
       version: '2.16'
-      source: docs/plans/span-taxonomy.md, section 7.2
+      source: span taxonomy plan, section 7.2 (https://github.com/PlatosTwin/pandects-app/pull/189)
       fields:
         - payor
         - payee

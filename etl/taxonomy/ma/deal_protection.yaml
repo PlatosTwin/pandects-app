@@ -336,7 +336,7 @@ concepts:
     label: Match Right
     kind: component
     nav_parent: ma.nav.deal_protection.recommendation
-    parent: ma.recommendation.board_recommendation
+    parent: ma.recommendation.change_superior_proposal
     tier: label
     wave: 2
     description: >-
@@ -605,7 +605,7 @@ concepts:
     crosswalk:
       section_v1:
         - id: 6d1ca58b2fed8a2d
-          relation: exact
+          relation: narrower
       section_v2:
         - id: 2ba79d8226115fb6
           relation: narrower
@@ -633,7 +633,15 @@ concepts:
         The Company has amended the Rights Agreement so that neither the execution of this Agreement nor
         the consummation of the Merger will cause Parent to become an "Acquiring Person" or result in
         a "Distribution Date".
+    exclusion_cues:
+      - >-
+        A clause about protecting net operating losses under Section 382 through a Tax Benefit
+        Preservation Plan, such as a duty to keep the plan in effect, is tax.attribute.section_382. A
+        statement that the plan has been amended or does not apply to the deal stays here.
     crosswalk:
+      section_v1:
+        - id: 6d1ca58b2fed8a2d
+          relation: narrower
       section_v2:
         - id: 2ba79d8226115fb6
           relation: narrower

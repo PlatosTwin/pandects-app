@@ -132,6 +132,11 @@ concepts:
       - >-
         Parent shall honor, in accordance with their terms, all severance and change in control agreements
         of the Company in effect on the date hereof.
+    exclusion_cues:
+      - >-
+        A covenant that a payment will be made in compliance with Section 409A is part of the concept of
+        that payment: this concept for bonuses, retention and severance payments. The statement that the
+        plans comply with Section 409A is ma.rep.employee_benefits.
     crosswalk:
       section_v1:
         - id: 079056f26925e599

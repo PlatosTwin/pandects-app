@@ -62,6 +62,8 @@ concepts:
       The operative clause that merges one entity into another, names the surviving entity, and describes
       any second-step or holding-company merger.
     canonical_terms:
+      - Bank Merger
+      - Subsidiary Bank Merger
       - the Merger
       - Merger Sub shall be merged with and into the Company
       - Surviving Corporation
@@ -601,10 +603,10 @@ concepts:
         At the Closing, the Company shall deliver to Parent a certificate signed by an executive officer
         certifying that the conditions set forth in Sections [•] have been satisfied.
       - >-
-        At the Closing, Seller shall deliver duly executed instruments of assignment and assumption, a
-        bill of sale, and resignations of each director and officer.
+        At the Closing, Seller shall deliver duly executed instruments of assignment and assumption and
+        a bill of sale.
     exclusion_cues:
-      - A condition that a party receive a certificate is under ma.nav.conditions.
+      - A condition that a party receive a certificate is ma.condition.other.
       - Resignation letters are ma.governance.resignations.
       - Tax forms such as a Form W-9 are tax.withholding.form_delivery.
     crosswalk:
@@ -804,4 +806,7 @@ concepts:
         as a Cayman Islands exempted company and domesticating as a Delaware corporation (the "Domestication").
     exclusion_cues:
       - A restructuring of the target before closing is tax.restructuring.pre_closing.
+      - >-
+        The statement that the Domestication is intended to qualify as a reorganization is
+        tax.treatment.reorganization.
     introduced_in: '2026.1'

@@ -304,8 +304,7 @@ concepts:
     tier: label
     wave: 2
     description: >-
-      Closing depends on the buyer receiving its financing. It is rare in public deals. A statement that
-      there is no such condition belongs to ma.financing.structure.
+      Closing depends on the buyer receiving its financing. It is rare in public deals.
     canonical_terms:
       - financing condition
       - Buyer shall have received the proceeds of the Financing
@@ -317,6 +316,10 @@ concepts:
       - This condition shall be deemed satisfied upon funding of the Financing at the Closing.
     exclusion_cues:
       - The SPAC minimum cash condition is ma.spac.minimum_cash.
+      - >-
+        A statement that closing does not depend on financing is not this concept. In the buyer's
+        representations it is part of ma.rep.financing. In the financing covenant, or as a clause of its
+        own, it is part of ma.financing.buyer_covenant.
     crosswalk:
       section_v1:
         - id: 38998387b6de4ce5
@@ -360,6 +363,8 @@ concepts:
     nav_parent: ma.nav.conditions.party
     tier: label
     wave: 1
+    attributes:
+      party: tested_party
     description: >-
       Closing depends on receipt of listed consents from contract counterparties or other third parties.
     canonical_terms:
@@ -376,6 +381,8 @@ concepts:
       section_v2:
         - id: d6c13c12f0313084
           relation: narrower
+        - id: 8e652eaa2ad91753
+          relation: narrower
     introduced_in: '2026.1'
 
   - id: ma.condition.no_litigation
@@ -384,6 +391,8 @@ concepts:
     nav_parent: ma.nav.conditions.party
     tier: label
     wave: 1
+    attributes:
+      party: tested_party
     description: >-
       Closing depends on there being no pending or threatened suit, usually by a governmental body, that
       seeks to block the deal or to impose limits on the buyer.
@@ -400,6 +409,8 @@ concepts:
     crosswalk:
       section_v2:
         - id: d6c13c12f0313084
+          relation: narrower
+        - id: 8e652eaa2ad91753
           relation: narrower
     introduced_in: '2026.1'
 
@@ -430,7 +441,7 @@ concepts:
         - id: d6c13c12f0313084
           relation: narrower
         - id: 8e652eaa2ad91753
-          relation: exact
+          relation: narrower
     introduced_in: '2026.1'
 
   - id: ma.condition.frustration

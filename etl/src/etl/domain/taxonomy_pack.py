@@ -2,7 +2,8 @@
 Load and validate the taxonomy packs under etl/taxonomy/.
 
 The YAML files there are the source of truth for the span taxonomy
-(docs/plans/span-taxonomy.md, docs/plans/full-taxonomy.md). This module
+(the span taxonomy plan of draft PR 189, https://github.com/PlatosTwin/pandects-app/pull/189,
+and docs/plans/full-taxonomy.md). This module
 reads them and checks them. It needs no network and no database.
 
 Run from the repo root:

@@ -69,10 +69,10 @@ concepts:
     crosswalk:
       section_v1:
         - id: fadbc4454a842009
-          relation: exact
+          relation: narrower
       section_v2:
         - id: 22adf399e8cad6c0
-          relation: exact
+          relation: narrower
     introduced_in: '2026.1'
 
   - id: ma.efforts.third_party_consents
@@ -96,6 +96,13 @@ concepts:
     exclusion_cues:
       - A closing condition that consents be obtained is ma.condition.third_party_consents.
       - Contracts that cannot be assigned in an asset deal are ma.asset.nonassignable_assets.
+    crosswalk:
+      section_v1:
+        - id: fadbc4454a842009
+          relation: narrower
+      section_v2:
+        - id: 22adf399e8cad6c0
+          relation: narrower
     introduced_in: '2026.1'
 
   - id: ma.regulatory.antitrust_filings
@@ -146,6 +153,8 @@ concepts:
     nav_parent: ma.nav.regulatory.antitrust
     tier: label
     wave: 2
+    attributes:
+      party: obligor
     description: >-
       How far a party must go to obtain clearance: divestitures, hold-separate arrangements and conduct
       limits, whether the duty is unlimited (hell or high water), and any cap on what must be given up.
@@ -191,6 +200,8 @@ concepts:
     nav_parent: ma.nav.regulatory.antitrust
     tier: label
     wave: 2
+    attributes:
+      party: obligor
     description: >-
       Whether a party must contest, through litigation and appeal, a governmental action that would block
       the deal.
@@ -224,6 +235,8 @@ concepts:
     nav_parent: ma.nav.regulatory.antitrust
     tier: label
     wave: 2
+    attributes:
+      party: obligor
     description: >-
       Which party directs the regulatory strategy, and limits on withdrawing a filing or agreeing to a
       timing agreement.

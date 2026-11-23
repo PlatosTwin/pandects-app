@@ -16,7 +16,6 @@ groups:
     label: Financing Arrangements
     kind: group
     nav_parent: ma.nav.financing
-    assignable: true
     description: The financing structure, the commitment letters and guarantees.
     introduced_in: '2026.1'
 
@@ -41,10 +40,12 @@ concepts:
     nav_parent: ma.nav.financing.arrangements
     tier: value
     wave: 2
+    derived: true
     description: >-
       A summary concept for how the deal is funded and how firm the funding is: whether closing depends
-      on financing, the committed sources, the efforts standard and the marketing period. Its spans come
-      from the financing representation, covenant and conditions.
+      on financing, the committed sources, the efforts standard and the marketing period. It is a derived
+      concept: it labels no text of its own. Its values are built from the spans of the financing
+      representation, the financing covenants and the financing condition.
     canonical_terms:
       - financing condition
       - Debt Financing
@@ -58,11 +59,12 @@ concepts:
         the Closing.
     exclusion_cues:
       - >-
-        Use the narrower financing concepts for a single clause. This concept carries the combined values.
+        Do not label text with this concept. Label a clause with ma.rep.financing, ma.financing.buyer_covenant,
+        ma.financing.cooperation, ma.condition.financing or ma.def.marketing_period.
     value_schema:
       status: piloted
       version: '2.16'
-      source: docs/plans/span-taxonomy.md, section 7.2
+      source: span taxonomy plan, section 7.2 (https://github.com/PlatosTwin/pandects-app/pull/189)
       fields:
         - financing_condition
         - committed_financing
@@ -106,7 +108,7 @@ concepts:
           relation: narrower
       section_v2:
         - id: 9030f3aaa15165f0
-          relation: exact
+          relation: narrower
     introduced_in: '2026.1'
 
   - id: ma.financing.equity_commitment
@@ -170,6 +172,10 @@ concepts:
         a limited guarantee of certain obligations of Parent and Merger Sub (the "Limited Guarantee").
     exclusion_cues:
       - The buyer's duty to cause its merger subsidiary to perform is ma.merger_sub_obligations.
+      - >-
+        A guarantee by the buyer, as a party to the agreement, of the duties of its own merger subsidiary
+        is ma.merger_sub_obligations. This concept is a guarantee by a person above the buyer, such as a
+        sponsor fund or the buyer's parent company.
     introduced_in: '2026.1'
 
   - id: ma.financing.buyer_covenant
@@ -180,12 +186,16 @@ concepts:
     wave: 1
     description: >-
       The buyer's duty to obtain the financing on the committed terms, not to amend the commitment letters
-      in harmful ways, to arrange alternative financing if needed, and to keep the target informed.
+      in harmful ways, to arrange alternative financing if needed, and to keep the target informed. It also
+      covers the buyer's acknowledgment, outside its representations, that closing does not depend on
+      financing.
     canonical_terms:
       - reasonable best efforts to obtain the Financing
       - Alternative Financing
       - shall not amend, modify or waive
       - Definitive Financing Agreements
+      - not conditioned on the receipt of any financing
+      - no financing condition
     example_phrases:
       - >-
         Parent shall use its reasonable best efforts to take, or cause to be taken, all actions necessary
@@ -203,6 +213,9 @@ concepts:
         - name: efforts_standard
           type: enum
     crosswalk:
+      section_v1:
+        - id: 6a2f9e016a48367a
+          relation: narrower
       section_v2:
         - id: 23d735d6f510a472
           relation: exact

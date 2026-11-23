@@ -75,6 +75,9 @@ concepts:
       - The number of buyer shares per target share is ma.consideration.exchange_ratio.
       - The mechanics of payment are ma.exchange.procedures.
       - The price in a private purchase is ma.consideration.purchase_price.
+      - >-
+        In a private merger, the aggregate price and its formula (base amount, cash, debt, expenses) are
+        ma.consideration.purchase_price. This concept keeps the conversion of each share.
     value_schema:
       status: stub
       fields:
@@ -179,8 +182,9 @@ concepts:
     tier: label
     wave: 1
     description: >-
-      The price in a private purchase of shares, interests or assets: the base amount and the formula
-      that leads to the amount paid at closing.
+      The price in a private deal: the base amount and the formula that leads to the amount paid at
+      closing. This holds for a purchase of shares, interests or assets, and for a private merger that
+      states one aggregate price.
     canonical_terms:
       - Purchase Price
       - Base Purchase Price
@@ -196,6 +200,9 @@ concepts:
       - The true-up after closing is ma.price_adjustment.mechanism.
       - The payments made at closing are ma.closing.payments.
       - The allocation of the price for tax purposes is tax.allocation.purchase_price.
+      - >-
+        What each share converts into in a merger is ma.consideration.merger_consideration. In a private
+        merger, the aggregate price and its formula stay here.
     value_schema:
       status: stub
       fields:
@@ -326,6 +333,10 @@ concepts:
     exclusion_cues:
       - A tradable or contractual right issued to public stockholders is ma.consideration.cvr.
       - The tax treatment of earnout payments is tax.adjustment.earnouts.
+      - >-
+        A covenant that a payment will be made in compliance with Section 409A is part of the concept of
+        that payment: this concept for earnout and other deferred payments. The statement that the plans
+        comply with Section 409A is ma.rep.employee_benefits.
     value_schema:
       status: stub
       fields:
@@ -466,6 +477,10 @@ concepts:
       - The employee stock purchase plan is ma.equity.espp.
       - Warrants and convertible securities are ma.equity.warrants_convertibles.
       - Section 16 exemptions for these dispositions are ma.governance.section_16.
+      - >-
+        A covenant that a payment will be made in compliance with Section 409A is part of the concept of
+        that payment: this concept for payments for equity awards. The statement that the plans comply
+        with Section 409A is ma.rep.employee_benefits.
     value_schema:
       status: stub
       fields:
@@ -701,7 +716,7 @@ concepts:
     kind: provision
     nav_parent: ma.nav.consideration.adjustment
     tier: label
-    wave: 2
+    wave: 1
     description: >-
       The post-closing statement of the final figures, the other side's review period, access to records
       and the notice of disagreement.
@@ -771,6 +786,7 @@ concepts:
         Any amount owed by Sellers under this Section shall be paid first from the Adjustment Escrow Fund.
     exclusion_cues:
       - The escrow that secures indemnity claims is ma.indemn.escrow.
+      - One escrow that secures both the price adjustment and indemnity claims is ma.indemn.escrow.
     value_schema:
       status: stub
       fields:
@@ -778,4 +794,11 @@ concepts:
           type: Money
         - name: sole_recourse
           type: boolean
+    crosswalk:
+      section_v1:
+        - id: f75af7009288819a
+          relation: narrower
+      section_v2:
+        - id: 82441ff5092e1695
+          relation: narrower
     introduced_in: '2026.1'

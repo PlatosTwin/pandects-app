@@ -51,6 +51,8 @@ concepts:
     nav_parent: ma.nav.covenants.governance
     tier: label
     wave: 1
+    attributes:
+      party: obligor
     description: >-
       The surviving company's duty to keep indemnifying the target's directors and officers for acts before
       closing, to advance their expenses, and to keep the charter and bylaw protections for a set period.
@@ -91,6 +93,8 @@ concepts:
     nav_parent: ma.nav.covenants.governance
     tier: label
     wave: 1
+    attributes:
+      party: obligor
     description: >-
       The duty to keep or buy directors' and officers' liability insurance for claims about acts before
       closing, usually a six-year tail policy with a cap on the premium.
@@ -431,6 +435,7 @@ concepts:
         Date.
     exclusion_cues:
       - The waiver of claims against a SPAC trust is ma.spac.trust_account.
+      - The promise to indemnify is ma.indemn.obligation.
     introduced_in: '2026.1'
 
   - id: ma.further_assurances
@@ -458,10 +463,10 @@ concepts:
     crosswalk:
       section_v1:
         - id: fff743810be2e1d2
-          relation: exact
+          relation: narrower
       section_v2:
         - id: d942732d2a73374a
-          relation: exact
+          relation: narrower
     introduced_in: '2026.1'
 
   - id: ma.records_access
@@ -486,6 +491,16 @@ concepts:
     exclusion_cues:
       - Access before closing is ma.access.information.
       - Retention of tax records is tax.cooperation.record_retention.
+      - >-
+        Access after closing to tax information for a tax filing or audit is
+        tax.cooperation.filing_information.
+    crosswalk:
+      section_v1:
+        - id: fff743810be2e1d2
+          relation: narrower
+      section_v2:
+        - id: d942732d2a73374a
+          relation: narrower
     introduced_in: '2026.1'
 
   - id: ma.wrong_pockets

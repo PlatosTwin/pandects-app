@@ -254,7 +254,7 @@ concepts:
       - special, incidental or exemplary
       - lost profits
       - diminution in value
-      - limitation of liability
+      - waiver of consequential damages
     example_phrases:
       - >-
         In no event shall any party be liable for any consequential, incidental, indirect, special, exemplary,
@@ -265,6 +265,10 @@ concepts:
       - The dollar limit on indemnity claims is ma.indemn.cap.
       - The definition of losses is ma.def.losses.
       - A dollar cap on a party's liability before closing is ma.termination.fee.exclusive_remedy.
+      - >-
+        A clause headed Limitation of Liability that sets a dollar limit is ma.indemn.cap after closing
+        and ma.termination.fee.exclusive_remedy before closing. This concept is the limit on kinds of
+        damages only.
     value_schema:
       status: stub
       fields:
@@ -275,10 +279,10 @@ concepts:
     crosswalk:
       section_v1:
         - id: 1496473e2c8d9589
-          relation: exact
+          relation: broader
       section_v2:
         - id: f9da722417abfd8c
-          relation: exact
+          relation: broader
     introduced_in: '2026.1'
 
   - id: ma.non_recourse
