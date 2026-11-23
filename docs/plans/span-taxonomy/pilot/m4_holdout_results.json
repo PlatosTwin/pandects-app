@@ -1,0 +1,442 @@
+{
+ "agreements": 50,
+ "arms": {
+  "sonnet": {
+   "arm": "sonnet",
+   "gold": "gold",
+   "split": null,
+   "agreements": 50,
+   "missing": [],
+   "quote_validity": 0.9972,
+   "quotes": 716,
+   "detection": {
+    "financing.structure": {
+     "tp": 39,
+     "fp": 0,
+     "fn": 3,
+     "tn": 8,
+     "precision": 1.0,
+     "recall": 0.929
+    },
+    "termination.fee.reverse": {
+     "tp": 16,
+     "fp": 0,
+     "fn": 0,
+     "tn": 34,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "indemn.cap": {
+     "tp": 21,
+     "fp": 0,
+     "fn": 1,
+     "tn": 28,
+     "precision": 1.0,
+     "recall": 0.955
+    },
+    "indemn.basket": {
+     "tp": 19,
+     "fp": 0,
+     "fn": 1,
+     "tn": 30,
+     "precision": 1.0,
+     "recall": 0.95
+    }
+   },
+   "spans": {
+    "financing.structure": {
+     "recall": 0.786,
+     "precision": 0.969,
+     "gold": 126,
+     "pred": 96
+    },
+    "termination.fee.reverse": {
+     "recall": 0.81,
+     "precision": 0.943,
+     "gold": 126,
+     "pred": 88
+    },
+    "indemn.cap": {
+     "recall": 0.824,
+     "precision": 0.97,
+     "gold": 91,
+     "pred": 66
+    },
+    "indemn.basket": {
+     "recall": 0.938,
+     "precision": 0.974,
+     "gold": 48,
+     "pred": 38
+    }
+   },
+   "fields": {
+    "financing.structure.committed": [
+     35,
+     39
+    ],
+    "financing.structure.cooperation": [
+     39,
+     39
+    ],
+    "financing.structure.efforts": [
+     38,
+     39
+    ],
+    "financing.structure.financing_condition": [
+     37,
+     39
+    ],
+    "financing.structure.marketing_period": [
+     39,
+     39
+    ],
+    "indemn.basket.baskets": [
+     14,
+     19
+    ],
+    "indemn.basket.de_minimis": [
+     18,
+     19
+    ],
+    "indemn.cap.cap_amounts": [
+     14,
+     21
+    ],
+    "indemn.cap.escrow_sole_recourse": [
+     21,
+     21
+    ],
+    "termination.fee.reverse.amounts": [
+     15,
+     16
+    ],
+    "termination.fee.reverse.kind": [
+     16,
+     16
+    ],
+    "termination.fee.reverse.payor_side": [
+     16,
+     16
+    ],
+    "termination.fee.reverse.remedy": [
+     15,
+     16
+    ],
+    "termination.fee.reverse.triggers": [
+     13,
+     16
+    ]
+   },
+   "set_field_f1": {
+    "financing.structure.committed": 0.948,
+    "indemn.basket.baskets": 0.783,
+    "indemn.cap.cap_amounts": 0.781,
+    "termination.fee.reverse.amounts": 0.95,
+    "termination.fee.reverse.payor_side": 1.0,
+    "termination.fee.reverse.triggers": 0.947
+   },
+   "detection_before_adjudication": {
+    "financing.structure": {
+     "tp": 39,
+     "fp": 0,
+     "fn": 3,
+     "tn": 8,
+     "precision": 1.0,
+     "recall": 0.929
+    },
+    "termination.fee.reverse": {
+     "tp": 16,
+     "fp": 0,
+     "fn": 0,
+     "tn": 34,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "indemn.cap": {
+     "tp": 21,
+     "fp": 0,
+     "fn": 1,
+     "tn": 28,
+     "precision": 1.0,
+     "recall": 0.955
+    },
+    "indemn.basket": {
+     "tp": 19,
+     "fp": 0,
+     "fn": 1,
+     "tn": 30,
+     "precision": 1.0,
+     "recall": 0.95
+    }
+   },
+   "verdicts": {
+    "gold_correct": 21,
+    "extractor_correct": 1,
+    "schema_ambiguous": 9,
+    "equivalent": 1
+   },
+   "extractor_errors": {
+    "wrong_code": 5,
+    "retrieval_gap": 7,
+    "missed_rule": 4,
+    "missed_in_candidates": 2,
+    "wrong_value": 3
+   }
+  },
+  "sonnet_pc": {
+   "arm": "sonnet_pc",
+   "gold": "gold",
+   "split": null,
+   "agreements": 50,
+   "missing": [],
+   "quote_validity": 0.9972,
+   "quotes": 716,
+   "detection": {
+    "financing.structure": {
+     "tp": 39,
+     "fp": 0,
+     "fn": 3,
+     "tn": 8,
+     "precision": 1.0,
+     "recall": 0.929
+    },
+    "termination.fee.reverse": {
+     "tp": 16,
+     "fp": 0,
+     "fn": 0,
+     "tn": 34,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "indemn.cap": {
+     "tp": 21,
+     "fp": 0,
+     "fn": 1,
+     "tn": 28,
+     "precision": 1.0,
+     "recall": 0.955
+    },
+    "indemn.basket": {
+     "tp": 19,
+     "fp": 0,
+     "fn": 1,
+     "tn": 30,
+     "precision": 1.0,
+     "recall": 0.95
+    }
+   },
+   "spans": {
+    "financing.structure": {
+     "recall": 0.786,
+     "precision": 0.969,
+     "gold": 126,
+     "pred": 96
+    },
+    "termination.fee.reverse": {
+     "recall": 0.81,
+     "precision": 0.943,
+     "gold": 126,
+     "pred": 88
+    },
+    "indemn.cap": {
+     "recall": 0.824,
+     "precision": 0.97,
+     "gold": 91,
+     "pred": 66
+    },
+    "indemn.basket": {
+     "recall": 0.938,
+     "precision": 0.974,
+     "gold": 48,
+     "pred": 38
+    }
+   },
+   "fields": {
+    "financing.structure.committed": [
+     35,
+     39
+    ],
+    "financing.structure.cooperation": [
+     39,
+     39
+    ],
+    "financing.structure.efforts": [
+     38,
+     39
+    ],
+    "financing.structure.financing_condition": [
+     37,
+     39
+    ],
+    "financing.structure.marketing_period": [
+     39,
+     39
+    ],
+    "indemn.basket.baskets": [
+     14,
+     19
+    ],
+    "indemn.basket.de_minimis": [
+     18,
+     19
+    ],
+    "indemn.cap.cap_amounts": [
+     14,
+     21
+    ],
+    "indemn.cap.escrow_sole_recourse": [
+     21,
+     21
+    ],
+    "termination.fee.reverse.amounts": [
+     15,
+     16
+    ],
+    "termination.fee.reverse.kind": [
+     16,
+     16
+    ],
+    "termination.fee.reverse.payor_side": [
+     16,
+     16
+    ],
+    "termination.fee.reverse.remedy": [
+     15,
+     16
+    ],
+    "termination.fee.reverse.triggers": [
+     13,
+     16
+    ]
+   },
+   "set_field_f1": {
+    "financing.structure.committed": 0.948,
+    "indemn.basket.baskets": 0.783,
+    "indemn.cap.cap_amounts": 0.781,
+    "termination.fee.reverse.amounts": 0.95,
+    "termination.fee.reverse.payor_side": 1.0,
+    "termination.fee.reverse.triggers": 0.947
+   },
+   "detection_before_adjudication": {
+    "financing.structure": {
+     "tp": 39,
+     "fp": 0,
+     "fn": 3,
+     "tn": 8,
+     "precision": 1.0,
+     "recall": 0.929
+    },
+    "termination.fee.reverse": {
+     "tp": 16,
+     "fp": 0,
+     "fn": 0,
+     "tn": 34,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "indemn.cap": {
+     "tp": 21,
+     "fp": 0,
+     "fn": 1,
+     "tn": 28,
+     "precision": 1.0,
+     "recall": 0.955
+    },
+    "indemn.basket": {
+     "tp": 19,
+     "fp": 0,
+     "fn": 1,
+     "tn": 30,
+     "precision": 1.0,
+     "recall": 0.95
+    }
+   },
+   "verdicts": {},
+   "extractor_errors": {}
+  }
+ },
+ "pct_first_sonnet": {
+  "fields": {
+   "financing.structure.committed": [
+    35,
+    39
+   ],
+   "financing.structure.cooperation": [
+    39,
+    39
+   ],
+   "financing.structure.efforts": [
+    38,
+    39
+   ],
+   "financing.structure.financing_condition": [
+    37,
+    39
+   ],
+   "financing.structure.marketing_period": [
+    39,
+    39
+   ],
+   "indemn.basket.baskets": [
+    17,
+    19
+   ],
+   "indemn.basket.de_minimis": [
+    18,
+    19
+   ],
+   "indemn.cap.cap_amounts": [
+    18,
+    21
+   ],
+   "indemn.cap.escrow_sole_recourse": [
+    21,
+    21
+   ],
+   "termination.fee.reverse.amounts": [
+    16,
+    16
+   ],
+   "termination.fee.reverse.kind": [
+    16,
+    16
+   ],
+   "termination.fee.reverse.payor_side": [
+    16,
+    16
+   ],
+   "termination.fee.reverse.remedy": [
+    15,
+    16
+   ],
+   "termination.fee.reverse.triggers": [
+    13,
+    16
+   ]
+  },
+  "set_field_f1": {
+   "financing.structure.committed": 0.948,
+   "indemn.basket.baskets": 0.913,
+   "indemn.cap.cap_amounts": 0.938,
+   "termination.fee.reverse.amounts": 1.0,
+   "termination.fee.reverse.payor_side": 1.0,
+   "termination.fee.reverse.triggers": 0.947
+  }
+ },
+ "postcheck_changes": {
+  "agreements": 0,
+  "by_rule": {},
+  "detail": {}
+ },
+ "stage1_gold_span_recall": {
+  "hit": 386,
+  "total": 400,
+  "recall": 0.965,
+  "missed_by_concept": {
+   "financing.structure": 8,
+   "indemn.cap": 3,
+   "indemn.basket": 2,
+   "termination.fee.reverse": 1
+  }
+ }
+}

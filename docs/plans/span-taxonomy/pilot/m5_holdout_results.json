@@ -1,0 +1,343 @@
+{
+ "agreements": 50,
+ "arms": {
+  "sonnet": {
+   "arm": "sonnet",
+   "gold": "gold",
+   "split": null,
+   "agreements": 50,
+   "missing": [],
+   "quote_validity": 1.0,
+   "quotes": 488,
+   "detection": {
+    "financing.structure": {
+     "tp": 30,
+     "fp": 0,
+     "fn": 5,
+     "tn": 15,
+     "precision": 1.0,
+     "recall": 0.857
+    },
+    "indemn.cap": {
+     "tp": 19,
+     "fp": 0,
+     "fn": 0,
+     "tn": 31,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "indemn.basket": {
+     "tp": 16,
+     "fp": 0,
+     "fn": 0,
+     "tn": 34,
+     "precision": 1.0,
+     "recall": 1.0
+    }
+   },
+   "spans": {
+    "indemn.cap": {
+     "recall": 0.769,
+     "precision": 0.901,
+     "gold": 104,
+     "pred": 81
+    },
+    "indemn.basket": {
+     "recall": 0.953,
+     "precision": 1.0,
+     "gold": 43,
+     "pred": 36
+    },
+    "financing.structure": {
+     "recall": 0.87,
+     "precision": 0.929,
+     "gold": 100,
+     "pred": 98
+    }
+   },
+   "fields": {
+    "financing.structure.committed": [
+     25,
+     30
+    ],
+    "financing.structure.cooperation": [
+     29,
+     30
+    ],
+    "financing.structure.efforts": [
+     30,
+     30
+    ],
+    "financing.structure.financing_condition": [
+     29,
+     30
+    ],
+    "financing.structure.marketing_period": [
+     30,
+     30
+    ],
+    "indemn.basket.baskets": [
+     16,
+     16
+    ],
+    "indemn.basket.de_minimis": [
+     16,
+     16
+    ],
+    "indemn.cap.cap_amounts": [
+     14,
+     19
+    ],
+    "indemn.cap.escrow_sole_recourse": [
+     16,
+     19
+    ]
+   },
+   "set_field_f1": {
+    "financing.structure.committed": 0.943,
+    "indemn.basket.baskets": 1.0,
+    "indemn.cap.cap_amounts": 0.794
+   },
+   "detection_before_adjudication": {
+    "financing.structure": {
+     "tp": 29,
+     "fp": 1,
+     "fn": 5,
+     "tn": 15,
+     "precision": 0.967,
+     "recall": 0.853
+    },
+    "indemn.cap": {
+     "tp": 19,
+     "fp": 0,
+     "fn": 0,
+     "tn": 31,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "indemn.basket": {
+     "tp": 16,
+     "fp": 0,
+     "fn": 0,
+     "tn": 34,
+     "precision": 1.0,
+     "recall": 1.0
+    }
+   },
+   "verdicts": {},
+   "extractor_errors": {}
+  },
+  "sonnet_pc": {
+   "arm": "sonnet_pc",
+   "gold": "gold",
+   "split": null,
+   "agreements": 50,
+   "missing": [],
+   "quote_validity": 1.0,
+   "quotes": 488,
+   "detection": {
+    "financing.structure": {
+     "tp": 30,
+     "fp": 0,
+     "fn": 5,
+     "tn": 15,
+     "precision": 1.0,
+     "recall": 0.857
+    },
+    "indemn.cap": {
+     "tp": 19,
+     "fp": 0,
+     "fn": 0,
+     "tn": 31,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "indemn.basket": {
+     "tp": 16,
+     "fp": 0,
+     "fn": 0,
+     "tn": 34,
+     "precision": 1.0,
+     "recall": 1.0
+    }
+   },
+   "spans": {
+    "indemn.cap": {
+     "recall": 0.769,
+     "precision": 0.901,
+     "gold": 104,
+     "pred": 81
+    },
+    "indemn.basket": {
+     "recall": 0.953,
+     "precision": 1.0,
+     "gold": 43,
+     "pred": 36
+    },
+    "financing.structure": {
+     "recall": 0.87,
+     "precision": 0.929,
+     "gold": 100,
+     "pred": 98
+    }
+   },
+   "fields": {
+    "financing.structure.committed": [
+     25,
+     30
+    ],
+    "financing.structure.cooperation": [
+     29,
+     30
+    ],
+    "financing.structure.efforts": [
+     30,
+     30
+    ],
+    "financing.structure.financing_condition": [
+     29,
+     30
+    ],
+    "financing.structure.marketing_period": [
+     30,
+     30
+    ],
+    "indemn.basket.baskets": [
+     16,
+     16
+    ],
+    "indemn.basket.de_minimis": [
+     16,
+     16
+    ],
+    "indemn.cap.cap_amounts": [
+     13,
+     19
+    ],
+    "indemn.cap.escrow_sole_recourse": [
+     16,
+     19
+    ]
+   },
+   "set_field_f1": {
+    "financing.structure.committed": 0.943,
+    "indemn.basket.baskets": 1.0,
+    "indemn.cap.cap_amounts": 0.774
+   },
+   "detection_before_adjudication": {
+    "financing.structure": {
+     "tp": 29,
+     "fp": 1,
+     "fn": 5,
+     "tn": 15,
+     "precision": 0.967,
+     "recall": 0.853
+    },
+    "indemn.cap": {
+     "tp": 19,
+     "fp": 0,
+     "fn": 0,
+     "tn": 31,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "indemn.basket": {
+     "tp": 16,
+     "fp": 0,
+     "fn": 0,
+     "tn": 34,
+     "precision": 1.0,
+     "recall": 1.0
+    }
+   },
+   "verdicts": {
+    "gold_correct": 18,
+    "extractor_correct": 1,
+    "schema_ambiguous": 3
+   },
+   "extractor_errors": {
+    "missed_in_candidates": 3,
+    "missed_rule": 5,
+    "wrong_value": 3,
+    "retrieval_gap": 6,
+    "wrong_code": 1
+   }
+  }
+ },
+ "pct_first_sonnet": {
+  "fields": {
+   "financing.structure.committed": [
+    25,
+    30
+   ],
+   "financing.structure.cooperation": [
+    29,
+    30
+   ],
+   "financing.structure.efforts": [
+    30,
+    30
+   ],
+   "financing.structure.financing_condition": [
+    29,
+    30
+   ],
+   "financing.structure.marketing_period": [
+    30,
+    30
+   ],
+   "indemn.basket.baskets": [
+    16,
+    16
+   ],
+   "indemn.basket.de_minimis": [
+    16,
+    16
+   ],
+   "indemn.cap.cap_amounts": [
+    14,
+    19
+   ],
+   "indemn.cap.escrow_sole_recourse": [
+    16,
+    19
+   ]
+  },
+  "set_field_f1": {
+   "financing.structure.committed": 0.943,
+   "indemn.basket.baskets": 1.0,
+   "indemn.cap.cap_amounts": 0.794
+  }
+ },
+ "postcheck_changes": {
+  "agreements": 1,
+  "by_rule": {
+   "v2.3 rule 2": 1
+  },
+  "detail": {
+   "c40f0c61-f552-5640-8094-6dcd8d22f42f": [
+    {
+     "concept": "ma.indemn.cap",
+     "rule": "v2.3 rule 2",
+     "was": {
+      "amount": "not_stated",
+      "currency": "USD",
+      "basis": "formula",
+      "pct": null,
+      "quote": "(ii) Parent\u2019s liability for breach of a Surviving Representation made by Parent exceed the Total Consideration less the amount of the Total Consideration payable with respect to Series C Preferred Stock"
+     },
+     "match": "exceed the Total Consideration"
+    }
+   ]
+  }
+ },
+ "stage1_gold_span_recall": {
+  "hit": 244,
+  "total": 254,
+  "recall": 0.961,
+  "missed_by_concept": {
+   "financing.structure": 8,
+   "indemn.cap": 2
+  }
+ }
+}

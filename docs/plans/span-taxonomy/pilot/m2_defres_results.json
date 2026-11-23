@@ -1,0 +1,401 @@
+{
+ "agreements": 50,
+ "concepts": [
+  "ma.termination.fee.target",
+  "ma.termination.fee.reverse",
+  "ma.indemn.cap",
+  "ma.mae.definition"
+ ],
+ "gold": "fresh Opus gold under schema v2.3, adjudicated against both arms",
+ "candidates_v4": {
+  "median_chars": 92122.5,
+  "median_share_of_text": 0.331,
+  "median_resolved_sections": 4.5
+ },
+ "arms": {
+  "v3_candidates": {
+   "arm": "sonnet_v3",
+   "gold": "gold",
+   "split": "holdout",
+   "agreements": 50,
+   "quote_validity": 1.0,
+   "quotes": 1478,
+   "detection": {
+    "termination.fee.target": {
+     "tp": 26,
+     "fp": 0,
+     "fn": 0,
+     "tn": 24,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "termination.fee.reverse": {
+     "tp": 13,
+     "fp": 0,
+     "fn": 1,
+     "tn": 36,
+     "precision": 1.0,
+     "recall": 0.929
+    },
+    "indemn.cap": {
+     "tp": 23,
+     "fp": 1,
+     "fn": 0,
+     "tn": 26,
+     "precision": 0.958,
+     "recall": 1.0
+    },
+    "mae.definition": {
+     "tp": 49,
+     "fp": 0,
+     "fn": 1,
+     "tn": 0,
+     "precision": 1.0,
+     "recall": 0.98
+    }
+   },
+   "spans": {
+    "indemn.cap": {
+     "recall": 0.679,
+     "precision": 0.955,
+     "gold": 140,
+     "pred": 88
+    },
+    "mae.definition": {
+     "recall": 0.73,
+     "precision": 0.901,
+     "gold": 141,
+     "pred": 81
+    },
+    "termination.fee.target": {
+     "recall": 0.681,
+     "precision": 0.907,
+     "gold": 279,
+     "pred": 183
+    },
+    "termination.fee.reverse": {
+     "recall": 0.695,
+     "precision": 0.922,
+     "gold": 105,
+     "pred": 77
+    }
+   },
+   "fields": {
+    "indemn.cap.cap_amounts": [
+     16,
+     23
+    ],
+    "indemn.cap.escrow_sole_recourse": [
+     20,
+     23
+    ],
+    "mae.definition.ability_to_consummate": [
+     44,
+     49
+    ],
+    "mae.definition.carveout_categories": [
+     34,
+     49
+    ],
+    "mae.definition.disproportionate_exception": [
+     47,
+     49
+    ],
+    "mae.definition.n_definitions": [
+     45,
+     49
+    ],
+    "mae.definition.prospects": [
+     44,
+     49
+    ],
+    "termination.fee.reverse.amounts": [
+     12,
+     13
+    ],
+    "termination.fee.reverse.kind": [
+     13,
+     13
+    ],
+    "termination.fee.reverse.payor_side": [
+     13,
+     13
+    ],
+    "termination.fee.reverse.remedy": [
+     13,
+     13
+    ],
+    "termination.fee.reverse.triggers": [
+     9,
+     13
+    ],
+    "termination.fee.target.amounts": [
+     26,
+     26
+    ],
+    "termination.fee.target.payor_side": [
+     26,
+     26
+    ],
+    "termination.fee.target.remedy": [
+     26,
+     26
+    ],
+    "termination.fee.target.triggers": [
+     14,
+     26
+    ]
+   },
+   "set_field_f1": {
+    "indemn.cap.cap_amounts": 0.857,
+    "mae.definition.carveout_categories": 0.951,
+    "termination.fee.reverse.amounts": 0.929,
+    "termination.fee.reverse.payor_side": 1.0,
+    "termination.fee.reverse.triggers": 0.853,
+    "termination.fee.target.amounts": 1.0,
+    "termination.fee.target.payor_side": 1.0,
+    "termination.fee.target.triggers": 0.924
+   },
+   "detection_before_adjudication": {
+    "termination.fee.target": {
+     "tp": 26,
+     "fp": 0,
+     "fn": 0,
+     "tn": 24,
+     "precision": 1.0,
+     "recall": 1.0
+    },
+    "termination.fee.reverse": {
+     "tp": 13,
+     "fp": 0,
+     "fn": 1,
+     "tn": 36,
+     "precision": 1.0,
+     "recall": 0.929
+    },
+    "indemn.cap": {
+     "tp": 23,
+     "fp": 1,
+     "fn": 1,
+     "tn": 25,
+     "precision": 0.958,
+     "recall": 0.958
+    },
+    "mae.definition": {
+     "tp": 49,
+     "fp": 0,
+     "fn": 1,
+     "tn": 0,
+     "precision": 1.0,
+     "recall": 0.98
+    }
+   },
+   "verdicts": {
+    "gold_correct": 44,
+    "schema_ambiguous": 3,
+    "extractor_correct": 7,
+    "both_wrong": 2
+   },
+   "extractor_errors": {
+    "missed_rule": 16,
+    "retrieval_gap": 17,
+    "wrong_code": 6,
+    "wrong_value": 4,
+    "missed_in_candidates": 2,
+    "over_inclusion": 1
+   }
+  },
+  "v4_definition_resolution": {
+   "arm": "sonnet_v4",
+   "gold": "gold",
+   "split": "holdout",
+   "agreements": 50,
+   "quote_validity": 0.9938,
+   "quotes": 1607,
+   "detection": {
+    "termination.fee.target": {
+     "tp": 26,
+     "fp": 1,
+     "fn": 0,
+     "tn": 23,
+     "precision": 0.963,
+     "recall": 1.0
+    },
+    "termination.fee.reverse": {
+     "tp": 14,
+     "fp": 1,
+     "fn": 0,
+     "tn": 35,
+     "precision": 0.933,
+     "recall": 1.0
+    },
+    "indemn.cap": {
+     "tp": 23,
+     "fp": 1,
+     "fn": 0,
+     "tn": 26,
+     "precision": 0.958,
+     "recall": 1.0
+    },
+    "mae.definition": {
+     "tp": 49,
+     "fp": 0,
+     "fn": 1,
+     "tn": 0,
+     "precision": 1.0,
+     "recall": 0.98
+    }
+   },
+   "spans": {
+    "indemn.cap": {
+     "recall": 0.743,
+     "precision": 0.949,
+     "gold": 140,
+     "pred": 98
+    },
+    "mae.definition": {
+     "recall": 0.844,
+     "precision": 0.95,
+     "gold": 141,
+     "pred": 100
+    },
+    "termination.fee.target": {
+     "recall": 0.724,
+     "precision": 0.94,
+     "gold": 279,
+     "pred": 199
+    },
+    "termination.fee.reverse": {
+     "recall": 0.721,
+     "precision": 0.872,
+     "gold": 111,
+     "pred": 86
+    }
+   },
+   "fields": {
+    "indemn.cap.cap_amounts": [
+     19,
+     23
+    ],
+    "indemn.cap.escrow_sole_recourse": [
+     21,
+     23
+    ],
+    "mae.definition.ability_to_consummate": [
+     46,
+     49
+    ],
+    "mae.definition.carveout_categories": [
+     38,
+     49
+    ],
+    "mae.definition.disproportionate_exception": [
+     48,
+     49
+    ],
+    "mae.definition.n_definitions": [
+     45,
+     49
+    ],
+    "mae.definition.prospects": [
+     46,
+     49
+    ],
+    "termination.fee.reverse.amounts": [
+     13,
+     14
+    ],
+    "termination.fee.reverse.kind": [
+     13,
+     14
+    ],
+    "termination.fee.reverse.payor_side": [
+     14,
+     14
+    ],
+    "termination.fee.reverse.remedy": [
+     14,
+     14
+    ],
+    "termination.fee.reverse.triggers": [
+     12,
+     14
+    ],
+    "termination.fee.target.amounts": [
+     26,
+     26
+    ],
+    "termination.fee.target.payor_side": [
+     26,
+     26
+    ],
+    "termination.fee.target.remedy": [
+     26,
+     26
+    ],
+    "termination.fee.target.triggers": [
+     20,
+     26
+    ]
+   },
+   "set_field_f1": {
+    "indemn.cap.cap_amounts": 0.923,
+    "mae.definition.carveout_categories": 0.972,
+    "termination.fee.reverse.amounts": 0.933,
+    "termination.fee.reverse.payor_side": 1.0,
+    "termination.fee.reverse.triggers": 0.93,
+    "termination.fee.target.amounts": 1.0,
+    "termination.fee.target.payor_side": 1.0,
+    "termination.fee.target.triggers": 0.959
+   },
+   "detection_before_adjudication": {
+    "termination.fee.target": {
+     "tp": 26,
+     "fp": 1,
+     "fn": 0,
+     "tn": 23,
+     "precision": 0.963,
+     "recall": 1.0
+    },
+    "termination.fee.reverse": {
+     "tp": 14,
+     "fp": 1,
+     "fn": 0,
+     "tn": 35,
+     "precision": 0.933,
+     "recall": 1.0
+    },
+    "indemn.cap": {
+     "tp": 23,
+     "fp": 1,
+     "fn": 1,
+     "tn": 25,
+     "precision": 0.958,
+     "recall": 0.958
+    },
+    "mae.definition": {
+     "tp": 49,
+     "fp": 0,
+     "fn": 1,
+     "tn": 0,
+     "precision": 1.0,
+     "recall": 0.98
+    }
+   },
+   "verdicts": {
+    "gold_correct": 27,
+    "schema_ambiguous": 4,
+    "both_wrong": 2,
+    "extractor_correct": 4
+   },
+   "extractor_errors": {
+    "missed_rule": 14,
+    "wrong_code": 5,
+    "wrong_value": 2,
+    "over_inclusion": 4,
+    "retrieval_gap": 3,
+    "missed_in_candidates": 1
+   }
+  }
+ }
+}

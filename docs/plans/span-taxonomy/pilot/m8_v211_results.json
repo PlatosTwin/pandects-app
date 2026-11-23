@@ -1,0 +1,2343 @@
+{
+ "what": "Schema v2.11 (plan section 7.21): rulings on the M8 schema-ambiguous items, two post-checks (v2.11 rules 8 and 9), years counted as months in score_v2, and M7 and M8 re-scored. Not blind: the rulings and checks were written after seeing M8.",
+ "gold_changes_m8": [
+  {
+   "agreement": "dff2b928",
+   "concept": "tax.election.338h10",
+   "rule": "v2.11 rule 1",
+   "change": "absent -> present (the agreement assigns the tax cost of any 338 deemed sale to the buyer)"
+  },
+  {
+   "agreement": "0d53ab07",
+   "concept": "ma.mae.definition",
+   "rule": "v2.11 rule 5",
+   "change": "removed `other` from the force-majeure catch-all carve-out, both definitions"
+  },
+  {
+   "agreement": "c1f822d9",
+   "concept": "tax.election.338h10",
+   "rule": "v2.11 rule 7",
+   "change": "decides joint -> mandatory_joint"
+  },
+  {
+   "agreement": "a1c23200",
+   "concept": "ma.termination.fee.target",
+   "rule": "v2.11 rule 8",
+   "change": "added breach_no_tail (material breach of the Section 5.3 meeting covenant)"
+  },
+  {
+   "agreement": "fa1ab1ce",
+   "concept": "ma.termination.fee.target",
+   "rule": "v2.11 rule 8",
+   "change": "added breach_no_tail (Sections 7.06 and 7.07 are the members' and shareholders' meetings)"
+  },
+  {
+   "agreement": "ff72f700",
+   "concept": "ma.termination.fee.target",
+   "rule": "v2.11 rule 8",
+   "change": "added breach_no_tail (Section 6.02 is the stockholder meeting covenant)"
+  }
+ ],
+ "gold_kept_by_ruling": {
+  "8183fd32": "v2.11 rule 2 (undefined MAC used as a closing condition is present)",
+  "c71fddde": "v2.11 rules 3 and 4 (gold already had the operating company target_side and political conditions coded)",
+  "e3d6f6e3": "v2.11 rule 10 (.3M is a fee amount)",
+  "e2b03c9a": "v2.11 rule 1 (a representation about past 336(e) elections is absent)",
+  "b3a5a4ed": "v2.11 rule 6 (gold already fixed in 7.20)"
+ },
+ "gold_changes_m7": "none: no M7 disagreement falls under the v2.11 rulings",
+ "postcheck_fires": {
+  "m8holdout:sonnet": {
+   "v2.11 rule 8": [
+    "0522c1f4 (other -> breach_no_tail, plus breach_of_no_shop)",
+    "596a45c3",
+    "bd6b9a5b",
+    "a1c23200",
+    "fa1ab1ce",
+    "ff72f700"
+   ],
+   "v2.11 rule 9": [
+    "036d5ac2",
+    "46a949a7"
+   ]
+  },
+  "m3holdout:sonnet": {
+   "v2.11 rule 8": [
+    "8588a483 (Section 5.2 Company Stockholders' Meeting)",
+    "8c9ecefd (Section 5.4 Stockholders Meeting)"
+   ],
+   "note": "M3 gold predates the rule and codes only breach_of_no_shop; M3 is not re-scored"
+  },
+  "m4holdout, m5holdout, m6holdout, m7holdout (both runs)": "none",
+  "m8_trigger_sets_after": "7 of the 8 M8 agreements the checks touched now match gold's target-fee triggers exactly; fa1ab1ce still lacks recommendation_failure, an error the checks do not address"
+ },
+ "scorer_change": "score_v2.duration counts years as months; it changes one record (M8 1c996793 survival, 1 year against 12 months). M7 scores are unchanged.",
+ "m8_us_47": {
+  "before": {
+   "holdouts": [
+    "m8holdout:sonnet_pc_v210:gold_pre_v211:holdout"
+   ],
+   "agreements": 47,
+   "detection": {
+    "termination.fee.target": {
+     "tp": 22,
+     "fp": 0,
+     "fn": 0,
+     "tn": 25,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "termination.fee.reverse": {
+     "tp": 12,
+     "fp": 0,
+     "fn": 0,
+     "tn": 35,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "termination.expense_reimbursement": {
+     "tp": 10,
+     "fp": 1,
+     "fn": 0,
+     "tn": 36,
+     "precision": 0.909,
+     "recall": 1.0,
+     "fp_per_agreement": 0.021,
+     "meets_bar": false
+    },
+    "termination.outside_date": {
+     "tp": 46,
+     "fp": 0,
+     "fn": 0,
+     "tn": 1,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "mae.definition": {
+     "tp": 46,
+     "fp": 0,
+     "fn": 1,
+     "tn": 0,
+     "precision": 1.0,
+     "recall": 0.979,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "financing.structure": {
+     "tp": 37,
+     "fp": 0,
+     "fn": 0,
+     "tn": 10,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "indemn.cap": {
+     "tp": 17,
+     "fp": 0,
+     "fn": 0,
+     "tn": 30,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "indemn.basket": {
+     "tp": 17,
+     "fp": 0,
+     "fn": 0,
+     "tn": 30,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "indemn.survival": {
+     "tp": 47,
+     "fp": 0,
+     "fn": 0,
+     "tn": 0,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "election.338h10": {
+     "tp": 7,
+     "fp": 2,
+     "fn": 0,
+     "tn": 38,
+     "precision": 0.778,
+     "recall": 1.0,
+     "fp_per_agreement": 0.043,
+     "meets_bar": false
+    }
+   },
+   "fields": {
+    "election.338h10.decides": {
+     "right": 6,
+     "n": 7,
+     "accuracy": 0.857,
+     "lower95": 0.479,
+     "meets_bar": false
+    },
+    "election.338h10.election": {
+     "right": 7,
+     "n": 7,
+     "accuracy": 1.0,
+     "lower95": 0.652,
+     "meets_bar": true
+    },
+    "election.338h10.tax_cost_payer": {
+     "right": 7,
+     "n": 7,
+     "accuracy": 1.0,
+     "lower95": 0.652,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "financing.structure.committed": {
+     "right": 34,
+     "n": 37,
+     "accuracy": 0.919,
+     "lower95": 0.804,
+     "set_f1": 0.975,
+     "meets_bar": true
+    },
+    "financing.structure.cooperation": {
+     "right": 36,
+     "n": 37,
+     "accuracy": 0.973,
+     "lower95": 0.878,
+     "meets_bar": true
+    },
+    "financing.structure.efforts": {
+     "right": 36,
+     "n": 37,
+     "accuracy": 0.973,
+     "lower95": 0.878,
+     "meets_bar": true
+    },
+    "financing.structure.financing_condition": {
+     "right": 37,
+     "n": 37,
+     "accuracy": 1.0,
+     "lower95": 0.922,
+     "meets_bar": true
+    },
+    "financing.structure.marketing_period": {
+     "right": 36,
+     "n": 37,
+     "accuracy": 0.973,
+     "lower95": 0.878,
+     "meets_bar": true
+    },
+    "indemn.basket.baskets": {
+     "right": 17,
+     "n": 17,
+     "accuracy": 1.0,
+     "lower95": 0.838,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "indemn.basket.de_minimis": {
+     "right": 17,
+     "n": 17,
+     "accuracy": 1.0,
+     "lower95": 0.838,
+     "meets_bar": true
+    },
+    "indemn.cap.cap_amounts": {
+     "right": 14,
+     "n": 17,
+     "accuracy": 0.824,
+     "lower95": 0.604,
+     "set_f1": 0.941,
+     "meets_bar": false
+    },
+    "indemn.cap.escrow_sole_recourse": {
+     "right": 17,
+     "n": 17,
+     "accuracy": 1.0,
+     "lower95": 0.838,
+     "meets_bar": true
+    },
+    "indemn.survival.fundamental_reps": {
+     "right": 47,
+     "n": 47,
+     "accuracy": 1.0,
+     "lower95": 0.938,
+     "meets_bar": true
+    },
+    "indemn.survival.general_reps": {
+     "right": 47,
+     "n": 47,
+     "accuracy": 1.0,
+     "lower95": 0.938,
+     "meets_bar": true
+    },
+    "indemn.survival.no_survival": {
+     "right": 47,
+     "n": 47,
+     "accuracy": 1.0,
+     "lower95": 0.938,
+     "meets_bar": true
+    },
+    "mae.definition.ability_to_consummate": {
+     "right": 45,
+     "n": 46,
+     "accuracy": 0.978,
+     "lower95": 0.901,
+     "meets_bar": true
+    },
+    "mae.definition.carveout_categories": {
+     "right": 37,
+     "n": 46,
+     "accuracy": 0.804,
+     "lower95": 0.683,
+     "set_f1": 0.978,
+     "meets_bar": true
+    },
+    "mae.definition.disproportionate_exception": {
+     "right": 46,
+     "n": 46,
+     "accuracy": 1.0,
+     "lower95": 0.937,
+     "meets_bar": true
+    },
+    "mae.definition.n_definitions": {
+     "right": 46,
+     "n": 46,
+     "accuracy": 1.0,
+     "lower95": 0.937,
+     "meets_bar": true
+    },
+    "mae.definition.prospects": {
+     "right": 45,
+     "n": 46,
+     "accuracy": 0.978,
+     "lower95": 0.901,
+     "meets_bar": true
+    },
+    "termination.expense_reimbursement.cap": {
+     "right": 10,
+     "n": 10,
+     "accuracy": 1.0,
+     "lower95": 0.741,
+     "meets_bar": true
+    },
+    "termination.expense_reimbursement.payor_side": {
+     "right": 10,
+     "n": 10,
+     "accuracy": 1.0,
+     "lower95": 0.741,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "termination.fee.reverse.amounts": {
+     "right": 11,
+     "n": 12,
+     "accuracy": 0.917,
+     "lower95": 0.661,
+     "set_f1": 0.96,
+     "meets_bar": false
+    },
+    "termination.fee.reverse.kind": {
+     "right": 11,
+     "n": 12,
+     "accuracy": 0.917,
+     "lower95": 0.661,
+     "meets_bar": false
+    },
+    "termination.fee.reverse.payor_side": {
+     "right": 12,
+     "n": 12,
+     "accuracy": 1.0,
+     "lower95": 0.779,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "termination.fee.reverse.remedy": {
+     "right": 11,
+     "n": 12,
+     "accuracy": 0.917,
+     "lower95": 0.661,
+     "meets_bar": false
+    },
+    "termination.fee.reverse.triggers": {
+     "right": 11,
+     "n": 12,
+     "accuracy": 0.917,
+     "lower95": 0.661,
+     "set_f1": 0.984,
+     "meets_bar": true
+    },
+    "termination.fee.target.amounts": {
+     "right": 21,
+     "n": 22,
+     "accuracy": 0.955,
+     "lower95": 0.802,
+     "set_f1": 0.98,
+     "meets_bar": true
+    },
+    "termination.fee.target.payor_side": {
+     "right": 22,
+     "n": 22,
+     "accuracy": 1.0,
+     "lower95": 0.873,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "termination.fee.target.remedy": {
+     "right": 21,
+     "n": 22,
+     "accuracy": 0.955,
+     "lower95": 0.802,
+     "meets_bar": false
+    },
+    "termination.fee.target.triggers": {
+     "right": 15,
+     "n": 22,
+     "accuracy": 0.682,
+     "lower95": 0.485,
+     "set_f1": 0.961,
+     "meets_bar": false
+    },
+    "termination.outside_date.breach_causation": {
+     "right": 46,
+     "n": 46,
+     "accuracy": 1.0,
+     "lower95": 0.937,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "termination.outside_date.effect": {
+     "right": 46,
+     "n": 46,
+     "accuracy": 1.0,
+     "lower95": 0.937,
+     "meets_bar": true
+    },
+    "termination.outside_date.extension_conditions": {
+     "right": 44,
+     "n": 46,
+     "accuracy": 0.957,
+     "lower95": 0.869,
+     "set_f1": 0.878,
+     "meets_bar": false
+    },
+    "termination.outside_date.initial": {
+     "right": 46,
+     "n": 46,
+     "accuracy": 1.0,
+     "lower95": 0.937,
+     "meets_bar": true
+    },
+    "termination.outside_date.n_extensions": {
+     "right": 44,
+     "n": 46,
+     "accuracy": 0.957,
+     "lower95": 0.869,
+     "meets_bar": false
+    }
+   }
+  },
+  "after": {
+   "holdouts": [
+    "m8holdout:sonnet_pc:gold:holdout"
+   ],
+   "agreements": 47,
+   "detection": {
+    "termination.fee.target": {
+     "tp": 22,
+     "fp": 0,
+     "fn": 0,
+     "tn": 25,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "termination.fee.reverse": {
+     "tp": 12,
+     "fp": 0,
+     "fn": 0,
+     "tn": 35,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "termination.expense_reimbursement": {
+     "tp": 10,
+     "fp": 1,
+     "fn": 0,
+     "tn": 36,
+     "precision": 0.909,
+     "recall": 1.0,
+     "fp_per_agreement": 0.021,
+     "meets_bar": false
+    },
+    "termination.outside_date": {
+     "tp": 46,
+     "fp": 0,
+     "fn": 0,
+     "tn": 1,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "mae.definition": {
+     "tp": 46,
+     "fp": 0,
+     "fn": 1,
+     "tn": 0,
+     "precision": 1.0,
+     "recall": 0.979,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "financing.structure": {
+     "tp": 37,
+     "fp": 0,
+     "fn": 0,
+     "tn": 10,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "indemn.cap": {
+     "tp": 17,
+     "fp": 0,
+     "fn": 0,
+     "tn": 30,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "indemn.basket": {
+     "tp": 17,
+     "fp": 0,
+     "fn": 0,
+     "tn": 30,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "indemn.survival": {
+     "tp": 47,
+     "fp": 0,
+     "fn": 0,
+     "tn": 0,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "election.338h10": {
+     "tp": 8,
+     "fp": 1,
+     "fn": 0,
+     "tn": 38,
+     "precision": 0.889,
+     "recall": 1.0,
+     "fp_per_agreement": 0.021,
+     "meets_bar": false
+    }
+   },
+   "fields": {
+    "election.338h10.decides": {
+     "right": 8,
+     "n": 8,
+     "accuracy": 1.0,
+     "lower95": 0.688,
+     "meets_bar": true
+    },
+    "election.338h10.election": {
+     "right": 8,
+     "n": 8,
+     "accuracy": 1.0,
+     "lower95": 0.688,
+     "meets_bar": true
+    },
+    "election.338h10.tax_cost_payer": {
+     "right": 8,
+     "n": 8,
+     "accuracy": 1.0,
+     "lower95": 0.688,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "financing.structure.committed": {
+     "right": 34,
+     "n": 37,
+     "accuracy": 0.919,
+     "lower95": 0.804,
+     "set_f1": 0.975,
+     "meets_bar": true
+    },
+    "financing.structure.cooperation": {
+     "right": 36,
+     "n": 37,
+     "accuracy": 0.973,
+     "lower95": 0.878,
+     "meets_bar": true
+    },
+    "financing.structure.efforts": {
+     "right": 36,
+     "n": 37,
+     "accuracy": 0.973,
+     "lower95": 0.878,
+     "meets_bar": true
+    },
+    "financing.structure.financing_condition": {
+     "right": 37,
+     "n": 37,
+     "accuracy": 1.0,
+     "lower95": 0.922,
+     "meets_bar": true
+    },
+    "financing.structure.marketing_period": {
+     "right": 36,
+     "n": 37,
+     "accuracy": 0.973,
+     "lower95": 0.878,
+     "meets_bar": true
+    },
+    "indemn.basket.baskets": {
+     "right": 17,
+     "n": 17,
+     "accuracy": 1.0,
+     "lower95": 0.838,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "indemn.basket.de_minimis": {
+     "right": 17,
+     "n": 17,
+     "accuracy": 1.0,
+     "lower95": 0.838,
+     "meets_bar": true
+    },
+    "indemn.cap.cap_amounts": {
+     "right": 14,
+     "n": 17,
+     "accuracy": 0.824,
+     "lower95": 0.604,
+     "set_f1": 0.941,
+     "meets_bar": false
+    },
+    "indemn.cap.escrow_sole_recourse": {
+     "right": 17,
+     "n": 17,
+     "accuracy": 1.0,
+     "lower95": 0.838,
+     "meets_bar": true
+    },
+    "indemn.survival.fundamental_reps": {
+     "right": 47,
+     "n": 47,
+     "accuracy": 1.0,
+     "lower95": 0.938,
+     "meets_bar": true
+    },
+    "indemn.survival.general_reps": {
+     "right": 47,
+     "n": 47,
+     "accuracy": 1.0,
+     "lower95": 0.938,
+     "meets_bar": true
+    },
+    "indemn.survival.no_survival": {
+     "right": 47,
+     "n": 47,
+     "accuracy": 1.0,
+     "lower95": 0.938,
+     "meets_bar": true
+    },
+    "mae.definition.ability_to_consummate": {
+     "right": 45,
+     "n": 46,
+     "accuracy": 0.978,
+     "lower95": 0.901,
+     "meets_bar": true
+    },
+    "mae.definition.carveout_categories": {
+     "right": 38,
+     "n": 46,
+     "accuracy": 0.826,
+     "lower95": 0.708,
+     "set_f1": 0.979,
+     "meets_bar": true
+    },
+    "mae.definition.disproportionate_exception": {
+     "right": 46,
+     "n": 46,
+     "accuracy": 1.0,
+     "lower95": 0.937,
+     "meets_bar": true
+    },
+    "mae.definition.n_definitions": {
+     "right": 46,
+     "n": 46,
+     "accuracy": 1.0,
+     "lower95": 0.937,
+     "meets_bar": true
+    },
+    "mae.definition.prospects": {
+     "right": 45,
+     "n": 46,
+     "accuracy": 0.978,
+     "lower95": 0.901,
+     "meets_bar": true
+    },
+    "termination.expense_reimbursement.cap": {
+     "right": 10,
+     "n": 10,
+     "accuracy": 1.0,
+     "lower95": 0.741,
+     "meets_bar": true
+    },
+    "termination.expense_reimbursement.payor_side": {
+     "right": 10,
+     "n": 10,
+     "accuracy": 1.0,
+     "lower95": 0.741,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "termination.fee.reverse.amounts": {
+     "right": 11,
+     "n": 12,
+     "accuracy": 0.917,
+     "lower95": 0.661,
+     "set_f1": 0.96,
+     "meets_bar": false
+    },
+    "termination.fee.reverse.kind": {
+     "right": 11,
+     "n": 12,
+     "accuracy": 0.917,
+     "lower95": 0.661,
+     "meets_bar": false
+    },
+    "termination.fee.reverse.payor_side": {
+     "right": 12,
+     "n": 12,
+     "accuracy": 1.0,
+     "lower95": 0.779,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "termination.fee.reverse.remedy": {
+     "right": 11,
+     "n": 12,
+     "accuracy": 0.917,
+     "lower95": 0.661,
+     "meets_bar": false
+    },
+    "termination.fee.reverse.triggers": {
+     "right": 11,
+     "n": 12,
+     "accuracy": 0.917,
+     "lower95": 0.661,
+     "set_f1": 0.984,
+     "meets_bar": true
+    },
+    "termination.fee.target.amounts": {
+     "right": 21,
+     "n": 22,
+     "accuracy": 0.955,
+     "lower95": 0.802,
+     "set_f1": 0.98,
+     "meets_bar": true
+    },
+    "termination.fee.target.payor_side": {
+     "right": 22,
+     "n": 22,
+     "accuracy": 1.0,
+     "lower95": 0.873,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "termination.fee.target.remedy": {
+     "right": 21,
+     "n": 22,
+     "accuracy": 0.955,
+     "lower95": 0.802,
+     "meets_bar": false
+    },
+    "termination.fee.target.triggers": {
+     "right": 20,
+     "n": 22,
+     "accuracy": 0.909,
+     "lower95": 0.741,
+     "set_f1": 0.992,
+     "meets_bar": true
+    },
+    "termination.outside_date.breach_causation": {
+     "right": 46,
+     "n": 46,
+     "accuracy": 1.0,
+     "lower95": 0.937,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "termination.outside_date.effect": {
+     "right": 46,
+     "n": 46,
+     "accuracy": 1.0,
+     "lower95": 0.937,
+     "meets_bar": true
+    },
+    "termination.outside_date.extension_conditions": {
+     "right": 44,
+     "n": 46,
+     "accuracy": 0.957,
+     "lower95": 0.869,
+     "set_f1": 0.878,
+     "meets_bar": false
+    },
+    "termination.outside_date.initial": {
+     "right": 46,
+     "n": 46,
+     "accuracy": 1.0,
+     "lower95": 0.937,
+     "meets_bar": true
+    },
+    "termination.outside_date.n_extensions": {
+     "right": 44,
+     "n": 46,
+     "accuracy": 0.957,
+     "lower95": 0.869,
+     "meets_bar": false
+    }
+   }
+  }
+ },
+ "pooled_us_97": {
+  "holdouts": [
+   "m7holdout:sonnet_r2_pc:gold",
+   "m8holdout:sonnet_pc:gold:holdout"
+  ],
+  "before": {
+   "holdouts": [
+    "m7holdout:sonnet_r2_pc:gold",
+    "m8holdout:sonnet_pc_v210:gold_pre_v211:holdout"
+   ],
+   "agreements": 97,
+   "detection": {
+    "termination.fee.target": {
+     "tp": 47,
+     "fp": 0,
+     "fn": 0,
+     "tn": 50,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "termination.fee.reverse": {
+     "tp": 28,
+     "fp": 0,
+     "fn": 0,
+     "tn": 69,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "termination.expense_reimbursement": {
+     "tp": 18,
+     "fp": 1,
+     "fn": 0,
+     "tn": 78,
+     "precision": 0.947,
+     "recall": 1.0,
+     "fp_per_agreement": 0.01,
+     "meets_bar": false
+    },
+    "termination.outside_date": {
+     "tp": 95,
+     "fp": 0,
+     "fn": 0,
+     "tn": 2,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "mae.definition": {
+     "tp": 96,
+     "fp": 0,
+     "fn": 1,
+     "tn": 0,
+     "precision": 1.0,
+     "recall": 0.99,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "financing.structure": {
+     "tp": 73,
+     "fp": 1,
+     "fn": 1,
+     "tn": 22,
+     "precision": 0.986,
+     "recall": 0.986,
+     "fp_per_agreement": 0.01,
+     "meets_bar": true
+    },
+    "indemn.cap": {
+     "tp": 36,
+     "fp": 0,
+     "fn": 0,
+     "tn": 61,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "indemn.basket": {
+     "tp": 35,
+     "fp": 0,
+     "fn": 0,
+     "tn": 62,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "indemn.survival": {
+     "tp": 97,
+     "fp": 0,
+     "fn": 0,
+     "tn": 0,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "election.338h10": {
+     "tp": 10,
+     "fp": 2,
+     "fn": 0,
+     "tn": 85,
+     "precision": 0.833,
+     "recall": 1.0,
+     "fp_per_agreement": 0.021,
+     "meets_bar": false
+    }
+   },
+   "fields": {
+    "election.338h10.decides": {
+     "right": 9,
+     "n": 10,
+     "accuracy": 0.9,
+     "lower95": 0.606,
+     "meets_bar": false
+    },
+    "election.338h10.election": {
+     "right": 10,
+     "n": 10,
+     "accuracy": 1.0,
+     "lower95": 0.741,
+     "meets_bar": true
+    },
+    "election.338h10.tax_cost_payer": {
+     "right": 10,
+     "n": 10,
+     "accuracy": 1.0,
+     "lower95": 0.741,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "financing.structure.committed": {
+     "right": 68,
+     "n": 73,
+     "accuracy": 0.932,
+     "lower95": 0.861,
+     "set_f1": 0.979,
+     "meets_bar": true
+    },
+    "financing.structure.cooperation": {
+     "right": 71,
+     "n": 73,
+     "accuracy": 0.973,
+     "lower95": 0.916,
+     "meets_bar": true
+    },
+    "financing.structure.efforts": {
+     "right": 71,
+     "n": 73,
+     "accuracy": 0.973,
+     "lower95": 0.916,
+     "meets_bar": true
+    },
+    "financing.structure.financing_condition": {
+     "right": 71,
+     "n": 73,
+     "accuracy": 0.973,
+     "lower95": 0.916,
+     "meets_bar": true
+    },
+    "financing.structure.marketing_period": {
+     "right": 72,
+     "n": 73,
+     "accuracy": 0.986,
+     "lower95": 0.937,
+     "meets_bar": true
+    },
+    "indemn.basket.baskets": {
+     "right": 35,
+     "n": 35,
+     "accuracy": 1.0,
+     "lower95": 0.918,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "indemn.basket.de_minimis": {
+     "right": 35,
+     "n": 35,
+     "accuracy": 1.0,
+     "lower95": 0.918,
+     "meets_bar": true
+    },
+    "indemn.cap.cap_amounts": {
+     "right": 33,
+     "n": 36,
+     "accuracy": 0.917,
+     "lower95": 0.798,
+     "set_f1": 0.968,
+     "meets_bar": false
+    },
+    "indemn.cap.escrow_sole_recourse": {
+     "right": 36,
+     "n": 36,
+     "accuracy": 1.0,
+     "lower95": 0.92,
+     "meets_bar": true
+    },
+    "indemn.survival.fundamental_reps": {
+     "right": 95,
+     "n": 97,
+     "accuracy": 0.979,
+     "lower95": 0.937,
+     "meets_bar": true
+    },
+    "indemn.survival.general_reps": {
+     "right": 97,
+     "n": 97,
+     "accuracy": 1.0,
+     "lower95": 0.97,
+     "meets_bar": true
+    },
+    "indemn.survival.no_survival": {
+     "right": 97,
+     "n": 97,
+     "accuracy": 1.0,
+     "lower95": 0.97,
+     "meets_bar": true
+    },
+    "mae.definition.ability_to_consummate": {
+     "right": 95,
+     "n": 96,
+     "accuracy": 0.99,
+     "lower95": 0.952,
+     "meets_bar": true
+    },
+    "mae.definition.carveout_categories": {
+     "right": 82,
+     "n": 96,
+     "accuracy": 0.854,
+     "lower95": 0.781,
+     "set_f1": 0.986,
+     "meets_bar": true
+    },
+    "mae.definition.disproportionate_exception": {
+     "right": 96,
+     "n": 96,
+     "accuracy": 1.0,
+     "lower95": 0.969,
+     "meets_bar": true
+    },
+    "mae.definition.n_definitions": {
+     "right": 95,
+     "n": 96,
+     "accuracy": 0.99,
+     "lower95": 0.952,
+     "meets_bar": true
+    },
+    "mae.definition.prospects": {
+     "right": 95,
+     "n": 96,
+     "accuracy": 0.99,
+     "lower95": 0.952,
+     "meets_bar": true
+    },
+    "termination.expense_reimbursement.cap": {
+     "right": 18,
+     "n": 18,
+     "accuracy": 1.0,
+     "lower95": 0.847,
+     "meets_bar": true
+    },
+    "termination.expense_reimbursement.payor_side": {
+     "right": 18,
+     "n": 18,
+     "accuracy": 1.0,
+     "lower95": 0.847,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "termination.fee.reverse.amounts": {
+     "right": 27,
+     "n": 28,
+     "accuracy": 0.964,
+     "lower95": 0.841,
+     "set_f1": 0.985,
+     "meets_bar": true
+    },
+    "termination.fee.reverse.kind": {
+     "right": 27,
+     "n": 28,
+     "accuracy": 0.964,
+     "lower95": 0.841,
+     "meets_bar": false
+    },
+    "termination.fee.reverse.payor_side": {
+     "right": 28,
+     "n": 28,
+     "accuracy": 1.0,
+     "lower95": 0.899,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "termination.fee.reverse.remedy": {
+     "right": 27,
+     "n": 28,
+     "accuracy": 0.964,
+     "lower95": 0.841,
+     "meets_bar": false
+    },
+    "termination.fee.reverse.triggers": {
+     "right": 25,
+     "n": 28,
+     "accuracy": 0.893,
+     "lower95": 0.746,
+     "set_f1": 0.973,
+     "meets_bar": true
+    },
+    "termination.fee.target.amounts": {
+     "right": 46,
+     "n": 47,
+     "accuracy": 0.979,
+     "lower95": 0.903,
+     "set_f1": 0.99,
+     "meets_bar": true
+    },
+    "termination.fee.target.payor_side": {
+     "right": 47,
+     "n": 47,
+     "accuracy": 1.0,
+     "lower95": 0.938,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "termination.fee.target.remedy": {
+     "right": 46,
+     "n": 47,
+     "accuracy": 0.979,
+     "lower95": 0.903,
+     "meets_bar": true
+    },
+    "termination.fee.target.triggers": {
+     "right": 33,
+     "n": 47,
+     "accuracy": 0.702,
+     "lower95": 0.574,
+     "set_f1": 0.969,
+     "meets_bar": false
+    },
+    "termination.outside_date.breach_causation": {
+     "right": 92,
+     "n": 95,
+     "accuracy": 0.968,
+     "lower95": 0.92,
+     "set_f1": 0.994,
+     "meets_bar": true
+    },
+    "termination.outside_date.effect": {
+     "right": 95,
+     "n": 95,
+     "accuracy": 1.0,
+     "lower95": 0.969,
+     "meets_bar": true
+    },
+    "termination.outside_date.extension_conditions": {
+     "right": 92,
+     "n": 95,
+     "accuracy": 0.968,
+     "lower95": 0.92,
+     "set_f1": 0.923,
+     "meets_bar": false
+    },
+    "termination.outside_date.initial": {
+     "right": 94,
+     "n": 95,
+     "accuracy": 0.989,
+     "lower95": 0.951,
+     "meets_bar": true
+    },
+    "termination.outside_date.n_extensions": {
+     "right": 91,
+     "n": 95,
+     "accuracy": 0.958,
+     "lower95": 0.906,
+     "meets_bar": false
+    }
+   }
+  },
+  "after": {
+   "holdouts": [
+    "m7holdout:sonnet_r2_pc:gold",
+    "m8holdout:sonnet_pc:gold:holdout"
+   ],
+   "agreements": 97,
+   "detection": {
+    "termination.fee.target": {
+     "tp": 47,
+     "fp": 0,
+     "fn": 0,
+     "tn": 50,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "termination.fee.reverse": {
+     "tp": 28,
+     "fp": 0,
+     "fn": 0,
+     "tn": 69,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "termination.expense_reimbursement": {
+     "tp": 18,
+     "fp": 1,
+     "fn": 0,
+     "tn": 78,
+     "precision": 0.947,
+     "recall": 1.0,
+     "fp_per_agreement": 0.01,
+     "meets_bar": false
+    },
+    "termination.outside_date": {
+     "tp": 95,
+     "fp": 0,
+     "fn": 0,
+     "tn": 2,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "mae.definition": {
+     "tp": 96,
+     "fp": 0,
+     "fn": 1,
+     "tn": 0,
+     "precision": 1.0,
+     "recall": 0.99,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "financing.structure": {
+     "tp": 73,
+     "fp": 1,
+     "fn": 1,
+     "tn": 22,
+     "precision": 0.986,
+     "recall": 0.986,
+     "fp_per_agreement": 0.01,
+     "meets_bar": true
+    },
+    "indemn.cap": {
+     "tp": 36,
+     "fp": 0,
+     "fn": 0,
+     "tn": 61,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "indemn.basket": {
+     "tp": 35,
+     "fp": 0,
+     "fn": 0,
+     "tn": 62,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "indemn.survival": {
+     "tp": 97,
+     "fp": 0,
+     "fn": 0,
+     "tn": 0,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "election.338h10": {
+     "tp": 11,
+     "fp": 1,
+     "fn": 0,
+     "tn": 85,
+     "precision": 0.917,
+     "recall": 1.0,
+     "fp_per_agreement": 0.01,
+     "meets_bar": false
+    }
+   },
+   "fields": {
+    "election.338h10.decides": {
+     "right": 11,
+     "n": 11,
+     "accuracy": 1.0,
+     "lower95": 0.762,
+     "meets_bar": true
+    },
+    "election.338h10.election": {
+     "right": 11,
+     "n": 11,
+     "accuracy": 1.0,
+     "lower95": 0.762,
+     "meets_bar": true
+    },
+    "election.338h10.tax_cost_payer": {
+     "right": 11,
+     "n": 11,
+     "accuracy": 1.0,
+     "lower95": 0.762,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "financing.structure.committed": {
+     "right": 68,
+     "n": 73,
+     "accuracy": 0.932,
+     "lower95": 0.861,
+     "set_f1": 0.979,
+     "meets_bar": true
+    },
+    "financing.structure.cooperation": {
+     "right": 71,
+     "n": 73,
+     "accuracy": 0.973,
+     "lower95": 0.916,
+     "meets_bar": true
+    },
+    "financing.structure.efforts": {
+     "right": 71,
+     "n": 73,
+     "accuracy": 0.973,
+     "lower95": 0.916,
+     "meets_bar": true
+    },
+    "financing.structure.financing_condition": {
+     "right": 71,
+     "n": 73,
+     "accuracy": 0.973,
+     "lower95": 0.916,
+     "meets_bar": true
+    },
+    "financing.structure.marketing_period": {
+     "right": 72,
+     "n": 73,
+     "accuracy": 0.986,
+     "lower95": 0.937,
+     "meets_bar": true
+    },
+    "indemn.basket.baskets": {
+     "right": 35,
+     "n": 35,
+     "accuracy": 1.0,
+     "lower95": 0.918,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "indemn.basket.de_minimis": {
+     "right": 35,
+     "n": 35,
+     "accuracy": 1.0,
+     "lower95": 0.918,
+     "meets_bar": true
+    },
+    "indemn.cap.cap_amounts": {
+     "right": 33,
+     "n": 36,
+     "accuracy": 0.917,
+     "lower95": 0.798,
+     "set_f1": 0.968,
+     "meets_bar": false
+    },
+    "indemn.cap.escrow_sole_recourse": {
+     "right": 36,
+     "n": 36,
+     "accuracy": 1.0,
+     "lower95": 0.92,
+     "meets_bar": true
+    },
+    "indemn.survival.fundamental_reps": {
+     "right": 95,
+     "n": 97,
+     "accuracy": 0.979,
+     "lower95": 0.937,
+     "meets_bar": true
+    },
+    "indemn.survival.general_reps": {
+     "right": 97,
+     "n": 97,
+     "accuracy": 1.0,
+     "lower95": 0.97,
+     "meets_bar": true
+    },
+    "indemn.survival.no_survival": {
+     "right": 97,
+     "n": 97,
+     "accuracy": 1.0,
+     "lower95": 0.97,
+     "meets_bar": true
+    },
+    "mae.definition.ability_to_consummate": {
+     "right": 95,
+     "n": 96,
+     "accuracy": 0.99,
+     "lower95": 0.952,
+     "meets_bar": true
+    },
+    "mae.definition.carveout_categories": {
+     "right": 83,
+     "n": 96,
+     "accuracy": 0.865,
+     "lower95": 0.793,
+     "set_f1": 0.987,
+     "meets_bar": true
+    },
+    "mae.definition.disproportionate_exception": {
+     "right": 96,
+     "n": 96,
+     "accuracy": 1.0,
+     "lower95": 0.969,
+     "meets_bar": true
+    },
+    "mae.definition.n_definitions": {
+     "right": 95,
+     "n": 96,
+     "accuracy": 0.99,
+     "lower95": 0.952,
+     "meets_bar": true
+    },
+    "mae.definition.prospects": {
+     "right": 95,
+     "n": 96,
+     "accuracy": 0.99,
+     "lower95": 0.952,
+     "meets_bar": true
+    },
+    "termination.expense_reimbursement.cap": {
+     "right": 18,
+     "n": 18,
+     "accuracy": 1.0,
+     "lower95": 0.847,
+     "meets_bar": true
+    },
+    "termination.expense_reimbursement.payor_side": {
+     "right": 18,
+     "n": 18,
+     "accuracy": 1.0,
+     "lower95": 0.847,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "termination.fee.reverse.amounts": {
+     "right": 27,
+     "n": 28,
+     "accuracy": 0.964,
+     "lower95": 0.841,
+     "set_f1": 0.985,
+     "meets_bar": true
+    },
+    "termination.fee.reverse.kind": {
+     "right": 27,
+     "n": 28,
+     "accuracy": 0.964,
+     "lower95": 0.841,
+     "meets_bar": false
+    },
+    "termination.fee.reverse.payor_side": {
+     "right": 28,
+     "n": 28,
+     "accuracy": 1.0,
+     "lower95": 0.899,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "termination.fee.reverse.remedy": {
+     "right": 27,
+     "n": 28,
+     "accuracy": 0.964,
+     "lower95": 0.841,
+     "meets_bar": false
+    },
+    "termination.fee.reverse.triggers": {
+     "right": 25,
+     "n": 28,
+     "accuracy": 0.893,
+     "lower95": 0.746,
+     "set_f1": 0.973,
+     "meets_bar": true
+    },
+    "termination.fee.target.amounts": {
+     "right": 46,
+     "n": 47,
+     "accuracy": 0.979,
+     "lower95": 0.903,
+     "set_f1": 0.99,
+     "meets_bar": true
+    },
+    "termination.fee.target.payor_side": {
+     "right": 47,
+     "n": 47,
+     "accuracy": 1.0,
+     "lower95": 0.938,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "termination.fee.target.remedy": {
+     "right": 46,
+     "n": 47,
+     "accuracy": 0.979,
+     "lower95": 0.903,
+     "meets_bar": true
+    },
+    "termination.fee.target.triggers": {
+     "right": 38,
+     "n": 47,
+     "accuracy": 0.809,
+     "lower95": 0.69,
+     "set_f1": 0.983,
+     "meets_bar": true
+    },
+    "termination.outside_date.breach_causation": {
+     "right": 92,
+     "n": 95,
+     "accuracy": 0.968,
+     "lower95": 0.92,
+     "set_f1": 0.994,
+     "meets_bar": true
+    },
+    "termination.outside_date.effect": {
+     "right": 95,
+     "n": 95,
+     "accuracy": 1.0,
+     "lower95": 0.969,
+     "meets_bar": true
+    },
+    "termination.outside_date.extension_conditions": {
+     "right": 92,
+     "n": 95,
+     "accuracy": 0.968,
+     "lower95": 0.92,
+     "set_f1": 0.923,
+     "meets_bar": false
+    },
+    "termination.outside_date.initial": {
+     "right": 94,
+     "n": 95,
+     "accuracy": 0.989,
+     "lower95": 0.951,
+     "meets_bar": true
+    },
+    "termination.outside_date.n_extensions": {
+     "right": 91,
+     "n": 95,
+     "accuracy": 0.958,
+     "lower95": 0.906,
+     "meets_bar": false
+    }
+   }
+  }
+ },
+ "m7_after": {
+  "run1": {
+   "holdouts": [
+    "m7holdout:sonnet_pc:gold"
+   ],
+   "agreements": 50,
+   "detection": {
+    "termination.fee.target": {
+     "tp": 25,
+     "fp": 0,
+     "fn": 0,
+     "tn": 25,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "termination.fee.reverse": {
+     "tp": 16,
+     "fp": 0,
+     "fn": 0,
+     "tn": 34,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "termination.expense_reimbursement": {
+     "tp": 8,
+     "fp": 0,
+     "fn": 0,
+     "tn": 42,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "termination.outside_date": {
+     "tp": 49,
+     "fp": 0,
+     "fn": 0,
+     "tn": 1,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "mae.definition": {
+     "tp": 50,
+     "fp": 0,
+     "fn": 0,
+     "tn": 0,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "financing.structure": {
+     "tp": 36,
+     "fp": 1,
+     "fn": 1,
+     "tn": 12,
+     "precision": 0.973,
+     "recall": 0.973,
+     "fp_per_agreement": 0.02,
+     "meets_bar": true
+    },
+    "indemn.cap": {
+     "tp": 19,
+     "fp": 0,
+     "fn": 0,
+     "tn": 31,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "indemn.basket": {
+     "tp": 18,
+     "fp": 0,
+     "fn": 0,
+     "tn": 32,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "indemn.survival": {
+     "tp": 50,
+     "fp": 0,
+     "fn": 0,
+     "tn": 0,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "election.338h10": {
+     "tp": 3,
+     "fp": 0,
+     "fn": 0,
+     "tn": 47,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    }
+   },
+   "fields": {
+    "election.338h10.decides": {
+     "right": 3,
+     "n": 3,
+     "accuracy": 1.0,
+     "lower95": 0.368,
+     "meets_bar": true
+    },
+    "election.338h10.election": {
+     "right": 3,
+     "n": 3,
+     "accuracy": 1.0,
+     "lower95": 0.368,
+     "meets_bar": true
+    },
+    "election.338h10.tax_cost_payer": {
+     "right": 3,
+     "n": 3,
+     "accuracy": 1.0,
+     "lower95": 0.368,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "financing.structure.committed": {
+     "right": 35,
+     "n": 36,
+     "accuracy": 0.972,
+     "lower95": 0.875,
+     "set_f1": 0.992,
+     "meets_bar": true
+    },
+    "financing.structure.cooperation": {
+     "right": 35,
+     "n": 36,
+     "accuracy": 0.972,
+     "lower95": 0.875,
+     "meets_bar": true
+    },
+    "financing.structure.efforts": {
+     "right": 35,
+     "n": 36,
+     "accuracy": 0.972,
+     "lower95": 0.875,
+     "meets_bar": true
+    },
+    "financing.structure.financing_condition": {
+     "right": 35,
+     "n": 36,
+     "accuracy": 0.972,
+     "lower95": 0.875,
+     "meets_bar": true
+    },
+    "financing.structure.marketing_period": {
+     "right": 36,
+     "n": 36,
+     "accuracy": 1.0,
+     "lower95": 0.92,
+     "meets_bar": true
+    },
+    "indemn.basket.baskets": {
+     "right": 18,
+     "n": 18,
+     "accuracy": 1.0,
+     "lower95": 0.847,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "indemn.basket.de_minimis": {
+     "right": 17,
+     "n": 18,
+     "accuracy": 0.944,
+     "lower95": 0.762,
+     "meets_bar": false
+    },
+    "indemn.cap.cap_amounts": {
+     "right": 19,
+     "n": 19,
+     "accuracy": 1.0,
+     "lower95": 0.854,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "indemn.cap.escrow_sole_recourse": {
+     "right": 19,
+     "n": 19,
+     "accuracy": 1.0,
+     "lower95": 0.854,
+     "meets_bar": true
+    },
+    "indemn.survival.fundamental_reps": {
+     "right": 49,
+     "n": 50,
+     "accuracy": 0.98,
+     "lower95": 0.909,
+     "meets_bar": true
+    },
+    "indemn.survival.general_reps": {
+     "right": 50,
+     "n": 50,
+     "accuracy": 1.0,
+     "lower95": 0.942,
+     "meets_bar": true
+    },
+    "indemn.survival.no_survival": {
+     "right": 50,
+     "n": 50,
+     "accuracy": 1.0,
+     "lower95": 0.942,
+     "meets_bar": true
+    },
+    "mae.definition.ability_to_consummate": {
+     "right": 50,
+     "n": 50,
+     "accuracy": 1.0,
+     "lower95": 0.942,
+     "meets_bar": true
+    },
+    "mae.definition.carveout_categories": {
+     "right": 45,
+     "n": 50,
+     "accuracy": 0.9,
+     "lower95": 0.801,
+     "set_f1": 0.995,
+     "meets_bar": true
+    },
+    "mae.definition.disproportionate_exception": {
+     "right": 50,
+     "n": 50,
+     "accuracy": 1.0,
+     "lower95": 0.942,
+     "meets_bar": true
+    },
+    "mae.definition.n_definitions": {
+     "right": 47,
+     "n": 50,
+     "accuracy": 0.94,
+     "lower95": 0.852,
+     "meets_bar": false
+    },
+    "mae.definition.prospects": {
+     "right": 50,
+     "n": 50,
+     "accuracy": 1.0,
+     "lower95": 0.942,
+     "meets_bar": true
+    },
+    "termination.expense_reimbursement.cap": {
+     "right": 8,
+     "n": 8,
+     "accuracy": 1.0,
+     "lower95": 0.688,
+     "meets_bar": true
+    },
+    "termination.expense_reimbursement.payor_side": {
+     "right": 8,
+     "n": 8,
+     "accuracy": 1.0,
+     "lower95": 0.688,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "termination.fee.reverse.amounts": {
+     "right": 16,
+     "n": 16,
+     "accuracy": 1.0,
+     "lower95": 0.829,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "termination.fee.reverse.kind": {
+     "right": 16,
+     "n": 16,
+     "accuracy": 1.0,
+     "lower95": 0.829,
+     "meets_bar": true
+    },
+    "termination.fee.reverse.payor_side": {
+     "right": 16,
+     "n": 16,
+     "accuracy": 1.0,
+     "lower95": 0.829,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "termination.fee.reverse.remedy": {
+     "right": 16,
+     "n": 16,
+     "accuracy": 1.0,
+     "lower95": 0.829,
+     "meets_bar": true
+    },
+    "termination.fee.reverse.triggers": {
+     "right": 15,
+     "n": 16,
+     "accuracy": 0.938,
+     "lower95": 0.736,
+     "set_f1": 0.977,
+     "meets_bar": true
+    },
+    "termination.fee.target.amounts": {
+     "right": 25,
+     "n": 25,
+     "accuracy": 1.0,
+     "lower95": 0.887,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "termination.fee.target.payor_side": {
+     "right": 25,
+     "n": 25,
+     "accuracy": 1.0,
+     "lower95": 0.887,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "termination.fee.target.remedy": {
+     "right": 25,
+     "n": 25,
+     "accuracy": 1.0,
+     "lower95": 0.887,
+     "meets_bar": true
+    },
+    "termination.fee.target.triggers": {
+     "right": 22,
+     "n": 25,
+     "accuracy": 0.88,
+     "lower95": 0.718,
+     "set_f1": 0.986,
+     "meets_bar": true
+    },
+    "termination.outside_date.breach_causation": {
+     "right": 45,
+     "n": 49,
+     "accuracy": 0.918,
+     "lower95": 0.823,
+     "set_f1": 0.967,
+     "meets_bar": false
+    },
+    "termination.outside_date.effect": {
+     "right": 49,
+     "n": 49,
+     "accuracy": 1.0,
+     "lower95": 0.941,
+     "meets_bar": true
+    },
+    "termination.outside_date.extension_conditions": {
+     "right": 49,
+     "n": 49,
+     "accuracy": 1.0,
+     "lower95": 0.941,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "termination.outside_date.initial": {
+     "right": 49,
+     "n": 49,
+     "accuracy": 1.0,
+     "lower95": 0.941,
+     "meets_bar": true
+    },
+    "termination.outside_date.n_extensions": {
+     "right": 48,
+     "n": 49,
+     "accuracy": 0.98,
+     "lower95": 0.907,
+     "meets_bar": true
+    }
+   }
+  },
+  "run2": {
+   "holdouts": [
+    "m7holdout:sonnet_r2_pc:gold"
+   ],
+   "agreements": 50,
+   "detection": {
+    "termination.fee.target": {
+     "tp": 25,
+     "fp": 0,
+     "fn": 0,
+     "tn": 25,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "termination.fee.reverse": {
+     "tp": 16,
+     "fp": 0,
+     "fn": 0,
+     "tn": 34,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "termination.expense_reimbursement": {
+     "tp": 8,
+     "fp": 0,
+     "fn": 0,
+     "tn": 42,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "termination.outside_date": {
+     "tp": 49,
+     "fp": 0,
+     "fn": 0,
+     "tn": 1,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "mae.definition": {
+     "tp": 50,
+     "fp": 0,
+     "fn": 0,
+     "tn": 0,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "financing.structure": {
+     "tp": 36,
+     "fp": 1,
+     "fn": 1,
+     "tn": 12,
+     "precision": 0.973,
+     "recall": 0.973,
+     "fp_per_agreement": 0.02,
+     "meets_bar": true
+    },
+    "indemn.cap": {
+     "tp": 19,
+     "fp": 0,
+     "fn": 0,
+     "tn": 31,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "indemn.basket": {
+     "tp": 18,
+     "fp": 0,
+     "fn": 0,
+     "tn": 32,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "indemn.survival": {
+     "tp": 50,
+     "fp": 0,
+     "fn": 0,
+     "tn": 0,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    },
+    "election.338h10": {
+     "tp": 3,
+     "fp": 0,
+     "fn": 0,
+     "tn": 47,
+     "precision": 1.0,
+     "recall": 1.0,
+     "fp_per_agreement": 0.0,
+     "meets_bar": true
+    }
+   },
+   "fields": {
+    "election.338h10.decides": {
+     "right": 3,
+     "n": 3,
+     "accuracy": 1.0,
+     "lower95": 0.368,
+     "meets_bar": true
+    },
+    "election.338h10.election": {
+     "right": 3,
+     "n": 3,
+     "accuracy": 1.0,
+     "lower95": 0.368,
+     "meets_bar": true
+    },
+    "election.338h10.tax_cost_payer": {
+     "right": 3,
+     "n": 3,
+     "accuracy": 1.0,
+     "lower95": 0.368,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "financing.structure.committed": {
+     "right": 34,
+     "n": 36,
+     "accuracy": 0.944,
+     "lower95": 0.835,
+     "set_f1": 0.984,
+     "meets_bar": true
+    },
+    "financing.structure.cooperation": {
+     "right": 35,
+     "n": 36,
+     "accuracy": 0.972,
+     "lower95": 0.875,
+     "meets_bar": true
+    },
+    "financing.structure.efforts": {
+     "right": 35,
+     "n": 36,
+     "accuracy": 0.972,
+     "lower95": 0.875,
+     "meets_bar": true
+    },
+    "financing.structure.financing_condition": {
+     "right": 34,
+     "n": 36,
+     "accuracy": 0.944,
+     "lower95": 0.835,
+     "meets_bar": false
+    },
+    "financing.structure.marketing_period": {
+     "right": 36,
+     "n": 36,
+     "accuracy": 1.0,
+     "lower95": 0.92,
+     "meets_bar": true
+    },
+    "indemn.basket.baskets": {
+     "right": 18,
+     "n": 18,
+     "accuracy": 1.0,
+     "lower95": 0.847,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "indemn.basket.de_minimis": {
+     "right": 18,
+     "n": 18,
+     "accuracy": 1.0,
+     "lower95": 0.847,
+     "meets_bar": true
+    },
+    "indemn.cap.cap_amounts": {
+     "right": 19,
+     "n": 19,
+     "accuracy": 1.0,
+     "lower95": 0.854,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "indemn.cap.escrow_sole_recourse": {
+     "right": 19,
+     "n": 19,
+     "accuracy": 1.0,
+     "lower95": 0.854,
+     "meets_bar": true
+    },
+    "indemn.survival.fundamental_reps": {
+     "right": 48,
+     "n": 50,
+     "accuracy": 0.96,
+     "lower95": 0.879,
+     "meets_bar": false
+    },
+    "indemn.survival.general_reps": {
+     "right": 50,
+     "n": 50,
+     "accuracy": 1.0,
+     "lower95": 0.942,
+     "meets_bar": true
+    },
+    "indemn.survival.no_survival": {
+     "right": 50,
+     "n": 50,
+     "accuracy": 1.0,
+     "lower95": 0.942,
+     "meets_bar": true
+    },
+    "mae.definition.ability_to_consummate": {
+     "right": 50,
+     "n": 50,
+     "accuracy": 1.0,
+     "lower95": 0.942,
+     "meets_bar": true
+    },
+    "mae.definition.carveout_categories": {
+     "right": 45,
+     "n": 50,
+     "accuracy": 0.9,
+     "lower95": 0.801,
+     "set_f1": 0.993,
+     "meets_bar": true
+    },
+    "mae.definition.disproportionate_exception": {
+     "right": 50,
+     "n": 50,
+     "accuracy": 1.0,
+     "lower95": 0.942,
+     "meets_bar": true
+    },
+    "mae.definition.n_definitions": {
+     "right": 49,
+     "n": 50,
+     "accuracy": 0.98,
+     "lower95": 0.909,
+     "meets_bar": true
+    },
+    "mae.definition.prospects": {
+     "right": 50,
+     "n": 50,
+     "accuracy": 1.0,
+     "lower95": 0.942,
+     "meets_bar": true
+    },
+    "termination.expense_reimbursement.cap": {
+     "right": 8,
+     "n": 8,
+     "accuracy": 1.0,
+     "lower95": 0.688,
+     "meets_bar": true
+    },
+    "termination.expense_reimbursement.payor_side": {
+     "right": 8,
+     "n": 8,
+     "accuracy": 1.0,
+     "lower95": 0.688,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "termination.fee.reverse.amounts": {
+     "right": 16,
+     "n": 16,
+     "accuracy": 1.0,
+     "lower95": 0.829,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "termination.fee.reverse.kind": {
+     "right": 16,
+     "n": 16,
+     "accuracy": 1.0,
+     "lower95": 0.829,
+     "meets_bar": true
+    },
+    "termination.fee.reverse.payor_side": {
+     "right": 16,
+     "n": 16,
+     "accuracy": 1.0,
+     "lower95": 0.829,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "termination.fee.reverse.remedy": {
+     "right": 16,
+     "n": 16,
+     "accuracy": 1.0,
+     "lower95": 0.829,
+     "meets_bar": true
+    },
+    "termination.fee.reverse.triggers": {
+     "right": 14,
+     "n": 16,
+     "accuracy": 0.875,
+     "lower95": 0.656,
+     "set_f1": 0.966,
+     "meets_bar": false
+    },
+    "termination.fee.target.amounts": {
+     "right": 25,
+     "n": 25,
+     "accuracy": 1.0,
+     "lower95": 0.887,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "termination.fee.target.payor_side": {
+     "right": 25,
+     "n": 25,
+     "accuracy": 1.0,
+     "lower95": 0.887,
+     "set_f1": 1.0,
+     "meets_bar": true
+    },
+    "termination.fee.target.remedy": {
+     "right": 25,
+     "n": 25,
+     "accuracy": 1.0,
+     "lower95": 0.887,
+     "meets_bar": true
+    },
+    "termination.fee.target.triggers": {
+     "right": 18,
+     "n": 25,
+     "accuracy": 0.72,
+     "lower95": 0.538,
+     "set_f1": 0.975,
+     "meets_bar": true
+    },
+    "termination.outside_date.breach_causation": {
+     "right": 46,
+     "n": 49,
+     "accuracy": 0.939,
+     "lower95": 0.849,
+     "set_f1": 0.989,
+     "meets_bar": true
+    },
+    "termination.outside_date.effect": {
+     "right": 49,
+     "n": 49,
+     "accuracy": 1.0,
+     "lower95": 0.941,
+     "meets_bar": true
+    },
+    "termination.outside_date.extension_conditions": {
+     "right": 48,
+     "n": 49,
+     "accuracy": 0.98,
+     "lower95": 0.907,
+     "set_f1": 0.973,
+     "meets_bar": true
+    },
+    "termination.outside_date.initial": {
+     "right": 48,
+     "n": 49,
+     "accuracy": 0.98,
+     "lower95": 0.907,
+     "meets_bar": true
+    },
+    "termination.outside_date.n_extensions": {
+     "right": 47,
+     "n": 49,
+     "accuracy": 0.959,
+     "lower95": 0.877,
+     "meets_bar": false
+    }
+   }
+  }
+ }
+}
