@@ -6,7 +6,7 @@ This document belongs to the span taxonomy plan (draft PR 189, https://github.co
 
 ## 1. Summary
 
-- **What exists now.** Two sets of taxonomy files, called packs, are in `etl/taxonomy/`. The M&A pack (`ma`) has 15 branches, 54 groups and 266 concepts. The tax pack (`tax`) has 10 branches, 35 groups and 112 concepts. A validator and 72 tests check them without network or database access.
+- **What exists now.** Two sets of taxonomy files, called packs, are in `etl/taxonomy/`. The M&A pack (`ma`) has 15 branches, 54 groups and 266 concepts. The tax pack (`tax`) has 10 branches, 35 groups and 112 concepts. A validator and 66 tests check them without network or database access.
 - **A concept is one thing a researcher filters on.** `ma.governing_law` answers "which law governs this agreement". It does not also hold the forum clause or the jury waiver. Each of those has its own concept.
 - **Groups are the default filter level.** A researcher browses and filters by the 54 M&A groups first. A label on a concept also counts for its group and its branch. A filter on one concept is the finer choice.
 - **Two labeling waves.** Each M&A concept states its wave. Wave 1 has the 194 section-level topics and catch-alls. Wave 2 has the 72 clause-level provisions, parts and definitions. Section 4.4 gives the rule. In wave 1, a section that holds only wave 2 concepts gets its group as the label.
@@ -23,10 +23,9 @@ This document belongs to the span taxonomy plan (draft PR 189, https://github.co
 | `etl/taxonomy/ma/*.yaml` | The M&A pack, one file per branch (15 files). |
 | `etl/taxonomy/tax/*.yaml` | The tax pack, one file per branch (10 files). |
 | `etl/taxonomy/legacy/*.yaml` | Read-only snapshots of the ids of the three older trees. The validator checks crosswalks against them. |
-| `etl/taxonomy/crosswalk/dealos.yaml` | 214 links from concepts to DealOS knowledge graph ids. |
 | `etl/taxonomy/README.md` | Field reference and the rules for changes. |
 | `etl/src/etl/domain/taxonomy_pack.py` | Loader and validator. Run `etl/.venv/bin/python -m etl.domain.taxonomy_pack`. |
-| `etl/tests/test_taxonomy_pack.py` | 72 tests. Run from `etl/` with `.venv/bin/python -m unittest tests.test_taxonomy_pack`. |
+| `etl/tests/test_taxonomy_pack.py` | 66 tests. Run from `etl/` with `.venv/bin/python -m unittest tests.test_taxonomy_pack`. |
 | `docs/plans/full-taxonomy/tree.md` | Every node, generated from the packs. |
 | `docs/plans/full-taxonomy/crosswalk.md` | Every older leaf and the nodes it maps to, generated from the packs. |
 | `docs/plans/full-taxonomy/title_coverage.py` | The coverage measurement in section 6. |
@@ -110,7 +109,7 @@ Three points need a note here:
 - **Derived concepts.** `derived: true` marks a concept that labels no spans. Only `ma.financing.structure` has it. A statement that closing does not depend on financing goes to `ma.rep.financing` or `ma.financing.buyer_covenant`, and the derived concept reads it from there.
 - **Exclusion cues name the right concept.** "The court that hears disputes is `ma.forum_selection`." The validator checks that each id named in a cue exists.
 - **Value schemas.** The 11 pilot concepts keep their tested fields (`status: piloted`) and are the only concepts with `tier: value`. A further 76 M&A concepts carry a `status: stub` schema: a first sketch of fields for a later wave, which nobody has tested.
-- **Example phrases are illustrations.** They show typical wording. They are not verified quotations from the corpus. No text was copied from the DealOS knowledge graph or from the Praxis repository. Those two sources were used for vocabulary and lessons only.
+- **Example phrases are illustrations.** They show typical wording. They are not verified quotations from the corpus. No text was copied from the Praxis repository, which was used for lessons only.
 
 ### 3.8 Releases
 
@@ -159,7 +158,6 @@ Four topics were left to catch-alls because they are rare: the SPAC "no trading"
 | Unreleased redesign | 140 | Finer, still doubled by party. |
 | This design, M&A pack | 266 | 226 provisions, 24 parts and 16 definitions. The first draft had 281. |
 | This design, tax pack | 112 | 106 existing nodes and 6 new concepts (accepted 2026-11-22). |
-| DealOS knowledge graph v6 | 993 | Built to explain mechanics to lawyers. It includes explanatory nodes that a filter does not need. |
 
 The Praxis classification work found that accuracy falls as the number of classes in one decision grows. This design is finer than the older trees, so the labeling run in section 9 never shows a model the full list. It shows a short list for the section at hand.
 
@@ -450,7 +448,6 @@ What the sample shows:
 - **Merges.** 4 live leaves and 9 redesign leaves map to one broader concept. Two live leaves on protections for lenders map to `ma.financing.source_protections`. The leaves for specific performance map to `ma.specific_performance`, which also holds the remedies cumulative clause. The "(non-indemnity)" leaves for the damages waiver map to `ma.damages_waiver`, which also covers the clause in the indemnification article. The redesign's leaves for amendment and waiver, for severability and counterparts, and for exchange procedures map to the merged concepts of 4.4. Its two fee leaves map to the fee concepts, which also hold the fee triggers.
 - **New concepts.** 91 M&A concepts have no older leaf. They include the 7 SPAC concepts, most of the definitions, covenants after closing such as the non-compete and the release, and 19 representations. `crosswalk.md` lists them.
 - **How to use it.** An old filter on a live leaf becomes a filter on the set of new concepts that the leaf maps to. A new label on a narrower concept can also be shown under its old leaf while the old tree is still served.
-- **DealOS.** `crosswalk/dealos.yaml` holds 214 links (126 exact, 55 broader, 27 narrower, 6 related). Each link was checked against the DealOS graph (v6) on 2026-11-23: links to a family node were moved to the child node that fits, and about 75 links were added. It is a separate file so that a public dump can leave it out. The validator now reports an error when the file is missing, so such a dump needs a switch for that check. The span taxonomy plan leaves the choice open.
 
 ## 8. Tax changes
 
@@ -561,7 +558,7 @@ What can move the estimate: the share of sections that need a second read, how w
 7. **Waves.** Decided 2026-11-22: provisions first, then parts and definitions. The trim in 4.4 refined this the same day. After the reviews of 2026-11-23, wave 1 has 194 M&A concepts (188 section-level topics and 6 catch-alls). Wave 2 has the other 72: 32 clause-level provisions, 24 parts and 16 definitions. The tax pack (112 concepts) has no waves.
 8. **Defined terms.** Are the 16 M&A definition concepts the right set? Which should get value schemas first?
 9. **Value schema stubs.** 76 M&A concepts carry an untested sketch of fields. Keep the stubs in the pack as candidates, or remove them until each is piloted?
-10. **DealOS links.** Publish `crosswalk/dealos.yaml` in the public dump, or keep it internal?
+10. Withdrawn on 2026-11-23. The other questions keep their numbers.
 11. **Party values.** The role is on the concept and the party is on the instance. Which party values should an instance allow: target, buyer, seller, merger subsidiary, sponsor, mutual?
 12. **The unreleased 140-leaf redesign.** This design replaces it. Can the redesign file be retired after approval, with its crosswalk kept?
 13. **Id freeze.** After approval the ids are frozen. Any id the maintainer wants changed must change before the first labeling run.
@@ -617,13 +614,12 @@ A third reviewer agent (Opus) read the PR with a brief to break it. Its findings
 |---|---|
 | Title rules and waves | Headings that name one concept had been credited to a neighbor or a group. Twelve rules were added or changed, and four provisions moved to wave 1 (the audit table in 4.4). |
 | Derived concept | `ma.financing.structure` is `derived: true` and labels no text. "No financing condition" text goes to `ma.rep.financing` or `ma.financing.buyer_covenant`. Its group is no longer assignable. |
-| Validator and tests | The loader reports bad YAML, duplicate keys, unknown fields and unquoted release numbers. New checks cover the pack of a concept's parent, an M&A concept under a branch, a wave on a tax concept, assignable tax navigation nodes, id forms and the DealOS file. 72 tests (was 35). |
+| Validator and tests | The loader reports bad YAML, duplicate keys, unknown fields and unquoted release numbers. New checks cover the pack of a concept's parent, an M&A concept under a branch, a wave on a tax concept, assignable tax navigation nodes and id forms. 66 tests (was 35). |
 | M&A overlaps | Cues or rules for five pairs: merger consideration and purchase price, the two escrows, no other representations and non-reliance (the speaker decides), limited guarantee and merger sub obligations, release and indemnification. |
 | M&A single concepts | Closing deliverables, damages waiver (the older "(non-indemnity)" leaves are now `broader`), termination for a legal restraint, the parent of the match right, 13 missing party roles, and "Bank Merger" as a term of `ma.structure.merger`. |
 | Tax pack | See below. No id, label, kind or parent changed, and no node was added. |
 | Seams | Cues between the packs for the Section 382 rights plan, tax contests and the claims procedure, tax items listed in the general indemnity, the SPAC domestication, and records access. A covenant that a payment complies with Section 409A belongs to the concept of that payment (`ma.consideration.earnout`, `ma.equity.awards` or `ma.employee.retention_severance`). |
 | Older trees | Nine crosswalk fixes: for example, the live takeover statutes leaf also holds rights plans, the two escrow leaves also map to `ma.price_adjustment.escrow`, and "Further Assurances; Post-Closing Cooperation" also maps to `ma.records_access`. |
-| DealOS | 214 links (was 130), each checked against the graph (section 7). |
 
 Tax pack changes:
 
@@ -644,8 +640,6 @@ Not done, with the reason:
 | Finding | Reason |
 |---|---|
 | A role on `tax.opinion.closing_condition` | The condition tests no party's conduct. The party that matters receives the opinion. `tested_party` would then mean something else than in the M&A pack. |
-| `ma.termination.effect` as `narrower` to DealOS cra:122 | Our concept also covers the notice of termination, and cra:122 also holds the breach carve-out. The link now points to the child node cra:123 as `broader`. |
-| Removing the DealOS link econ:147 for the tail policy | It is a real node for the same policy under expense allocation. It stays as `related`, and pcor:41 is the `exact` link. |
 | A split of "Company Board Recommendation" and "Confidentiality" headings | A title cannot settle either one (4.4). |
 
 ## 12. What this work did not do
@@ -662,5 +656,5 @@ Not done, with the reason:
 - The span taxonomy plan on the branch of draft PR 189 (https://github.com/PlatosTwin/pandects-app/pull/189): sections 3, 5, 7, 12, 14 and 15.
 - The live trees in the local database (`taxonomy_l1`, `taxonomy_l2`, `taxonomy_l3`, `tax_clause_taxonomy_l1` to `l3`), read only.
 - `etl/src/etl/models/taxonomy/deepseek/taxonomy_enrichment.yaml`: the 140-leaf redesign.
-- The DealOS knowledge graph (v6) and the Praxis background provision classification repository: vocabulary and lessons only. No prose was copied.
+- The Praxis background provision classification repository: lessons only. No prose was copied.
 - The corpus: `latest_sections_search` and `sections`, read only.

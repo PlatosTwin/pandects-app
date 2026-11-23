@@ -81,7 +81,7 @@ def _concept(doc: dict[str, Any], concept_id: str) -> dict[str, Any]:
 class ShippedPacksTest(unittest.TestCase):
     """Checks on the packs as committed."""
 
-    taxonomy: taxonomy_pack.Taxonomy = taxonomy_pack.Taxonomy(nodes={}, legacy={}, dealos_links=[], load_errors=[])
+    taxonomy: taxonomy_pack.Taxonomy = taxonomy_pack.Taxonomy(nodes={}, legacy={}, load_errors=[])
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -367,13 +367,6 @@ class ValidatorCatchesProblemsTest(unittest.TestCase):
         self._edit(lambda doc: _concept(doc, "ma.governing_law")["exclusion_cues"].append("See ma.no_such_concept."))
         self._assert_reported("exclusion cue names unknown id ma.no_such_concept")
 
-    def test_unknown_dealos_concept(self) -> None:
-        def change(doc: dict[str, Any]) -> None:
-            doc["links"].append({"concept": "ma.no_such_concept", "dealos_id": "cra:1", "relation": "exact"})
-
-        self._edit(change, "crosswalk/dealos.yaml")
-        self._assert_reported("crosswalk/dealos.yaml: unknown concept 'ma.no_such_concept'")
-
     # Finding 1: a concept parent in the other pack.
     def test_concept_parent_in_another_pack(self) -> None:
         self._edit(lambda doc: _concept(doc, "ma.governing_law").update(parent="tax.election.338h10", wave=2))
@@ -404,34 +397,6 @@ class ValidatorCatchesProblemsTest(unittest.TestCase):
         self._edit(change, "tax/deal.yaml")
         self._assert_reported("tax.nav.deal: every tax navigation node needs assignable: true")
         self._assert_reported("tax.nav.deal.treatment: every tax navigation node needs assignable: true")
-
-    # Finding 5: the DealOS crosswalk.
-    def test_missing_dealos_file(self) -> None:
-        (self.root / "crosswalk" / "dealos.yaml").unlink()
-        self._assert_reported("crosswalk/dealos.yaml: missing")
-
-    def test_duplicate_dealos_link(self) -> None:
-        self._edit(lambda doc: doc["links"].append(dict(doc["links"][0])), "crosswalk/dealos.yaml")
-        self._assert_reported("crosswalk/dealos.yaml: duplicate link")
-
-    def test_dealos_link_with_bad_relation_and_bad_id(self) -> None:
-        def change(doc: dict[str, Any]) -> None:
-            doc["links"].append({"concept": "ma.governing_law", "dealos_id": "cra-39", "relation": "same"})
-
-        self._edit(change, "crosswalk/dealos.yaml")
-        self._assert_reported("crosswalk/dealos.yaml: relation for ma.governing_law must be one of")
-        self._assert_reported("crosswalk/dealos.yaml: dealos_id 'cra-39' for ma.governing_law must look like")
-
-    def test_dealos_id_form(self) -> None:
-        for bad in ("cra-39", "cra:stub-termination", "dt:12", "cra:R-Foo", "cra:r-", "cra:39 ", 39):
-            with self.subTest(dealos_id=bad):
-                self.setUp()
-
-                def change(doc: dict[str, Any], bad: Any = bad) -> None:
-                    doc["links"].append({"concept": "ma.governing_law", "dealos_id": bad, "relation": "related"})
-
-                self._edit(change, "crosswalk/dealos.yaml")
-                self._assert_reported(f"crosswalk/dealos.yaml: dealos_id {bad!r} for ma.governing_law must look like")
 
     # Finding 6: the loader reports instead of crashing.
     def test_legacy_row_without_id(self) -> None:
@@ -493,13 +458,6 @@ class ValidatorCatchesProblemsTest(unittest.TestCase):
 
         self._edit(change)
         self._assert_reported("ma.governing_law: crosswalk section_v1 must be a list")
-
-    def test_unknown_dealos_link_field(self) -> None:
-        def change(doc: dict[str, Any]) -> None:
-            doc["links"].append({"concept": "ma.governing_law", "dealos_id": "rw:9999", "relation": "related", "note": "x"})
-
-        self._edit(change, "crosswalk/dealos.yaml")
-        self._assert_reported("crosswalk/dealos.yaml: link for ma.governing_law has unknown field note")
 
     def test_row_kind_does_not_match_its_list(self) -> None:
         self._edit(lambda doc: doc["groups"].append(dict(_concept(doc, "ma.governing_law"), id="ma.governing_law_two")))

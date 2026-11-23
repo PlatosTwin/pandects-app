@@ -42,10 +42,6 @@ LEGACY_SCHEMES = {
     "tax_v1": "tax_v1.yaml",
 }
 
-# DealOS knowledge graph v6 domains. An id is the domain, a colon, and a number or `r-<slug>`.
-DEALOS_DOMAINS = ("ai", "cra", "econ", "pcor", "pcra", "rw")
-DEALOS_SOURCE = "crosswalk/dealos.yaml"
-
 # The fields each kind of node may carry (etl/taxonomy/README.md, "Fields").
 COMMON_FIELDS = (
     "id",
@@ -80,15 +76,12 @@ FILE_FIELDS = ("pack", "release", "branch", "groups", "concepts")
 VALUE_SCHEMA_FIELDS = ("status", "version", "source", "fields")
 VALUE_FIELD_KEYS = ("name", "type")
 CROSSWALK_ENTRY_FIELDS = ("id", "relation", "party")
-DEALOS_FILE_FIELDS = ("scheme", "links")
-DEALOS_LINK_FIELDS = ("concept", "dealos_id", "relation")
 # The kinds that each list of a pack file holds.
 SECTION_KINDS = {"branch": ("branch",), "groups": ("group",), "concepts": CONCEPT_KINDS}
 
 _ID_RE = re.compile(r"(?:ma|tax)(?:\.[a-z0-9_]+)+")
 _ID_IN_TEXT_RE = re.compile(r"\b(?:ma|tax)\.[a-z0-9_]+(?:\.[a-z0-9_]+)*")
 _RELEASE_RE = re.compile(r"\d{4}\.\d+")
-_DEALOS_ID_RE = re.compile(rf"(?:{'|'.join(DEALOS_DOMAINS)}):(?:\d+|r-[a-z0-9]+(?:-[a-z0-9]+)*)")
 _YAML_MERGE_TAG = "tag:yaml.org,2002:merge"
 
 
@@ -115,11 +108,10 @@ class Node:
 
 @dataclass(frozen=True)
 class Taxonomy:
-    """All packs, plus the legacy id snapshots and the DealOS links."""
+    """All packs, plus the legacy id snapshots."""
 
     nodes: dict[str, Node]
     legacy: dict[str, dict[str, dict[str, Any]]]
-    dealos_links: list[dict[str, Any]]
     load_errors: list[str]
 
 
@@ -258,23 +250,6 @@ def _load_legacy(root: Path, errors: list[str]) -> dict[str, dict[str, dict[str,
     return legacy
 
 
-def _load_dealos(root: Path, errors: list[str]) -> list[Any]:
-    path = root / DEALOS_SOURCE
-    if not path.exists():
-        errors.append(f"{DEALOS_SOURCE}: missing")
-        return []
-    doc = _read_mapping(path, DEALOS_SOURCE, errors)
-    if doc is None:
-        return []
-    for key in _unknown_keys(doc, DEALOS_FILE_FIELDS):
-        errors.append(f"{DEALOS_SOURCE}: unknown field {key}")
-    links = doc.get("links")
-    if not isinstance(links, list):
-        errors.append(f"{DEALOS_SOURCE}: links must be a list")
-        return []
-    return links
-
-
 def load(root: Path = DEFAULT_ROOT) -> Taxonomy:
     """Read every pack file under `root`. Problems that stop a file or a row from loading go to `load_errors`."""
     nodes: dict[str, Node] = {}
@@ -287,8 +262,7 @@ def load(root: Path = DEFAULT_ROOT) -> Taxonomy:
         for path in files:
             _load_pack_file(path, pack, f"{pack}/{path.name}", nodes, errors)
     legacy = _load_legacy(root, errors)
-    dealos_links = _load_dealos(root, errors)
-    return Taxonomy(nodes=nodes, legacy=legacy, dealos_links=dealos_links, load_errors=errors)
+    return Taxonomy(nodes=nodes, legacy=legacy, load_errors=errors)
 
 
 def _string_list_errors(node: Node, field: str) -> Iterable[str]:
@@ -412,33 +386,6 @@ def _crosswalk_errors(node: Node, legacy: dict[str, dict[str, dict[str, Any]]]) 
                 yield f"{node.id}: crosswalk relation for {legacy_id} must be one of {RELATIONS}"
             if "party" in entry and entry["party"] not in CROSSWALK_PARTIES:
                 yield f"{node.id}: crosswalk party for {legacy_id} must be one of {CROSSWALK_PARTIES}"
-
-
-def _dealos_errors(taxonomy: Taxonomy) -> Iterable[str]:
-    """Check each DealOS link on its own, so that one bad field does not hide another."""
-    seen: set[tuple[str, str]] = set()
-    for link in taxonomy.dealos_links:
-        if not isinstance(link, dict):
-            yield f"{DEALOS_SOURCE}: a link is not a mapping"
-            continue
-        concept = link.get("concept")
-        name = concept if isinstance(concept, str) else repr(concept)
-        for key in _unknown_keys(link, DEALOS_LINK_FIELDS):
-            yield f"{DEALOS_SOURCE}: link for {name} has unknown field {key}"
-        target = taxonomy.nodes.get(concept) if isinstance(concept, str) else None
-        if target is None:
-            yield f"{DEALOS_SOURCE}: unknown concept {concept!r}"
-        elif not target.is_concept:
-            yield f"{DEALOS_SOURCE}: {concept} is not a concept"
-        if link.get("relation") not in RELATIONS:
-            yield f"{DEALOS_SOURCE}: relation for {name} must be one of {RELATIONS}"
-        dealos_id = link.get("dealos_id")
-        if not isinstance(dealos_id, str) or not _DEALOS_ID_RE.fullmatch(dealos_id):
-            yield f"{DEALOS_SOURCE}: dealos_id {dealos_id!r} for {name} must look like cra:39 or ai:r-definitions"
-            continue
-        if (name, dealos_id) in seen:
-            yield f"{DEALOS_SOURCE}: duplicate link {name} -> {dealos_id}"
-        seen.add((name, dealos_id))
 
 
 def groups_with_wave_two_content(taxonomy: Taxonomy) -> set[str]:
@@ -622,7 +569,6 @@ def validate(taxonomy: Taxonomy) -> list[str]:
         if exact["tax_v1"][legacy_id] != 1:
             errors.append(f"tax_v1: {legacy_id} must have exactly one exact crosswalk, found {exact['tax_v1'][legacy_id]}")
 
-    errors.extend(_dealos_errors(taxonomy))
     return errors
 
 

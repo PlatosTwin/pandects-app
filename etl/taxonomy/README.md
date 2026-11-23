@@ -9,7 +9,6 @@ This folder is the source of truth for the Pandects provision taxonomy. The desi
 | `ma/*.yaml` | The M&A pack. One file per navigation branch. |
 | `tax/*.yaml` | The tax pack. One file per navigation branch. It mirrors the tax clause tree that a tax professor helped build. |
 | `legacy/*.yaml` | Read-only snapshots of the ids in the three older trees. The validator uses them to check crosswalks. Do not edit them. |
-| `crosswalk/dealos.yaml` | Links from concepts to DealOS knowledge graph ids. It is a separate file so that a public dump can leave it out. |
 
 ## Two kinds of node
 
@@ -94,16 +93,6 @@ The groups are the default level for browsing and filtering. A label on a concep
 
 `party` (`target` or `buyer`) records which party-specific older leaf the link came from. A new representation concept that replaces a target leaf and a buyer leaf links to both, each as `exact` with its party. An entry has no other keys.
 
-## DealOS links
-
-`crosswalk/dealos.yaml` has the keys `scheme` and `links`. Each link has three keys:
-
-- `concept`: the id of a concept, not of a navigation node.
-- `dealos_id`: a DealOS id. It is a domain (`ai`, `cra`, `econ`, `pcor`, `pcra` or `rw`), a colon, and a number or `r-` with a slug. Examples: `cra:39`, `pcra:135`, `ai:r-definitions`.
-- `relation`: one of the crosswalk relations above, for the concept compared with the DealOS concept.
-
-A concept links to a given DealOS id once.
-
 ## Rules for changes
 
 1. Never reuse or rename a released id. To retire a node, set `deprecated_in` and `replaced_by`.
@@ -131,7 +120,7 @@ Both read YAML files only. They need no network and no database.
 The validator checks that:
 
 - each file parses as YAML, holds a mapping and states no key twice;
-- each node, file, value schema, crosswalk entry and DealOS link has only the documented fields;
+- each node, file, value schema and crosswalk entry has only the documented fields;
 - ids are unique across both packs, well formed and carry their pack prefix, and only navigation ids start with `ma.nav.` or `tax.nav.`;
 - the ids in the legacy snapshots are present and unique;
 - `release`, `introduced_in` and `deprecated_in` are quoted strings such as `'2026.1'`, and `description` is a non-empty string;
@@ -148,5 +137,4 @@ The validator checks that:
 - an M&A group is `assignable` exactly when it holds a wave 2 provision or definition that is not derived, and no M&A branch is assignable;
 - every tax navigation node is `assignable`;
 - `attributes.party` is one of the six party roles;
-- each id that an exclusion cue names exists;
-- the DealOS file exists, and each link names a concept, a valid relation and a well-formed DealOS id, with no link stated twice.
+- each id that an exclusion cue names exists.
