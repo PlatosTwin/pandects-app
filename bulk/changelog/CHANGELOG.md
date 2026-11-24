@@ -11,7 +11,7 @@ the MCP surface. Machine-readable version:
 
 ## Unreleased
 
-4 changes: 2 notable, 2 minor.
+5 changes: 2 notable, 3 minor.
 
 ### Notable (2)
 
@@ -55,7 +55,7 @@ the MCP surface. Machine-readable version:
 
   **Tables:** `agreements`, `latest_sections_search`
 
-### Minor (2)
+### Minor (3)
 
 - **API:** ReaderOutlineNode has a new optional boolean field, inferred, for outline numbers the filed text does not print.
 
@@ -68,6 +68,10 @@ the MCP surface. Machine-readable version:
 - **API:** The API and the MCP tools serve an agreement only when its latest XML has passed validation.
 
   The serving rule used to accept a latest XML with an empty validation status, which means the XML has not been checked yet. It now requires the status "verified". The search tables behind /v1/sections follow the same rule from their next build, and the MCP list_filter_options tool now uses the shared rule, which also limits it to the latest XML version. In the 2026-11-18 release no latest XML has an empty status and only latest versions are published, so results do not change.
+
+- **MCP:** submit_feedback is now user-initiated: the server asks the agent to send feedback only when the user asks or agrees; the tool's inputs and outputs are unchanged.
+
+  The server instructions, the submit_feedback description and selection hint, the feedback_note and feedback workflow in get_server_capabilities, and the result message no longer ask the agent to report friction as it happens or to file a session-end wrap-up. They now ask the agent to send a note when the user asks to report something, or after the user agrees to the agent's offer. The feedback workflow is renamed "report friction or gaps when the user asks", and the result message is now "Feedback recorded. Thank you." The tool's arguments, output schema and scope are unchanged. MCP access also ends at once when a user deletes their Pandects account.
 
 ## 2026-11-18 — released 2026-11-18
 
