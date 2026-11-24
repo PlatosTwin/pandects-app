@@ -7,7 +7,7 @@ sidebar_position: 3
 
 # Technical Details
 
-The Pandects MCP is a remote MCP server at `https://api.pandects.org/mcp`. All corpus tools are read-only; the single write surface is `submit_feedback`, which stores agent experience feedback for the maintainer.
+The Pandects MCP is a remote MCP server at `https://api.pandects.org/mcp`. All corpus tools are read-only; the single write surface is `submit_feedback`, which stores a feedback note for the maintainer when the user asks to send one.
 
 It is designed for human users working through LLM clients, but this page describes the technical surface available behind the scenes.
 

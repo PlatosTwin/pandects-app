@@ -26,6 +26,7 @@ from sqlalchemy import and_, or_, update
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import HTTPException
 
+from backend.auth.access import _is_deleted_account_email
 from backend.auth.mcp_oauth_runtime import (
     access_token_claims,
     encode_access_token,
@@ -64,6 +65,18 @@ _DCR_CLIENT_NAME_INVISIBLE_CHARS = {"\u034f", "\u115f", "\u1160", "\u2800", "\u3
 # Longest run of combining marks allowed on one base character; real scripts
 # stay well under this, while stacked marks can obscure a name.
 _DCR_CLIENT_NAME_MAX_COMBINING_RUN = 3
+
+
+def _user_can_hold_mcp_tokens(user: object) -> bool:
+    """A token grant needs a verified user whose account was not deleted.
+
+    Account deletion keeps the user row (with a tombstone address) and leaves
+    the verification timestamp set, so the tombstone check is what stops a
+    still-connected client from getting new tokens.
+    """
+    if user is None or getattr(user, "email_verified_at", None) is None:
+        return False
+    return not _is_deleted_account_email(getattr(user, "email", None))
 
 
 def _client_name_displayable(name: str) -> bool:
@@ -826,7 +839,7 @@ window.location.replace({json.dumps(login_url)});
             if not secrets.compare_digest(expected_challenge, auth_code.code_challenge):
                 return oauth_error(400, error="invalid_grant", description="OAuth PKCE verification failed.")
             user = deps.db.session.get(deps.AuthUser, auth_code.user_id)
-            if user is None or cast(object, user.email_verified_at) is None:
+            if not _user_can_hold_mcp_tokens(user):
                 return oauth_error(400, error="invalid_grant", description="Linked Pandects account is not verified.")
             # Atomic claim: only succeeds if used_at IS NULL. Prevents two concurrent
             # token exchanges from minting parallel tokens for the same code.
@@ -882,7 +895,7 @@ window.location.replace({json.dumps(login_url)});
                 deps.db.session.commit()
                 return oauth_error(400, error="invalid_grant", description="Invalid or expired refresh token.")
             user = deps.db.session.get(deps.AuthUser, refresh_record.user_id)
-            if user is None or cast(object, user.email_verified_at) is None:
+            if not _user_can_hold_mcp_tokens(user):
                 return oauth_error(400, error="invalid_grant", description="Linked Pandects account is not verified.")
             # Atomic rotation: only succeeds if used_at IS NULL. A concurrent rotation
             # losing this race is treated as reuse and revokes the family.

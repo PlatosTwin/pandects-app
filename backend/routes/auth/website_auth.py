@@ -902,6 +902,11 @@ class WebsiteAuthService:
             deps.ApiKey.query.filter_by(user_id=user.id, revoked_at=None).update(
                 {"revoked_at": now}, synchronize_session=False
             )
+            # Revoke MCP refresh tokens too, so a connected AI client cannot
+            # mint new access tokens for the deleted account.
+            deps.AuthOAuthRefreshToken.query.filter_by(user_id=user.id, revoked_at=None).update(
+                {"revoked_at": now}, synchronize_session=False
+            )
             deps.db.session.commit()
         except SQLAlchemyError:
             abort(503, description="Auth backend is unavailable right now.")

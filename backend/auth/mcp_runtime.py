@@ -15,6 +15,7 @@ from urllib.request import Request, urlopen
 from flask import request
 from sqlalchemy.exc import SQLAlchemyError
 
+from backend.auth.access import _is_deleted_account_email
 from backend.auth.mcp_oauth_runtime import decode_access_token, mcp_oauth_issuer, public_pem_from_private_pem
 from backend.auth.session_runtime import AccessContext
 from backend.extensions import db
@@ -287,7 +288,7 @@ def _authenticate_pandects_access_token(token: str) -> McpPrincipal | None:
             )
         scope_set = _scope_set(payload)
         user = db.session.get(AuthUser, subject.strip())
-        if user is None or user.email_verified_at is None:
+        if user is None or user.email_verified_at is None or _is_deleted_account_email(user.email):
             raise _auth_error(
                 status_code=401,
                 message="Linked Pandects account is not verified.",
@@ -667,7 +668,7 @@ def _linked_verified_user(*, issuer: str, subject: str) -> AuthUser:
     except SQLAlchemyError as exc:
         db.session.rollback()
         raise RuntimeError("Auth backend is unavailable right now.") from exc
-    if user is None or user.email_verified_at is None:
+    if user is None or user.email_verified_at is None or _is_deleted_account_email(user.email):
         raise _auth_error(
             status_code=401,
             message="Linked Pandects account is not verified.",

@@ -26,7 +26,7 @@ _LEGAL_DOCS: dict[str, dict[str, str]] = {
     },
     "privacy": {
         "version": "2026-11-23",
-        "sha256": "476cb8eb8b8eb3ba04c3f4b376209c15668e0dffeb563d51cb123b095d3c7a27",
+        "sha256": "fb603aa2d3519a4fe3e80a6e90e85e8b29f4c23623e390b2fd4c8441944294eb",
     },
     "license": {
         "version": "2026-03-11",

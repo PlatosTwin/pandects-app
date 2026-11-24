@@ -84,12 +84,12 @@ These providers may process information according to their own terms and privacy
 
 When you connect an AI client, such as Claude, ChatGPT, Codex or Claude Code, to the Pandects MCP server at `https://api.pandects.org/mcp`, you sign in with your Pandects account and approve the client. The client then receives an access token for your account.
 
-- **Tool usage records:** for each hour, we record which tools your account called, through which client registration, how many calls succeeded or failed, how long they took, and the total size of the requests and responses. We use these records to operate the Service, prevent abuse, and enforce rate limits.
+- **Tool usage records:** for each hour, we record which tools your account called, through which client registration, how many calls succeeded or failed, how long they took, and the total size of the requests. We use these records to operate the Service, prevent abuse, and enforce rate limits.
 - **Tool arguments:** the arguments your client sends with a tool call, such as a search phrase, are used to answer that call. We do not store them in the usage records. Our server logs record the tool name, outcome and timing of each call, not its arguments. When a call fails with an unexpected error, the error log can hold part of the request. Our hosting provider keeps server logs for a limited time.
 - **Conversations:** we do not receive or store your conversations with your AI client. We receive only the tool calls your client sends.
-- **Feedback notes:** if you ask your AI client to send feedback with the `submit_feedback` tool, we store the note (summary, detail, suggestions, and a short context object) with your account ID, the client registration and the token's scopes. Only the maintainer reads feedback notes. Do not include personal data in feedback.
+- **Feedback notes:** if you ask your AI client to send feedback with the `submit_feedback` tool, we store the note (summary, detail, suggestions, category, severity, the tool it is about, and a short context object) with the time it was sent, your account ID, the client registration and the token's scopes. Only the maintainer reads feedback notes. Do not include personal data in feedback.
 
-We do not sell this information. We do not share it with the provider of your AI client, beyond the tool results your client requests. You can disconnect a client at any time in that client.
+We do not sell this information. We do not share it with the provider of your AI client, beyond the tool results your client requests. You can disconnect a client at any time in that client, which removes the client's copy of its tokens. If you delete your Pandects account, every connected client loses access at once.
 
 ## 4. How We Use Information
 
