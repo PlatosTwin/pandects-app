@@ -959,14 +959,11 @@ def _base_tool_specs() -> tuple[McpToolSpec, ...]:
             name="submit_feedback",
             title="Send feedback to the maintainer",
             description=(
-                "Submit experience feedback about this MCP server to its maintainer: bugs, workflow friction, "
-                "missing capabilities, data-quality issues, documentation gaps, and praise for what worked well. "
-                "Submissions are stored and read by the maintainer, and directly drive server improvements. "
-                "File observations as you hit them mid-session rather than losing them, and consider one wrap-up "
-                "submission at the end of a research session covering what worked and what did not. The most useful "
-                "reports are concrete: name the tool, the arguments you passed (context), what you expected, and what "
-                "actually happened. Confirmations that a workflow went smoothly are as valuable as complaints — they "
-                "tell the maintainer what not to break."
+                "Send a short feedback note about this MCP server to its maintainer: bugs, workflow friction, "
+                "missing capabilities, data-quality issues, documentation gaps, or what worked well. "
+                "The note is stored and read by the maintainer. Send it when the user asks to report something, "
+                "or after the user agrees to your offer to report a problem you hit. The most useful notes are "
+                "concrete: name the tool, the arguments you passed (context), what you expected, and what happened."
             ),
             input_schema=_schema_input_schema(
                 McpSubmitFeedbackArgsSchema(),
@@ -991,7 +988,7 @@ def _base_tool_specs() -> tuple[McpToolSpec, ...]:
                     },
                 },
                 {
-                    "description": "Session-end wrap-up with praise.",
+                    "description": "The user asks to tell the maintainer what worked well.",
                     "arguments": {
                         "summary": "Batch snippet tools made a 40-agreement clause comparison fast",
                         "detail": "search_sections with include_snippet=true plus get_section_snippets_batch covered a 40-agreement MAE carveout survey in a handful of calls. No friction worth reporting.",
@@ -1006,12 +1003,12 @@ def _base_tool_specs() -> tuple[McpToolSpec, ...]:
                         "feedback_id": "0d9c1f7e-0000-0000-0000-000000000000",
                         "recorded_at": "2026-08-04T12:00:00",
                         "category": "missing_capability",
-                        "message": "Feedback recorded — thank you. Keep filing observations as you hit them; a short wrap-up submission at the end of a session is also welcome.",
+                        "message": "Feedback recorded. Thank you.",
                     },
                 },
             ),
             scopes=("agreements:search",),
-            selection_hint="Use whenever you notice friction, gaps, wrong or missing data, or notably good behavior while researching, and for a session-end wrap-up of observations worth keeping.",
+            selection_hint="Use when the user asks to report friction, wrong or missing data, or good behavior, or agrees to your offer to report it.",
             negative_guidance=(
                 "Do not use this tool to get help or to retry a failed call: it only writes a note to the maintainer and returns an acknowledgment.",
                 "Do not include user personal data, credentials, or full document texts in feedback; tool names, arguments, and short excerpts are enough.",
@@ -1312,10 +1309,9 @@ def _server_capabilities_payload(
             "metrics_tool": "get_server_metrics",
             "feedback_tool": "submit_feedback",
             "feedback_note": (
-                "This server collects agent experience feedback. When a tool, filter, or "
-                "dataset causes friction, is missing something, or works notably well, "
-                "call submit_feedback — mid-session as issues arise, and optionally as a "
-                "wrap-up at session end."
+                "The maintainer reads feedback sent with submit_feedback. Send it when "
+                "the user asks to report a problem or what worked well, or agrees when "
+                "you offer to report one."
             ),
             "transport": "http_jsonrpc",
             "resources_supported": True,
@@ -1419,13 +1415,12 @@ def _server_capabilities_payload(
                 "steps": ["get_server_metrics", "get_server_capabilities"],
             },
             {
-                "name": "report friction or gaps you encountered",
+                "name": "report friction or gaps when the user asks",
                 "steps": ["submit_feedback"],
                 "note": (
-                    "File feedback the moment a tool, filter, or dataset surprises you — "
-                    "include the tool name, the arguments, and expected vs actual. Praise "
-                    "for what worked well is equally useful, and a short session-end "
-                    "wrap-up of observations is encouraged."
+                    "Send feedback when the user asks, or agrees when you offer to report "
+                    "a problem you hit. Include the tool name, the arguments, and expected "
+                    "vs actual."
                 ),
             },
         ]

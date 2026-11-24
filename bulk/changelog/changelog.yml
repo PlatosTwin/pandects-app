@@ -218,6 +218,20 @@ unreleased:
   tables: [agreements, latest_sections_search]
   migration: null
   refs: []
+- type: mcp
+  severity: minor
+  summary: "submit_feedback is now user-initiated: the server asks the agent to send feedback only when the user asks or agrees; the tool's inputs and outputs are unchanged."
+  details: >
+    The server instructions, the submit_feedback description and selection hint, the
+    feedback_note and feedback workflow in get_server_capabilities, and the result message
+    no longer ask the agent to report friction as it happens or to file a session-end
+    wrap-up. They now ask the agent to send a note when the user asks to report something,
+    or after the user agrees to the agent's offer. The feedback workflow is renamed "report
+    friction or gaps when the user asks", and the result message is now "Feedback recorded.
+    Thank you." The tool's arguments, output schema and scope are unchanged. MCP access
+    also ends at once when a user deletes their Pandects account.
+  refs: []
+
 releases:
 - version: '2026-11-18'
   released: '2026-11-18T23:48:17Z'

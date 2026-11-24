@@ -33,7 +33,7 @@ account or a vendor decision). "This PR" means the item was closed on this branc
 
 ## Anthropic: Connectors Directory (MCP connector)
 
-Summary: 15 MET, 4 NOT MET, 3 UNCLEAR, 1 needed only on request (A22).
+Summary: 15 MET, 4 NOT MET, 3 UNCLEAR, 1 needed only on request (A22). After the P1/P2 PR merges: 18 MET, 3 NOT MET, 1 UNCLEAR.
 
 | # | Requirement | Status | Evidence or note | Who acts |
 | --- | --- | --- | --- | --- |
@@ -50,10 +50,10 @@ Summary: 15 MET, 4 NOT MET, 3 UNCLEAR, 1 needed only on request (A22).
 | A11 | Tool names 64 characters or fewer | MET | Max 29 | |
 | A12 | No catch-all read/write tool | MET | One purpose per tool | |
 | A13 | API ownership: server calls its own API on its own domain | MET | `api.pandects.org` | |
-| A14 | Descriptions free of prompt-injection patterns (no instructions unrelated to the tool, no steering of other tools) | UNCLEAR | Server instructions and `submit_feedback` tell the model to send feedback "as it happens" and at session end. A reviewer can read this as telling Claude to act without a user request. See [proposals.md](proposals.md#p1-make-feedback-user-initiated) | Maintainer decides |
-| A15 | No collection of conversation data beyond what a tool needs | UNCLEAR | Same feedback nudge: the model writes session observations to the maintainer without the user asking. The portal's Compliance step has an acknowledgment on conversation data collection | Maintainer decides (P1) |
+| A14 | Descriptions free of prompt-injection patterns (no instructions unrelated to the tool, no steering of other tools) | MET once the P1 PR merges | The server instructions, `submit_feedback` description, selection hint, capabilities note, workflow note and result message now tell the model to send feedback only when the user asks or agrees to an offer. See [proposals.md](proposals.md#p1-make-feedback-user-initiated) | Merge the P1/P2 PR |
+| A15 | No collection of conversation data beyond what a tool needs | MET once the P1 PR merges | The server instructions, `submit_feedback` description, selection hint, capabilities note, workflow note and result message now tell the model to send feedback only when the user asks or agrees to an offer. See [proposals.md](proposals.md#p1-make-feedback-user-initiated) | Merge the P1/P2 PR |
 | A16 | Privacy policy URL | MET | `https://pandects.org/privacy-policy` | |
-| A17 | Privacy policy covers this connector's data (collection, use, storage, sharing, retention, contact) | NOT MET | The policy covers accounts, logs and API usage in general terms. It does not name the MCP server, the per-user tool usage rollups or `submit_feedback` content. Draft text in [proposals.md](proposals.md#p2-privacy-policy-section-for-the-mcp-server) | Maintainer (legal text) |
+| A17 | Privacy policy covers this connector's data (collection, use, storage, sharing, retention, contact) | MET once the P1/P2 PR merges | The privacy policy has a new section 3.E for the MCP server (usage records, arguments, logs, conversations, feedback notes) plus retention and rights entries. The policy version is bumped, so existing users re-accept once. See [proposals.md](proposals.md#p2-privacy-policy-section-for-the-mcp-server) | Merge the P1/P2 PR |
 | A18 | Public setup and usage documentation | MET (this PR) | `docs/docs/mcp/setup.md` now covers Claude custom connectors and ChatGPT as well as Codex and Claude Code. Goes live when the PR merges and deploys | Maintainer merges |
 | A19 | Tested as a custom connector in Claude, every tool called | NOT MET | Needs a claude.ai account and a Pandects account. Not done here | Maintainer |
 | A20 | Listing materials: icon, support contact, docs URL, privacy URL | UNCLEAR | Icon file exists. Support contact: `https://pandects.org/support` points to GitHub issues; the portal also asks for a contact, and only the maintainer can choose the address | Maintainer |
@@ -83,7 +83,7 @@ folder. This branch adds one at `marketplace/claude-plugin/pandects/`.
 
 ## OpenAI: ChatGPT Directory (plugin with a remote MCP server)
 
-Summary: 17 MET, 7 NOT MET, 3 UNCLEAR.
+Summary: 17 MET, 7 NOT MET, 3 UNCLEAR. After the P1/P2 PR merges: 19 MET, 6 NOT MET, 2 UNCLEAR.
 
 | # | Requirement | Status | Evidence or note | Who acts |
 | --- | --- | --- | --- | --- |
@@ -103,9 +103,9 @@ Summary: 17 MET, 7 NOT MET, 3 UNCLEAR.
 | O14 | `openWorldHint` correct (`false` for a bounded catalog) | MET | Closed corpus | |
 | O15 | Tool names human-readable, verb-based, unique | MET | Snapshot | |
 | O16 | Descriptions match behavior, do not steer toward or away from other plugins | MET | Snapshot | |
-| O17 | Respect user intent; no unnecessary data collection; no reconstruction of chat logs | UNCLEAR | Feedback nudge (same as A14/A15) | Maintainer decides (P1) |
+| O17 | Respect user intent; no unnecessary data collection; no reconstruction of chat logs | MET once the P1 PR merges | The server instructions, `submit_feedback` description, selection hint, capabilities note, workflow note and result message now tell the model to send feedback only when the user asks or agrees to an offer. See [proposals.md](proposals.md#p1-make-feedback-user-initiated) | Merge the P1/P2 PR |
 | O18 | Response minimization (no IDs, telemetry or timestamps that are not needed) | MET | Live results hold corpus data and paging fields only | |
-| O19 | Privacy policy covers data categories, purposes, recipients, retention, user controls | NOT MET | Same gap as A17 | Maintainer |
+| O19 | Privacy policy covers data categories, purposes, recipients, retention, user controls | MET once the P1/P2 PR merges | The privacy policy has a new section 3.E for the MCP server (usage records, arguments, logs, conversations, feedback notes) plus retention and rights entries. The policy version is bumped, so existing users re-accept once. See [proposals.md](proposals.md#p2-privacy-policy-section-for-the-mcp-server) | Merge the P1/P2 PR |
 | O20 | Website, support, privacy and terms URLs (HTTPS) | MET | `https://pandects.org`, `/support`, `/privacy-policy`, `/terms` | |
 | O21 | Name rules (no "MCP" or "Plugin" suffix, not generic) | MET | "Pandects" is a brand name | |
 | O22 | No pricing or promotion in descriptions; no commerce | MET | Packet text has none | |

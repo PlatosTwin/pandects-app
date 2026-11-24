@@ -3064,6 +3064,100 @@ class AuthFlowTests(unittest.TestCase):
         self.assertEqual(token_json["token_type"], "Bearer")
         self.assertIsInstance(token_json["expires_in"], int)
 
+    def test_delete_account_stops_connected_mcp_client(self):
+        os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
+        client = self.app.test_client()
+        user_id = self._create_local_user(email="delete-mcp@example.com")
+        with self.app.app_context():
+            db.session.add(
+                self._auth_external_subject(
+                    user_id=user_id,
+                    issuer="https://pandects-test-zitadel.example.com",
+                    subject="delete-mcp-zitadel-user",
+                )
+            )
+            db.session.commit()
+        _ = client.get("/v1/auth/csrf")
+        self._set_cookie_session(client, email="delete-mcp@example.com")
+
+        register = client.post(
+            "/v1/auth/oauth/register",
+            json={
+                "client_name": "Codex MCP",
+                "redirect_uris": ["https://codex.example.com/callback"],
+                "grant_types": ["authorization_code", "refresh_token"],
+                "response_types": ["code"],
+                "token_endpoint_auth_method": "none",
+            },
+        )
+        client_id = register.get_json()["client_id"]
+        self._grant_oauth_consent(
+            email="delete-mcp@example.com",
+            client_id=client_id,
+            scope="agreements:read",
+        )
+        authorize = client.get(
+            "/v1/auth/oauth/authorize"
+            f"?client_id={client_id}"
+            "&redirect_uri=https://codex.example.com/callback"
+            "&response_type=code"
+            "&scope=agreements:read"
+            f"&code_challenge={_pkce_challenge('delete-verifier')}"
+            "&code_challenge_method=S256"
+        )
+        auth_code = parse_qs(urlparse(authorize.headers["Location"]).query)["code"][0]
+        token = client.post(
+            "/v1/auth/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "client_id": client_id,
+                "code": auth_code,
+                "redirect_uri": "https://codex.example.com/callback",
+                "code_verifier": "delete-verifier",
+            },
+        )
+        self.assertEqual(token.status_code, 200)
+        token_json = token.get_json()
+
+        mcp_call = {"jsonrpc": "2.0", "id": 1, "method": "tools/list"}
+        before = client.post(
+            "/mcp",
+            json=mcp_call,
+            headers={"Authorization": f"Bearer {token_json['access_token']}"},
+        )
+        self.assertEqual(before.status_code, 200)
+
+        csrf = self._csrf_cookie_value(client)
+        deleted = client.post(
+            "/v1/auth/account/delete",
+            json={"confirm": "Delete"},
+            headers={"X-CSRF-Token": csrf},
+        )
+        self.assertEqual(deleted.status_code, 200)
+
+        # The access token the client already holds stops working at once.
+        after = client.post(
+            "/mcp",
+            json=mcp_call,
+            headers={"Authorization": f"Bearer {token_json['access_token']}"},
+        )
+        self.assertEqual(after.status_code, 401)
+
+        # The refresh token is revoked, so the client cannot mint a new pair.
+        refreshed = client.post(
+            "/v1/auth/oauth/token",
+            data={
+                "grant_type": "refresh_token",
+                "client_id": client_id,
+                "refresh_token": token_json["refresh_token"],
+            },
+        )
+        self.assertEqual(refreshed.status_code, 400)
+        self.assertEqual(refreshed.get_json()["error"], "invalid_grant")
+        with self.app.app_context():
+            live = AuthOAuthRefreshToken.query.filter_by(user_id=user_id, revoked_at=None).count()
+        self.assertEqual(live, 0)
+
     def test_refresh_token_grant_issues_new_pair_and_rotates_old_token(self):
         os.environ["AUTH_SESSION_TRANSPORT"] = "cookie"
         client = self.app.test_client()

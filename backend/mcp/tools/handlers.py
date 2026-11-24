@@ -2213,9 +2213,6 @@ def _submit_feedback(
             "feedback_id": row.id,
             "recorded_at": row.created_at.isoformat(),
             "category": row.category,
-            "message": (
-                "Feedback recorded — thank you. Keep filing observations as you hit "
-                "them; a short wrap-up submission at the end of a session is also welcome."
-            ),
+            "message": "Feedback recorded. Thank you.",
         },
     )

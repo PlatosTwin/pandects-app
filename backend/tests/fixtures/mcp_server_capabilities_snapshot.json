@@ -5,7 +5,7 @@
     "introspection_tool": "get_server_capabilities",
     "metrics_tool": "get_server_metrics",
     "feedback_tool": "submit_feedback",
-    "feedback_note": "This server collects agent experience feedback. When a tool, filter, or dataset causes friction, is missing something, or works notably well, call submit_feedback — mid-session as issues arise, and optionally as a wrap-up at session end.",
+    "feedback_note": "The maintainer reads feedback sent with submit_feedback. Send it when the user asks to report a problem or what worked well, or agrees when you offer to report one.",
     "transport": "http_jsonrpc",
     "resources_supported": true,
     "resource_templates_supported": false
@@ -676,7 +676,7 @@
     {
       "name": "submit_feedback",
       "title": "Send feedback to the maintainer",
-      "use_when": "Use whenever you notice friction, gaps, wrong or missing data, or notably good behavior while researching, and for a session-end wrap-up of observations worth keeping.",
+      "use_when": "Use when the user asks to report friction, wrong or missing data, or good behavior, or agrees to your offer to report it.",
       "required_scopes": [
         "agreements:search"
       ],
@@ -882,17 +882,17 @@
     },
     {
       "tool": "submit_feedback",
-      "use_when": "Use whenever you notice friction, gaps, wrong or missing data, or notably good behavior while researching, and for a session-end wrap-up of observations worth keeping.",
+      "use_when": "Use when the user asks to report friction, wrong or missing data, or good behavior, or agrees to your offer to report it.",
       "do_not_use_for": "Do not use this tool to get help or to retry a failed call: it only writes a note to the maintainer and returns an acknowledgment."
     },
     {
       "tool": "submit_feedback",
-      "use_when": "Use whenever you notice friction, gaps, wrong or missing data, or notably good behavior while researching, and for a session-end wrap-up of observations worth keeping.",
+      "use_when": "Use when the user asks to report friction, wrong or missing data, or good behavior, or agrees to your offer to report it.",
       "do_not_use_for": "Do not include user personal data, credentials, or full document texts in feedback; tool names, arguments, and short excerpts are enough."
     },
     {
       "tool": "submit_feedback",
-      "use_when": "Use whenever you notice friction, gaps, wrong or missing data, or notably good behavior while researching, and for a session-end wrap-up of observations worth keeping.",
+      "use_when": "Use when the user asks to report friction, wrong or missing data, or good behavior, or agrees to your offer to report it.",
       "do_not_use_for": "Do not file one submission per minor variation of the same issue; consolidate related observations into a single report."
     }
   ],
@@ -7569,7 +7569,7 @@
         "agreements:search"
       ],
       "pagination": "none",
-      "selection_hint": "Use whenever you notice friction, gaps, wrong or missing data, or notably good behavior while researching, and for a session-end wrap-up of observations worth keeping.",
+      "selection_hint": "Use when the user asks to report friction, wrong or missing data, or good behavior, or agrees to your offer to report it.",
       "negative_guidance": [
         "Do not use this tool to get help or to retry a failed call: it only writes a note to the maintainer and returns an acknowledgment.",
         "Do not include user personal data, credentials, or full document texts in feedback; tool names, arguments, and short excerpts are enough.",
@@ -7582,7 +7582,7 @@
             "feedback_id": "0d9c1f7e-0000-0000-0000-000000000000",
             "recorded_at": "2026-08-04T12:00:00",
             "category": "missing_capability",
-            "message": "Feedback recorded — thank you. Keep filing observations as you hit them; a short wrap-up submission at the end of a session is also welcome."
+            "message": "Feedback recorded. Thank you."
           }
         }
       ],
@@ -7761,11 +7761,11 @@
       ]
     },
     {
-      "name": "report friction or gaps you encountered",
+      "name": "report friction or gaps when the user asks",
       "steps": [
         "submit_feedback"
       ],
-      "note": "File feedback the moment a tool, filter, or dataset surprises you — include the tool name, the arguments, and expected vs actual. Praise for what worked well is equally useful, and a short session-end wrap-up of observations is encouraged."
+      "note": "Send feedback when the user asks, or agrees when you offer to report a problem you hit. Include the tool name, the arguments, and expected vs actual."
     }
   ]
 }
