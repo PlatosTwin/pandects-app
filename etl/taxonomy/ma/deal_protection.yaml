@@ -271,6 +271,8 @@ concepts:
     nav_parent: ma.nav.deal_protection.recommendation
     tier: label
     wave: 2
+    attributes:
+      party: holder
     description: >-
       The board's right to change its recommendation in response to a superior proposal, and the fiduciary
       finding it must make first.
@@ -312,12 +314,13 @@ concepts:
     nav_parent: ma.nav.deal_protection.recommendation
     tier: label
     wave: 2
+    attributes:
+      party: holder
     description: >-
       The board's right to change its recommendation because of a new event that is not a competing proposal.
     canonical_terms:
       - Intervening Event
       - not known or reasonably foreseeable
-      - other than in connection with a Superior Proposal
     example_phrases:
       - >-
         The Company Board may make an Adverse Recommendation Change in response to an Intervening Event
@@ -358,13 +361,12 @@ concepts:
     description: >-
       The board's right to change its recommendation whenever it finds that its fiduciary duties require
       it, for any reason. The clause names no superior proposal and no intervening event as the ground.
-      Whether a target has this unrestricted out is the variable.
+      It also covers an out for any reason other than a competing proposal when the clause names no
+      Intervening Event or new event. Whether a target has this unrestricted out is the variable.
     canonical_terms:
-      - fiduciary out
-      - if the Board has determined in good faith
-      - failure to take such action would be inconsistent with its fiduciary duties
-      - Adverse Recommendation Change
       - for any reason
+      - whether or not in connection with a Superior Proposal
+      - other than in connection with a Competing Proposal
     example_phrases:
       - >-
         Notwithstanding anything to the contrary in this Agreement, prior to obtaining the Company Stockholder
@@ -374,7 +376,7 @@ concepts:
     exclusion_cues:
       - >-
         A change in response to a Superior Proposal is ma.recommendation.change_superior_proposal. Give
-        this concept as well only when a separate sentence lets the board change for any other reason.
+        this concept as well only when a separate sentence or clause lets the board change for any other reason.
       - >-
         A change because of an Intervening Event or another new event that is not a competing proposal
         is ma.recommendation.change_intervening_event.

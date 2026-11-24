@@ -189,7 +189,9 @@ concepts:
         a Burdensome Condition.
     exclusion_cues:
       - The duty to fight a challenge in court is ma.regulatory.litigation.
-      - The definition of the limit is ma.def.burdensome_condition.
+      - >-
+        The defined term for the limit is also ma.def.burdensome_condition. When it is defined inline in
+        this covenant, give both concepts.
     value_schema:
       status: stub
       fields:
@@ -262,7 +264,7 @@ concepts:
       timing agreement. Joint control is a value of this concept: a duty to coordinate the strategy, with
       or without a tie-break, and a rule that neither party may extend a waiting period, withdraw a filing
       or enter a timing agreement without the other's consent. Record the party that holds final say;
-      when control is joint, record both parties.
+      when control is joint, record the party value mutual.
     canonical_terms:
       - control and direct the strategy
       - pull and refile

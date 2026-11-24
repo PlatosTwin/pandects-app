@@ -508,8 +508,9 @@ concepts:
         group ma.nav.consideration.adjustment).
       - A deposit paid at signing is ma.consideration.deposit.
       - >-
-        One escrow that secures both indemnity claims and the price adjustment is this concept. Do not also
-        use ma.price_adjustment.escrow or, in wave 1, its group ma.nav.consideration.adjustment.
+        One undivided escrow that secures both indemnity claims and the price adjustment, with no separate
+        adjustment amount, is this concept alone. When the escrow holds a separate adjustment amount, also
+        give ma.price_adjustment.escrow (in wave 1, label its group ma.nav.consideration.adjustment).
     value_schema:
       status: stub
       fields:

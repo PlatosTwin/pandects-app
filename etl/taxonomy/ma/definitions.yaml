@@ -315,6 +315,9 @@ concepts:
         by the breaching party with actual knowledge that such act or failure to act would result in a
         breach of this Agreement.
     exclusion_cues:
+      - >-
+        "Gross negligence or willful misconduct" as a standard of care for an agent, a representative or an
+        indemnified person is not this concept.
       - The clause that keeps liability for such a breach after termination is ma.termination.willful_breach_liability.
       - A definition of fraud is ma.def.fraud.
     value_schema:

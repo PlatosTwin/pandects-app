@@ -795,7 +795,8 @@ concepts:
     description: >-
       An escrow or holdback that secures the seller's duty to pay a downward price adjustment. A holdback
       counts when the buyer keeps part of the price to cover the adjustment, such as an "Adjustment Holdback"
-      that a shortfall reduces. When one escrow holds a separate adjustment amount and a separate indemnity
+      that a shortfall reduces. The test is whether the agreement says the amount is kept to cover the
+      adjustment. When one escrow holds a separate adjustment amount and a separate indemnity
       amount, give both this concept and ma.indemn.escrow.
     canonical_terms:
       - Adjustment Escrow Amount

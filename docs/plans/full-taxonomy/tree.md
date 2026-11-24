@@ -169,8 +169,8 @@ In the M&A pack, † after a group name means that the group can be the label of
 | No-Shop and Go-Shop † | `ma.noshop.notice_of_proposals` | Notice of Competing Proposals | component; wave 2; value stub; part of `ma.noshop.non_solicitation` |
 | No-Shop and Go-Shop † | `ma.noshop.standstill_waiver` | Standstill Waivers |  |
 | Board Recommendation and Fiduciary Out † | `ma.recommendation.board_recommendation` | Board Recommendation; No Adverse Change | wave 2; party: obligor |
-| Board Recommendation and Fiduciary Out † | `ma.recommendation.change_superior_proposal` | Fiduciary Out for a Superior Proposal | wave 2; value stub |
-| Board Recommendation and Fiduciary Out † | `ma.recommendation.change_intervening_event` | Fiduciary Out for an Intervening Event | wave 2; value stub |
+| Board Recommendation and Fiduciary Out † | `ma.recommendation.change_superior_proposal` | Fiduciary Out for a Superior Proposal | wave 2; value stub; party: holder |
+| Board Recommendation and Fiduciary Out † | `ma.recommendation.change_intervening_event` | Fiduciary Out for an Intervening Event | wave 2; value stub; party: holder |
 | Board Recommendation and Fiduciary Out † | `ma.recommendation.change_general_fiduciary` | General Fiduciary Out | wave 2; party: holder |
 | Board Recommendation and Fiduciary Out † | `ma.recommendation.match_right` | Match Right | component; wave 2; value stub; part of `ma.recommendation.change_superior_proposal` |
 | Board Recommendation and Fiduciary Out † | `ma.recommendation.permitted_disclosure` | Permitted Disclosure; Stop, Look and Listen | component; wave 2; value stub; part of `ma.recommendation.board_recommendation` |

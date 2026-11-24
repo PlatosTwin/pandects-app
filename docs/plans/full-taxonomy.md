@@ -50,7 +50,7 @@ A concept can also appear under other navigation nodes (`also_listed_under`). Th
 
 | Kind | Meaning | M&A | Tax |
 |---|---|---|---|
-| `provision` | A provision that answers one research question. | 233 | 112 |
+| `provision` | A provision that answers one research question. | 234 | 112 |
 | `component` | A part of a provision that researchers study by itself. It names its parent concept. | 21 | 0 |
 | `definition` | A defined term whose content is a research object. | 16 | 3 |
 | `modifier` | A clause that changes how another concept applies. It names its parent concept. | 3 | 0 |
@@ -69,7 +69,7 @@ Examples: `ma.conduct.negative_covenants` is a provision, and `ma.conduct.restri
 
 The live tree has "Organization (Company rep)" and "Organization (Buyer rep)" as two leaves. This design has one concept, `ma.rep.organization`, with `attributes: {party: maker}`. The labeled instance stores who the maker is.
 
-The role names are `maker` (of a representation), `obligor` (of a covenant), `tested_party` (of a condition), `holder` (of a right), `indemnitor` and `subject` (of a definition). 106 M&A concepts and 35 tax concepts carry a role.
+The role names are `maker` (of a representation), `obligor` (of a covenant), `tested_party` (of a condition), `holder` (of a right), `indemnitor` and `subject` (of a definition). 108 M&A concepts and 35 tax concepts carry a role.
 
 The reasons:
 
@@ -534,7 +534,7 @@ This section is a plan. No full labeling ran. A trial of steps 1 to 6 on 50 agre
 4. **Party.** Simple rules set the party from the article heading ("Representations and Warranties of the Company") and check the model's answer. A conflict sends the section to step 6.
 5. **Tax pass.** A section or clause that receives a tax node goes to a second pass with the tax pack only. That pass assigns the tax leaf, as the tax module does today. The M&A pass does not need the tax leaves, which keeps its short lists small.
 6. **Second read.** A stronger model reads the sections that fail a check: low confidence, a conflict between the title hint and the label, a party conflict, or a representation concept outside a representations article.
-7. **Wave 2.** The first run of steps 2 to 6 uses the wave 1 concepts and the 14 assignable groups (section 3.5). The card of a group lists the labels of its wave 2 concepts. When a section holds content of such a group that no wave 1 concept covers, the model returns the group. Wave 2 then reads the sections that carry a group label. It assigns the clause-level provisions, the parts and the definitions (the `wave` field, section 4.4), and those concept labels replace the group label. A section where wave 2 finds no concept of the group goes to the second read. A component is labeled only inside sections that already carry the parent concept. Definition concepts come mostly from the defined-term graph: the term string identifies them, so most need no model. The wave 2 trial set the read set for the corpus run (11.5): "core plus pool".
+7. **Wave 2.** The first run of steps 2 to 6 uses the wave 1 concepts and the 14 assignable groups (section 3.5). The card of a group lists the labels of its wave 2 concepts. When a section holds content of such a group that no wave 1 concept covers, the model returns the group. Wave 2 then reads the sections that carry a group label. It assigns the clause-level provisions, the parts and the definitions (the `wave` field, section 4.4), and those concept labels replace the group label. A section where wave 2 finds no concept of the group goes to the second read. A component is labeled only inside sections that already carry the parent concept, or that the pool (11.5) offers it to. The match right may also attach to the general fiduciary out. Definition concepts come mostly from the defined-term graph: the term string identifies them, so most need no model. The wave 2 trial set the read set for the corpus run (11.5): "core plus pool".
 8. **Gold and bars.** A stratified gold set of 150 to 300 agreements (by deal type, target type and year) with per-concept precision and recall bars, as the plan sets for value concepts. The older labels serve as a second comparison through the crosswalk.
 9. **Monitors.** Expected rates per concept catch drift. A governing law concept found in under 95% of agreements is an alarm.
 10. **Serving.** New labels are served next to the old ones until they meet the bar. The crosswalk keeps old filters working.
@@ -734,7 +734,7 @@ One proposal of the report was not applied to the packs: canonical terms of thei
 
 | Measure | Result |
 |---|---|
-| First read against the blind read (272 sections, 916 reference labels) | precision 0.987, recall 0.969, F1 0.978 |
+| First read against the blind read (272 sections, 916 reference labels; 917 with the one label outside the read set) | precision 0.987, recall 0.969, F1 0.978 |
 | Sections with the same label set | 87.1% |
 | Party, on matched labels with a party role | 0.968 exact |
 | Recall over whole agreements, with misses in unread and "none" sections | about 0.91 (range about 0.88 to 0.95) |
@@ -760,7 +760,7 @@ The two reads never swapped two concepts: every disagreement is a missed or an e
 | `ma.mae.definition` | Covers "deemed MAE" provisos, such as a revenue shortfall that is deemed a Material Adverse Effect. A "Lender MAC" is not part of it. |
 | `ma.def.intervening_event`, `ma.def.working_capital`, `ma.def.transaction_expenses` | The definition must be the deal term that the card describes, not the same words defined or used for another purpose. |
 | `ma.approval.force_the_vote` | The clause must keep the meeting or the vote in place after a change of recommendation. A meeting duty "not affected by" a competing proposal is not enough. |
-| `ma.regulatory.strategy_control` | Joint control, a coordination duty and a mutual consent rule on timing agreements are values of the concept. When control is joint, both parties are recorded. |
+| `ma.regulatory.strategy_control` | Joint control, a coordination duty and a mutual consent rule on timing agreements are values of the concept. When control is joint, the party value is mutual. |
 | `ma.regulatory.litigation` | A clause that says a party need not litigate is a value of the concept ("not required"). |
 | `ma.condition.financing` | The condition must turn on the funding itself. Evidence of funds is `ma.condition.other`. A condition that the target receive the debt proceeds is this concept. |
 | `ma.consideration.seller_note` | The note must be part of the price for this deal. A deferral on existing debt is not. "Seller Note" and "promissory note" stay as terms, with the wording of the missed case added. |
@@ -775,7 +775,7 @@ The two reads never swapped two concepts: every disagreement is a missed or an e
 
 ## 12. What this work did not do
 
-- **No full labeling.** The coverage figure rests on titles. The 50-agreement trials of wave 1 (11.4) and wave 2 (11.5) are the only checks on body text. Its reference is one blind read by a stronger model. It is not a gold set.
+- **No full labeling.** The coverage figure rests on titles. The 50-agreement trials of wave 1 (11.4) and wave 2 (11.5) are the only checks on body text. Each trial's reference is one blind read by a stronger model. It is not a gold set.
 - **No expert review by a person.** The tax professor has not seen the 10 additions (accepted by the maintainer) or the new descriptions. No M&A lawyer has reviewed the M&A pack. Three model reviews are recorded in sections 4.4 and 11.
 - **No second reader** for the sample in 6.3.
 - **No verified prevalence.** Section 4.4 gives a heading count and a text count for each M&A concept. The text patterns are hand-written and nobody checked samples of their matches. The tax pack was not measured.

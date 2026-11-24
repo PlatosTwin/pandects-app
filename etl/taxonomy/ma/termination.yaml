@@ -318,6 +318,9 @@ concepts:
       it in many agreements, it may get a concept of its own.
     exclusion_cues:
       - A walk-away right tied to the buyer's stock price is ma.consideration.exchange_ratio.
+      - >-
+        A right for a breach that makes a condition fail is ma.termination.right.breach. Give both only when
+        the clause also covers conditions that cannot be fulfilled for another reason.
     crosswalk:
       section_v1:
         - id: 07f6697318f248d3
