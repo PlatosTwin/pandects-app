@@ -1,0 +1,573 @@
+# Pandects taxonomy, tax pack (`tax`). Navigation branch: Intended Tax Treatment, Elections, and Purchase Price Allocation.
+# Structure and labels mirror tax_clause_taxonomy_l1/l2/l3, which was built with a tax professor.
+# Nodes marked `new_in_redesign: true` are additions to the legacy tax tree. The maintainer accepted them on 2026-11-22.
+# Field reference: etl/taxonomy/README.md. Validate with: python -m etl.domain.taxonomy_pack
+pack: tax
+release: '2026.1'
+branch:
+  id: tax.nav.deal
+  label: Intended Tax Treatment, Elections, and Purchase Price Allocation
+  kind: branch
+  order: 1
+  assignable: true
+  description: >-
+    How the parties intend the deal to be taxed, the elections and opinions that support that treatment,
+    pre-closing restructuring, and the allocation of the price among assets.
+  also_listed_under:
+    - ma.nav.structure.transaction
+  crosswalk:
+    tax_v1:
+      - id: tax.1
+        relation: exact
+    section_v1:
+      - id: c232a01100673b01
+        relation: exact
+    section_v2:
+      - id: ade7eaf270e6d6f5
+        relation: exact
+  introduced_in: '2026.1'
+groups:
+
+  - id: tax.nav.deal.treatment
+    label: Tax Classification of the Deal
+    kind: group
+    nav_parent: tax.nav.deal
+    assignable: true
+    description: The intended tax classification of the transaction.
+    crosswalk:
+      tax_v1:
+        - id: tax.1.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.nav.deal.elections
+    label: Tax Elections
+    kind: group
+    nav_parent: tax.nav.deal
+    assignable: true
+    description: Tax elections made or prohibited in connection with the deal.
+    crosswalk:
+      tax_v1:
+        - id: tax.1.3
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.nav.deal.opinions
+    label: Tax Opinions and Representation Letters
+    kind: group
+    nav_parent: tax.nav.deal
+    assignable: true
+    description: Tax opinions and the representation letters that support them.
+    crosswalk:
+      tax_v1:
+        - id: tax.1.4
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.nav.deal.restructuring
+    label: Pre-Closing Restructuring
+    kind: group
+    nav_parent: tax.nav.deal
+    assignable: true
+    description: Restructuring steps taken before closing for tax reasons.
+    crosswalk:
+      tax_v1:
+        - id: tax.1.5
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.nav.deal.allocation
+    label: Purchase Price Allocation
+    kind: group
+    nav_parent: tax.nav.deal
+    assignable: true
+    description: Allocation of the purchase price among assets for tax purposes.
+    crosswalk:
+      tax_v1:
+        - id: tax.1.6
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.nav.deal.adjustment_treatment
+    label: Tax Treatment of Purchase Price Adjustments
+    kind: group
+    nav_parent: tax.nav.deal
+    assignable: true
+    description: How post-closing payments are treated for tax purposes.
+    crosswalk:
+      tax_v1:
+        - id: tax.1.7
+          relation: exact
+    introduced_in: '2026.1'
+concepts:
+
+  - id: tax.treatment.reorganization
+    label: Intended Tax-Free Reorganization
+    kind: provision
+    nav_parent: tax.nav.deal.treatment
+    also_listed_under:
+      - ma.nav.structure.transaction
+    tier: label
+    description: >-
+      The parties state that the transaction is intended to qualify as a tax-free reorganization under
+      Section 368(a), adopt the agreement as a plan of reorganization, and agree not to act against that
+      treatment.
+    canonical_terms:
+      - reorganization within the meaning of Section 368(a)
+      - plan of reorganization
+      - tax-free reorganization
+      - intended tax treatment
+    example_phrases:
+      - >-
+        The parties intend that the Merger qualify as a "reorganization" within the meaning of Section
+        368(a) of the Code, and this Agreement is adopted as a plan of reorganization.
+    exclusion_cues:
+      - A representation that no fact prevents the treatment is tax.rep.intended_treatment.
+      - A tax opinion as a closing condition is tax.opinion.closing_condition.
+    crosswalk:
+      tax_v1:
+        - id: tax.1.1.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.treatment.taxable
+    label: Taxable Transaction (C-Corps)
+    kind: provision
+    nav_parent: tax.nav.deal.treatment
+    tier: label
+    description: >-
+      The parties state that the transaction is a taxable purchase of stock or assets of a corporation
+      for income tax purposes.
+    canonical_terms:
+      - taxable purchase
+      - taxable sale of stock
+      - treated as a taxable acquisition
+    example_phrases:
+      - >-
+        The parties agree to treat the purchase of the Shares as a taxable purchase of stock for U.S.
+        federal income tax purposes.
+    crosswalk:
+      tax_v1:
+        - id: tax.1.1.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.treatment.partnership
+    label: Partnership Transactions
+    kind: provision
+    nav_parent: tax.nav.deal.treatment
+    tier: label
+    description: >-
+      The intended tax treatment of a deal that involves a partnership, such as a purchase of partnership
+      interests, Revenue Ruling 99-6 treatment, or a contribution under Section 721.
+    canonical_terms:
+      - Revenue Ruling 99-6
+      - Section 721
+      - Section 741
+      - purchase of partnership interests
+    example_phrases:
+      - >-
+        The parties intend that the purchase of the Units be treated in accordance with Revenue Ruling
+        99-6 (Situation 2).
+    exclusion_cues:
+      - Partnership tax representations are under tax.nav.reps.partnership.
+      - A Section 754 election is tax.election.754.
+    crosswalk:
+      tax_v1:
+        - id: tax.1.1.3
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.treatment.disregarded_entity
+    label: Disregarded Entity Transactions
+    kind: provision
+    nav_parent: tax.nav.deal.treatment
+    tier: label
+    description: >-
+      The intended tax treatment of a purchase of an entity that is disregarded for tax purposes, usually
+      as a purchase of its assets.
+    canonical_terms:
+      - disregarded entity
+      - treated as a purchase of assets
+      - entity disregarded as separate from its owner
+    example_phrases:
+      - >-
+        Because the Company is a disregarded entity, the parties shall treat the purchase of the Interests
+        as a purchase of the assets of the Company for income tax purposes.
+    crosswalk:
+      tax_v1:
+        - id: tax.1.1.4
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.treatment.blocker
+    label: Blocker Structures
+    kind: provision
+    nav_parent: tax.nav.deal.treatment
+    tier: label
+    description: >-
+      Provisions on a blocker corporation in the structure: the purchase or merger of the blocker and
+      its intended tax treatment.
+    canonical_terms:
+      - Blocker
+      - Blocker Corp
+      - blocker merger
+      - blocker seller
+    example_phrases:
+      - >-
+        The parties intend that the Blocker Merger be treated as a taxable sale of the stock of Blocker
+        by the Blocker Seller.
+    crosswalk:
+      tax_v1:
+        - id: tax.1.1.5
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.treatment.section_351
+    label: Section 351 Transactions
+    kind: provision
+    nav_parent: tax.nav.deal.treatment
+    tier: label
+    description: The parties state that an exchange is intended to qualify under Section 351 of the Code.
+    canonical_terms:
+      - Section 351
+      - exchange described in Section 351
+      - contribution in exchange for stock
+    example_phrases:
+      - >-
+        The parties intend that the Contribution, together with the Merger, qualify as an exchange described
+        in Section 351 of the Code.
+    exclusion_cues:
+      - A reorganization under Section 368(a) is tax.treatment.reorganization.
+    crosswalk:
+      tax_v1:
+        - id: tax.1.1.6
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.treatment.reporting
+    label: Tax Reporting
+    kind: provision
+    nav_parent: tax.nav.deal
+    tier: label
+    description: >-
+      A covenant to file tax returns in line with the intended tax treatment and to take no contrary position
+      unless a final determination requires it.
+    canonical_terms:
+      - report consistently
+      - no inconsistent position
+      - unless otherwise required by a determination
+    example_phrases:
+      - >-
+        Each party shall file all Tax Returns consistent with the Intended Tax Treatment and shall not
+        take any inconsistent position unless required by a final determination.
+    exclusion_cues:
+      - Consistent reporting of a purchase price allocation is tax.allocation.consistency.
+    crosswalk:
+      tax_v1:
+        - id: tax.1.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.election.338h10
+    label: Section 338 / 336 / Similar Elections
+    kind: provision
+    nav_parent: tax.nav.deal.elections
+    also_listed_under:
+      - ma.nav.covenants.tax
+    tier: value
+    description: >-
+      An election under Section 338(h)(10), 338(g) or 336(e), or a similar election that treats a stock
+      purchase as an asset purchase: who may make it, who must join, and who bears its tax cost. It also
+      covers a ban on such an election.
+    canonical_terms:
+      - Section 338(h)(10) election
+      - Section 336(e) election
+      - Section 338(g) election
+      - Form 8023
+      - deemed asset sale
+    example_phrases:
+      - >-
+        At Buyer's request, Seller shall join with Buyer in making an election under Section 338(h)(10)
+        of the Code with respect to the purchase of the Shares.
+    exclusion_cues:
+      - The allocation that follows a deemed asset sale is tax.allocation.purchase_price.
+      - A partnership basis election is tax.election.754.
+    value_schema:
+      status: piloted
+      version: '2.16'
+      source: span taxonomy plan, section 7.2 (https://github.com/PlatosTwin/pandects-app/pull/317)
+      fields:
+        - election
+        - decides
+        - seller_must_join
+        - allocation
+        - tax_cost_shift
+        - deemed_sale_tax_borne_by
+    crosswalk:
+      tax_v1:
+        - id: tax.1.3.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.election.754
+    label: Section 754 / Partnership Elections
+    kind: provision
+    nav_parent: tax.nav.deal.elections
+    also_listed_under:
+      - ma.nav.covenants.tax
+    tier: label
+    description: >-
+      A Section 754 election or another partnership election, including a push-out election under Section
+      6226.
+    canonical_terms:
+      - Section 754 election
+      - push-out election
+      - Section 6226
+      - partnership representative
+    example_phrases:
+      - >-
+        The Company shall have in effect a valid election under Section 754 of the Code for the taxable
+        year that includes the Closing Date.
+    exclusion_cues:
+      - Representations on the partnership audit regime are tax.rep.partnership_audit_regime.
+    crosswalk:
+      tax_v1:
+        - id: tax.1.3.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.election.entity_classification
+    label: Entity Classification Elections
+    kind: provision
+    nav_parent: tax.nav.deal.elections
+    tier: label
+    description: >-
+      An entity classification (check-the-box) election under Treasury Regulations Section 301.7701-3,
+      made or prohibited in connection with the deal.
+    canonical_terms:
+      - entity classification election
+      - check-the-box
+      - Form 8832
+      - Section 301.7701-3
+    example_phrases:
+      - >-
+        Prior to the Closing, Seller shall cause the Company to file an IRS Form 8832 electing to be disregarded
+        as an entity separate from its owner.
+    exclusion_cues:
+      - >-
+        A covenant not to change classification before closing is tax.interim.no_residency_change.
+    crosswalk:
+      tax_v1:
+        - id: tax.1.3.3
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.opinion.closing_condition
+    label: Tax Opinion Closing Condition
+    kind: provision
+    nav_parent: tax.nav.deal.opinions
+    also_listed_under:
+      - ma.nav.conditions.party
+    tier: label
+    description: >-
+      A closing condition that a party receive an opinion of counsel on the tax treatment of the transaction.
+    canonical_terms:
+      - opinion of counsel
+      - to the effect that the Merger will qualify as a reorganization
+      - tax opinion condition
+    example_phrases:
+      - >-
+        The Company shall have received an opinion of its counsel, dated the Closing Date, to the effect
+        that the Merger will qualify as a reorganization within the meaning of Section 368(a) of the Code.
+    exclusion_cues:
+      - The covenant to deliver representation letters is tax.opinion.cooperation.
+    crosswalk:
+      tax_v1:
+        - id: tax.1.4.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.opinion.cooperation
+    label: Cooperation for Tax Opinion and Representation Letters
+    kind: provision
+    nav_parent: tax.nav.deal.opinions
+    tier: label
+    description: >-
+      A covenant to cooperate in obtaining a tax opinion, including delivery of officer's certificates
+      and tax representation letters to counsel.
+    canonical_terms:
+      - tax representation letters
+      - officer's certificate to counsel
+      - cooperate in obtaining the tax opinion
+    example_phrases:
+      - >-
+        Each of Parent and the Company shall deliver to counsel a tax representation letter containing
+        customary representations to support the opinions described in Section [•].
+    crosswalk:
+      tax_v1:
+        - id: tax.1.4.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.restructuring.pre_closing
+    label: Pre-Closing Restructuring / Conversion
+    kind: provision
+    nav_parent: tax.nav.deal.restructuring
+    also_listed_under:
+      - ma.nav.structure.transaction
+    tier: label
+    description: >-
+      A restructuring, conversion or reorganization that a party must or may carry out before closing,
+      such as a conversion to an LLC, an F reorganization or a carve-out of excluded assets.
+    canonical_terms:
+      - Pre-Closing Reorganization
+      - Restructuring
+      - conversion to a limited liability company
+      - F reorganization
+    example_phrases:
+      - >-
+        Prior to the Closing, Seller shall effect the Pre-Closing Reorganization in accordance with the
+        steps set forth on Exhibit [•].
+    exclusion_cues:
+      - >-
+        Indemnity for taxes that the restructuring triggers is tax.indemnity.restructuring_taxes.
+      - >-
+        A SPAC's change of its jurisdiction of incorporation before closing, the Domestication, is ma.spac.domestication.
+        The statement that the Domestication is intended to qualify as a reorganization is tax.treatment.reorganization.
+    crosswalk:
+      tax_v1:
+        - id: tax.1.5.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.allocation.purchase_price
+    label: Purchase Price Allocation
+    kind: provision
+    nav_parent: tax.nav.deal.allocation
+    also_listed_under:
+      - ma.nav.consideration.price
+    tier: label
+    description: >-
+      The agreement to allocate the purchase price and assumed liabilities among the assets for tax purposes,
+      usually under Section 1060 or Section 338.
+    canonical_terms:
+      - purchase price allocation
+      - Section 1060
+      - Form 8594
+      - allocation among the Purchased Assets
+    example_phrases:
+      - >-
+        The Purchase Price and the Assumed Liabilities shall be allocated among the Purchased Assets in
+        accordance with Section 1060 of the Code.
+    exclusion_cues:
+      - Who prepares the allocation and how disputes are settled is tax.allocation.methodology.
+      - The duty to file consistently is tax.allocation.consistency.
+    crosswalk:
+      tax_v1:
+        - id: tax.1.6.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.allocation.methodology
+    label: Purchase Price Allocation Methodology / Schedule
+    kind: provision
+    nav_parent: tax.nav.deal.allocation
+    tier: label
+    description: >-
+      The method or schedule for the allocation: who prepares the allocation statement, the deadline,
+      the review period and the dispute mechanism.
+    canonical_terms:
+      - Allocation Schedule
+      - Allocation Statement
+      - within [•] days after the Closing
+      - Independent Accountant
+    example_phrases:
+      - >-
+        Within 90 days after the Closing Date, Buyer shall deliver to Seller a statement allocating the
+        Purchase Price in accordance with the methodology set forth on Schedule [•].
+    exclusion_cues:
+      - A schedule that divides the consideration among the holders is ma.exchange.payment_schedule.
+    crosswalk:
+      tax_v1:
+        - id: tax.1.6.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.allocation.consistency
+    label: Allocation Reporting Consistency
+    kind: provision
+    nav_parent: tax.nav.deal.allocation
+    tier: label
+    description: >-
+      A covenant to file all tax returns in line with the agreed allocation and to take no contrary position.
+    canonical_terms:
+      - file all Tax Returns consistent with the Allocation
+      - no inconsistent position
+      - Form 8594
+    example_phrases:
+      - >-
+        The parties shall file all Tax Returns, including IRS Form 8594, in a manner consistent with the
+        Allocation.
+    crosswalk:
+      tax_v1:
+        - id: tax.1.6.3
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.adjustment.price_adjustments
+    label: Tax Treatment of Purchase Price Adjustments
+    kind: provision
+    nav_parent: tax.nav.deal.adjustment_treatment
+    also_listed_under:
+      - ma.nav.indemnification.procedure
+    tier: label
+    description: >-
+      The agreement to treat indemnity payments and price adjustment payments as adjustments to the purchase
+      price for tax purposes.
+    canonical_terms:
+      - treated as an adjustment to the Purchase Price
+      - tax treatment of indemnification payments
+      - for all Tax purposes
+      - treated as an adjustment to the
+      - as adjustments to the
+    example_phrases:
+      - >-
+        Any payment made under this Article shall be treated by the parties as an adjustment to the Purchase
+        Price for all Tax purposes, unless otherwise required by Law.
+    exclusion_cues:
+      - >-
+        A clause on who owns an escrow fund or an exchange fund for tax purposes, and who reports its
+        income, has no concept of its own. It takes the group tax.nav.deal.adjustment_treatment.
+    crosswalk:
+      tax_v1:
+        - id: tax.1.7.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.adjustment.earnouts
+    label: Tax Treatment of Earnouts / Contingent Consideration
+    kind: provision
+    nav_parent: tax.nav.deal.adjustment_treatment
+    tier: label
+    description: >-
+      The tax treatment of earnout or other contingent payments, including imputed interest and installment
+      sale reporting.
+    canonical_terms:
+      - imputed interest
+      - installment method
+      - Section 483
+      - contingent payment
+    example_phrases:
+      - >-
+        The parties agree that a portion of each Earnout Payment shall be treated as imputed interest
+        to the extent required by Section 483 or Section 1274 of the Code.
+    exclusion_cues:
+      - >-
+        A clause on who owns an escrow fund or an exchange fund for tax purposes, and who reports its
+        income, has no concept of its own. It takes the group tax.nav.deal.adjustment_treatment.
+    crosswalk:
+      tax_v1:
+        - id: tax.1.7.2
+          relation: exact
+    introduced_in: '2026.1'

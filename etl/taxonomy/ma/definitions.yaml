@@ -1,0 +1,679 @@
+# Pandects taxonomy, M&A pack (`ma`). Navigation branch: Definitions and Interpretation.
+# Source of truth for these nodes. Field reference: etl/taxonomy/README.md.
+# Validate with: python -m etl.domain.taxonomy_pack
+pack: ma
+release: '2026.1'
+branch:
+  id: ma.nav.definitions
+  label: Definitions and Interpretation
+  kind: branch
+  order: 14
+  description: >-
+    Defined terms and the rules for reading the agreement. Key defined terms have their own concepts so
+    that a researcher can filter to one definition.
+  introduced_in: '2026.1'
+groups:
+
+  - id: ma.nav.definitions.defined_terms
+    label: Defined Terms
+    kind: group
+    nav_parent: ma.nav.definitions
+    description: The definitions section or article as a whole.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.definitions.key_terms
+    label: Key Defined Terms
+    kind: group
+    nav_parent: ma.nav.definitions
+    assignable: true
+    description: >-
+      Definitions that carry much of the deal's risk allocation. Tax definitions are listed here from
+      the tax pack.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.definitions.interpretation
+    label: Interpretation
+    kind: group
+    nav_parent: ma.nav.definitions
+    description: Rules of construction, disclosure schedules and recitals.
+    introduced_in: '2026.1'
+concepts:
+
+  - id: ma.definitions.general
+    label: Defined Terms (General)
+    kind: provision
+    nav_parent: ma.nav.definitions.defined_terms
+    tier: label
+    wave: 1
+    description: >-
+      A definition, or a whole definitions section, that has no concept of its own, and the index of terms
+      defined elsewhere.
+    canonical_terms:
+      - Definitions
+      - Certain Defined Terms
+      - the following terms shall have the following meanings
+      - Terms Defined Elsewhere
+    example_phrases:
+      - >-
+        'Affiliate' means, with respect to any Person, any other Person that controls, is controlled by,
+        or is under common control with such Person.
+      - As used herein, the following capitalized terms have the following meanings.
+    exclusion_cues:
+      - Use a key defined term concept when one fits.
+    crosswalk:
+      section_v1:
+        - id: e6b7de6f04a01f5b
+          relation: exact
+      section_v2:
+        - id: c133ce37c9137ebe
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.mae.definition
+    label: Material Adverse Effect Definition
+    kind: definition
+    nav_parent: ma.nav.definitions.key_terms
+    also_listed_under:
+      - ma.nav.conditions.party
+    tier: value
+    wave: 2
+    attributes:
+      party: subject
+    description: >-
+      The definition of Material Adverse Effect or Material Adverse Change: what it covers, the forward-looking
+      standard, and the list of excluded events. The party it applies to is an attribute of the instance.
+      It also covers a "deemed MAE" proviso: a clause, in the definition or elsewhere, that states an
+      event, such as a revenue shortfall or a change in a government program, shall be deemed a Material
+      Adverse Effect.
+    canonical_terms:
+      - '"Material Adverse Effect" means'
+      - Company Material Adverse Effect
+      - Material Adverse Change
+      - has had or would reasonably be expected to have
+      - business, financial condition or results of operations
+      - shall be deemed a Material Adverse Effect
+      - shall be deemed to have had a Material Adverse Effect
+    example_phrases:
+      - >-
+        "Company Material Adverse Effect" means any change, event or effect that, individually or in the
+        aggregate, has had or would reasonably be expected to have a material adverse effect on the business,
+        financial condition or results of operations of the Company and its Subsidiaries, taken as a whole;
+        provided, however, that none of the following shall be taken into account:
+    exclusion_cues:
+      - The closing condition is ma.condition.no_mae.
+      - One excluded event is ma.mae.carveout.
+      - >-
+        A "Lender MAC" or "Market MAC" that excuses the buyer's financing is not this concept. It is part
+        of the financing concept that it qualifies, such as ma.financing.buyer_covenant or ma.condition.financing.
+    value_schema:
+      status: piloted
+      version: '2.16'
+      source: span taxonomy plan, section 7.2 (https://github.com/PlatosTwin/pandects-app/pull/317)
+      fields:
+        - defined_term
+        - party
+        - prongs
+        - standard
+        - carveouts
+    introduced_in: '2026.1'
+
+  - id: ma.mae.carveout
+    label: MAE Carve-Out
+    kind: component
+    nav_parent: ma.nav.definitions.key_terms
+    parent: ma.mae.definition
+    tier: value
+    wave: 2
+    description: >-
+      An event or change that the definition excludes, such as general economic conditions, industry changes,
+      changes in law, war, pandemics or the announcement of the deal.
+    canonical_terms:
+      - general economic conditions
+      - changes in the industry
+      - changes in Law or GAAP
+      - acts of war or terrorism
+      - pandemic
+      - announcement or pendency of this Agreement
+      - failure to meet projections
+    example_phrases:
+      - >-
+        (i) changes in general economic or political conditions or the financial, credit or securities
+        markets; (ii) changes generally affecting the industry in which the Company operates; (iii) changes
+        in applicable Law or GAAP;
+    value_schema:
+      status: piloted
+      version: '2.16'
+      source: span taxonomy plan, section 7.2 (https://github.com/PlatosTwin/pandects-app/pull/317)
+      fields:
+        - categories
+        - disproportionate_effect_exception
+    introduced_in: '2026.1'
+
+  - id: ma.mae.disproportionate_effect
+    label: MAE Disproportionate Effect Exception
+    kind: modifier
+    nav_parent: ma.nav.definitions.key_terms
+    parent: ma.mae.definition
+    tier: label
+    wave: 2
+    description: >-
+      The exception that brings an excluded event back into the definition to the extent it affects the
+      company more than others in its industry.
+    canonical_terms:
+      - disproportionate effect
+      - disproportionately affects
+      - relative to other participants in the industry
+      - only to the extent of such disproportionate impact
+    example_phrases:
+      - >-
+        except, in the case of clauses (i) through (iv), to the extent such change has a disproportionate
+        adverse effect on the Company relative to other participants in the industries in which it operates.
+    introduced_in: '2026.1'
+
+  - id: ma.def.knowledge
+    label: '"Knowledge" Definition'
+    kind: definition
+    nav_parent: ma.nav.definitions.key_terms
+    tier: label
+    wave: 2
+    attributes:
+      party: subject
+    description: >-
+      Whose knowledge counts, and whether it is actual knowledge or includes what the person would learn
+      after reasonable inquiry.
+    canonical_terms:
+      - '"Knowledge" means'
+      - actual knowledge
+      - after reasonable inquiry
+      - constructive knowledge
+      - the individuals listed on Schedule [•]
+    example_phrases:
+      - >-
+        "Knowledge of the Company" means the actual knowledge, after reasonable inquiry, of the individuals
+        listed in Section [•] of the Disclosure Schedule.
+    value_schema:
+      status: stub
+      fields:
+        - name: standard
+          type: 'enum: actual | constructive'
+        - name: named_individuals
+          type: boolean
+    introduced_in: '2026.1'
+
+  - id: ma.def.acquisition_proposal
+    label: '"Acquisition Proposal" Definition'
+    kind: definition
+    nav_parent: ma.nav.definitions.key_terms
+    also_listed_under:
+      - ma.nav.deal_protection.no_shop
+    tier: label
+    wave: 2
+    description: The definition of a competing proposal for the no-shop, with its percentage threshold.
+    canonical_terms:
+      - '"Acquisition Proposal" means'
+      - Takeover Proposal
+      - Competing Proposal
+      - Alternative Transaction
+      - 15% or more
+      - 20% or more
+    example_phrases:
+      - >-
+        "Acquisition Proposal" means any proposal or offer from any Person relating to any acquisition
+        of 20% or more of the consolidated assets of the Company or 20% or more of any class of its equity
+        securities.
+    value_schema:
+      status: stub
+      fields:
+        - name: threshold_pct
+          type: number
+    introduced_in: '2026.1'
+
+  - id: ma.def.superior_proposal
+    label: '"Superior Proposal" Definition'
+    kind: definition
+    nav_parent: ma.nav.definitions.key_terms
+    also_listed_under:
+      - ma.nav.deal_protection.recommendation
+    tier: label
+    wave: 2
+    description: >-
+      The definition of a proposal the board may accept in place of the deal, with its percentage threshold
+      and the board's standard.
+    canonical_terms:
+      - '"Superior Proposal" means'
+      - more favorable to the stockholders from a financial point of view
+      - reasonably capable of being consummated
+      - 50%
+      - all or substantially all
+    example_phrases:
+      - >-
+        "Superior Proposal" means a bona fide written Acquisition Proposal (with references to 20% deemed
+        to be references to 50%) that the Company Board determines in good faith is more favorable to
+        the stockholders from a financial point of view than the Merger.
+    value_schema:
+      status: stub
+      fields:
+        - name: threshold_pct
+          type: number
+        - name: financing_certainty_required
+          type: boolean
+    introduced_in: '2026.1'
+
+  - id: ma.def.intervening_event
+    label: '"Intervening Event" Definition'
+    kind: definition
+    nav_parent: ma.nav.definitions.key_terms
+    also_listed_under:
+      - ma.nav.deal_protection.recommendation
+    tier: label
+    wave: 2
+    description: >-
+      The definition of a new event, not a competing proposal, that may justify a change of recommendation,
+      with its exclusions. The definition must be the deal term that this card describes: the same words
+      defined for another purpose, such as a new event that requires an update of the disclosure schedules,
+      are not this concept.
+    canonical_terms:
+      - '"Intervening Event" means'
+      - not known to or reasonably foreseeable by the Company Board
+      - as of the date of this Agreement
+      - shall not include
+    example_phrases:
+      - >-
+        "Intervening Event" means any material event or development that was not known to or reasonably
+        foreseeable by the Company Board as of the date of this Agreement, other than the receipt of an
+        Acquisition Proposal.
+    exclusion_cues:
+      - The board's right to change its recommendation for such an event is ma.recommendation.change_intervening_event.
+    introduced_in: '2026.1'
+
+  - id: ma.def.willful_breach
+    label: '"Willful Breach" Definition'
+    kind: definition
+    nav_parent: ma.nav.definitions.key_terms
+    also_listed_under:
+      - ma.nav.termination.effect
+    tier: label
+    wave: 2
+    description: >-
+      The definition of the kind of breach for which liability survives termination, under any name. It
+      also covers a clause that sets the meaning without "means": one that deems a breach to be a Willful
+      Breach (for example any breach of the no-shop), or one that says a breach in good faith shall not
+      be deemed an intentional breach.
+    canonical_terms:
+      - '"Willful Breach" means'
+      - Willful and Material Breach
+      - Intentional Breach
+      - Willful Misconduct
+      - intentional breach
+      - knowing and intentional breach
+      - shall be deemed a Willful Breach
+      - shall not be deemed to be an intentional breach
+      - with actual knowledge that the taking of such act would constitute a breach
+    example_phrases:
+      - >-
+        "Willful Breach" means a material breach that is a consequence of an act or failure to act undertaken
+        by the breaching party with actual knowledge that such act or failure to act would result in a
+        breach of this Agreement.
+    exclusion_cues:
+      - >-
+        "Gross negligence or willful misconduct" as a standard of care for an agent, a representative or an
+        indemnified person is not this concept.
+      - The clause that keeps liability for such a breach after termination is ma.termination.willful_breach_liability.
+      - A definition of fraud is ma.def.fraud.
+    value_schema:
+      status: stub
+      fields:
+        - name: requires_knowledge_of_breach
+          type: boolean
+        - name: material
+          type: boolean
+    introduced_in: '2026.1'
+
+  - id: ma.def.fraud
+    label: '"Fraud" Definition'
+    kind: definition
+    nav_parent: ma.nav.definitions.key_terms
+    also_listed_under:
+      - ma.nav.indemnification.limits
+    tier: label
+    wave: 2
+    description: >-
+      The definition of fraud that limits the fraud exception to the caps and the exclusive remedy clause,
+      for example to intentional common law fraud in the making of the representations. It covers the
+      term under other names, such as "Intentional Misrepresentation" or "Actual Fraud".
+    canonical_terms:
+      - '"Fraud" means'
+      - Actual Fraud
+      - Intentional Fraud
+      - Intentional Misrepresentation
+      - willful and intentional misrepresentation
+      - actual and intentional fraud
+      - common law fraud under Delaware law
+      - in the making of the representations and warranties
+      - shall not include constructive fraud
+    example_phrases:
+      - >-
+        "Fraud" means actual and intentional common law fraud under Delaware law in the making of the
+        representations and warranties set forth in this Agreement, and shall not include constructive
+        fraud or negligent misrepresentation.
+    exclusion_cues:
+      - A cap or a survival period for fraud claims is part of ma.indemn.cap or the other limit concepts.
+    value_schema:
+      status: stub
+      fields:
+        - name: scienter
+          type: 'enum: intentional | reckless_included'
+        - name: limited_to_express_reps
+          type: boolean
+    introduced_in: '2026.1'
+
+  - id: ma.def.burdensome_condition
+    label: '"Burdensome Condition" Definition'
+    kind: definition
+    nav_parent: ma.nav.definitions.key_terms
+    also_listed_under:
+      - ma.nav.regulatory.antitrust
+    tier: label
+    wave: 2
+    description: >-
+      The defined threshold term for a regulatory remedy that the buyer need not accept, under any name.
+      It is often defined inline, inside the divestiture limit of ma.regulatory.remedies: "(any such
+      action, a 'Burdensome Condition')". Give it only where the text names the term and states what
+      it covers. A limit on remedies that names no term is ma.regulatory.remedies alone.
+    canonical_terms:
+      - '"Burdensome Condition" means'
+      - Materially Burdensome Regulatory Condition
+      - Regulatory Material Adverse Effect
+      - Detriment Limit
+      - Burdensome Action
+      - Non-Required Remedy
+      - Divestiture Action
+      - (any such action, a "Burdensome Condition")
+    example_phrases:
+      - >-
+        "Burdensome Condition" means any requirement to divest or hold separate any business or assets
+        that would reasonably be expected to have a material adverse effect on Parent and its Subsidiaries,
+        taken as a whole.
+    exclusion_cues:
+      - >-
+        The covenant on what a party must do or give up to win clearance is ma.regulatory.remedies. When
+        the term is defined inline in that covenant, give both concepts: this one for the defined term
+        and its scope, and the remedies concept for the duty and its limit.
+      - >-
+        A remedy that the covenant mentions without naming a defined term is ma.regulatory.remedies alone.
+    introduced_in: '2026.1'
+
+  - id: ma.def.marketing_period
+    label: '"Marketing Period" Definition'
+    kind: definition
+    nav_parent: ma.nav.definitions.key_terms
+    also_listed_under:
+      - ma.nav.financing.covenants
+    tier: label
+    wave: 2
+    description: >-
+      The definition of the period the buyer has to market its debt financing before it must close, with
+      its start conditions and blackout dates.
+    canonical_terms:
+      - '"Marketing Period" means'
+      - consecutive Business Days
+      - Required Information
+      - Compliant
+    example_phrases:
+      - >-
+        "Marketing Period" means the first period of 15 consecutive Business Days after the date hereof
+        throughout which Parent shall have the Required Information and such Required Information is Compliant.
+    value_schema:
+      status: stub
+      fields:
+        - name: length
+          type: Duration
+        - name: blackout_dates
+          type: text
+    introduced_in: '2026.1'
+
+  - id: ma.def.ordinary_course
+    label: '"Ordinary Course of Business" Definition'
+    kind: definition
+    nav_parent: ma.nav.definitions.key_terms
+    also_listed_under:
+      - ma.nav.conduct.interim
+    tier: label
+    wave: 2
+    description: >-
+      The definition of ordinary course, including whether it requires consistency with past practice.
+    canonical_terms:
+      - '"Ordinary Course of Business" means'
+      - consistent with past custom and practice
+    example_phrases:
+      - >-
+        "Ordinary Course of Business" means the ordinary course of business of the Company consistent
+        with past custom and practice.
+    introduced_in: '2026.1'
+
+  - id: ma.def.permitted_liens
+    label: '"Permitted Liens" Definition'
+    kind: definition
+    nav_parent: ma.nav.definitions.key_terms
+    tier: label
+    wave: 2
+    description: The list of liens that do not breach the title representations or the interim covenants.
+    canonical_terms:
+      - '"Permitted Liens" means'
+      - Permitted Encumbrances
+      - Liens for Taxes not yet due and payable
+      - mechanics', carriers', workmen's
+    example_phrases:
+      - >-
+        "Permitted Liens" means (a) Liens for Taxes not yet due and payable, (b) mechanics', carriers'
+        and similar Liens arising in the ordinary course of business, and (c) zoning and other land use
+        restrictions.
+    introduced_in: '2026.1'
+
+  - id: ma.def.indebtedness
+    label: '"Indebtedness" Definition'
+    kind: definition
+    nav_parent: ma.nav.definitions.key_terms
+    also_listed_under:
+      - ma.nav.consideration.adjustment
+    tier: label
+    wave: 2
+    description: >-
+      "Indebtedness" means borrowed money, notes, capital leases and similar items that the price
+      formula deducts and the interim covenants restrict.
+    canonical_terms:
+      - '"Indebtedness" means'
+      - Closing Indebtedness
+      - indebtedness for borrowed money
+      - capital leases
+      - deferred purchase price
+    example_phrases:
+      - >-
+        "Indebtedness" means, without duplication, (a) all indebtedness for borrowed money, (b) all obligations
+        evidenced by notes or bonds, (c) all obligations under capital leases, and (d) all obligations
+        for the deferred purchase price of property.
+    introduced_in: '2026.1'
+
+  - id: ma.def.working_capital
+    label: '"Working Capital" Definitions'
+    kind: definition
+    nav_parent: ma.nav.definitions.key_terms
+    also_listed_under:
+      - ma.nav.consideration.adjustment
+    tier: label
+    wave: 2
+    description: >-
+      The definitions of working capital, the working capital target and the accounting principles used
+      to measure them. The definition must be the deal term that this card describes: a computation of
+      a shortfall or a final amount inside the adjustment procedure, or a use of the term, is not this
+      concept.
+    canonical_terms:
+      - '"Net Working Capital" means'
+      - '"Target Working Capital" means'
+      - Accounting Principles
+      - current assets minus current liabilities
+    example_phrases:
+      - >-
+        "Net Working Capital" means the current assets of the Company minus the current liabilities of
+        the Company, in each case determined in accordance with the Accounting Principles.
+    exclusion_cues:
+      - The procedure that measures and pays the adjustment is ma.price_adjustment.mechanism.
+    introduced_in: '2026.1'
+
+  - id: ma.def.transaction_expenses
+    label: '"Transaction Expenses" Definition'
+    kind: definition
+    nav_parent: ma.nav.definitions.key_terms
+    also_listed_under:
+      - ma.nav.consideration.adjustment
+    tier: label
+    wave: 2
+    description: >-
+      Fees and expenses incurred in connection with the transactions and unpaid at closing, which the
+      price formula deducts, such as advisor fees and change of control payments. The definition must
+      be the deal term that this card describes and must state what the expenses include: an inline use
+      or a short label such as "(the 'Seller Transaction Expenses')" is not this concept.
+    canonical_terms:
+      - '"Transaction Expenses" means'
+      - Company Transaction Expenses
+      - Selling Expenses
+      - change of control payments
+      - employer portion of payroll Taxes
+    example_phrases:
+      - >-
+        "Transaction Expenses" means all fees and expenses of the Company incurred in connection with
+        this Agreement, including the fees of financial advisors and legal counsel and all change of control
+        bonuses.
+    introduced_in: '2026.1'
+
+  - id: ma.def.losses
+    label: '"Losses" Definition'
+    kind: definition
+    nav_parent: ma.nav.definitions.key_terms
+    also_listed_under:
+      - ma.nav.indemnification.scope
+    tier: label
+    wave: 2
+    description: >-
+      The definition of the harm that can be claimed under the indemnity, including whether it covers
+      consequential damages, lost profits and diminution in value.
+    canonical_terms:
+      - '"Losses" means'
+      - '"Damages" means'
+      - losses, liabilities, damages, costs and expenses
+      - including reasonable attorneys' fees
+    example_phrases:
+      - >-
+        "Losses" means any and all losses, liabilities, damages, judgments, costs and expenses, including
+        reasonable attorneys' fees, but excluding punitive damages except to the extent paid to a third
+        party.
+    exclusion_cues:
+      - A stand-alone waiver of damage types is ma.damages_waiver.
+    introduced_in: '2026.1'
+
+  - id: ma.def.fundamental_reps
+    label: '"Fundamental Representations" Definition'
+    kind: definition
+    nav_parent: ma.nav.definitions.key_terms
+    also_listed_under:
+      - ma.nav.indemnification.scope
+    tier: label
+    wave: 2
+    description: >-
+      The list of representations that get longer survival, a higher cap or a stricter bring-down.
+    canonical_terms:
+      - '"Fundamental Representations" means'
+      - Seller Fundamental Representations
+      - Specified Representations
+    example_phrases:
+      - >-
+        "Fundamental Representations" means the representations and warranties set forth in Sections [•]
+        (Organization), [•] (Authority), [•] (Capitalization) and [•] (Brokers).
+    introduced_in: '2026.1'
+
+  - id: ma.interpretation.rules
+    label: Rules of Construction
+    kind: provision
+    nav_parent: ma.nav.definitions.interpretation
+    tier: label
+    wave: 1
+    description: >-
+      Rules for reading the agreement: headings, gender and number, the meaning of including, references
+      to sections and statutes, counting of days, and no presumption against the drafter.
+    canonical_terms:
+      - interpretation
+      - rules of construction
+      - headings are for reference only
+      - the word "including" shall be deemed to be followed by "without limitation"
+      - no presumption against drafting party
+      - mutual drafting
+    example_phrases:
+      - >-
+        The headings contained in this Agreement are for convenience of reference only and shall not affect
+        interpretation.
+      - The word 'including' shall be deemed to be followed by the words 'without limitation'.
+    crosswalk:
+      section_v1:
+        - id: 38bef0ddbf034071
+          relation: narrower
+      section_v2:
+        - id: 9340e04939885e21
+          relation: exact
+        - id: b268cb6c8e2ec84a
+          relation: related
+    introduced_in: '2026.1'
+
+  - id: ma.interpretation.disclosure_schedules
+    label: Disclosure Schedules
+    kind: provision
+    nav_parent: ma.nav.definitions.interpretation
+    tier: label
+    wave: 1
+    description: >-
+      How the disclosure schedules work: a disclosure in one section counts for others where its relevance
+      is clear, and listing an item is no admission that it is material. It also covers the rule, usually in
+      the lead-in of the representations, that the party's SEC filings qualify its statements.
+    canonical_terms:
+      - Disclosure Schedule
+      - Disclosure Letter
+      - reasonably apparent on its face
+      - shall not be deemed an admission
+      - except as disclosed in the Company SEC Documents
+      - other than disclosures in the risk factors
+    example_phrases:
+      - >-
+        The Disclosure Schedules are arranged in sections corresponding to the Sections of this Agreement.
+      - >-
+        An item disclosed in one section of the Disclosure Schedules shall be deemed disclosed with respect
+        to any other section to the extent its relevance is reasonably apparent on its face.
+    exclusion_cues:
+      - A right to update the schedules before closing is ma.access.schedule_updates.
+      - >-
+        A lead-in to the representations that only says "except as set forth in the Disclosure Schedule" and
+        states no rule is ma.other.lead_in alone.
+    crosswalk:
+      section_v1:
+        - id: 38bef0ddbf034071
+          relation: narrower
+      section_v2:
+        - id: b130892037cd1d0e
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.recitals
+    label: Preamble and Recitals
+    kind: provision
+    nav_parent: ma.nav.definitions.interpretation
+    tier: label
+    wave: 1
+    description: 'The opening of the agreement: the parties, the date and the recitals.'
+    canonical_terms:
+      - WHEREAS
+      - RECITALS
+      - by and among
+      - NOW, THEREFORE
+    example_phrases:
+      - >-
+        WHEREAS, the board of directors of the Company has unanimously determined that the Merger is fair
+        to and in the best interests of the Company and its stockholders;
+    introduced_in: '2026.1'

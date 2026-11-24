@@ -1,0 +1,494 @@
+# Pandects taxonomy, M&A pack (`ma`). Navigation branch: Conditions to Closing.
+# Source of truth for these nodes. Field reference: etl/taxonomy/README.md.
+# Validate with: python -m etl.domain.taxonomy_pack
+pack: ma
+release: '2026.1'
+branch:
+  id: ma.nav.conditions
+  label: Conditions to Closing
+  kind: branch
+  order: 10
+  description: >-
+    What must be true before a party has to close. The party whose representations or covenants a condition
+    tests is an attribute of the instance.
+  introduced_in: '2026.1'
+groups:
+
+  - id: ma.nav.conditions.mutual
+    label: Mutual Conditions
+    kind: group
+    nav_parent: ma.nav.conditions
+    description: Conditions to the obligations of every party, and the rule on frustration of conditions.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.conditions.party
+    label: Conditions for One Party
+    kind: group
+    nav_parent: ma.nav.conditions
+    assignable: true
+    description: Conditions to the obligations of the buyer only or of the target or seller only.
+    introduced_in: '2026.1'
+concepts:
+
+  - id: ma.condition.stockholder_approval
+    label: Stockholder Approval Condition
+    kind: provision
+    nav_parent: ma.nav.conditions.mutual
+    tier: label
+    wave: 1
+    description: Closing depends on approval of the deal by the required stockholder vote.
+    canonical_terms:
+      - Company Stockholder Approval shall have been obtained
+      - Requisite Stockholder Vote
+      - Parent Stockholder Approval
+    example_phrases:
+      - >-
+        The Company Stockholder Approval shall have been obtained in accordance with the DGCL and the
+        Company's Organizational Documents.
+      - >-
+        This Agreement shall have been duly adopted by the affirmative vote of the holders of a majority
+        of the outstanding Shares.
+    exclusion_cues:
+      - The vote itself is stated in ma.rep.required_vote.
+      - >-
+        The minimum tender condition is ma.tender.offer_conditions (in wave 1, label its group
+        ma.nav.structure.tender_offer).
+    value_schema:
+      status: stub
+      fields:
+        - name: whose_vote
+          type: PartyRole
+        - name: majority_of_minority
+          type: boolean
+    crosswalk:
+      section_v1:
+        - id: 900e438cada817c3
+          relation: exact
+      section_v2:
+        - id: e9c123e67b1e047d
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.condition.regulatory_approval
+    label: Regulatory Approval Condition
+    kind: provision
+    nav_parent: ma.nav.conditions.mutual
+    tier: label
+    wave: 1
+    description: >-
+      Closing depends on the end of the HSR Act waiting period and on the other listed antitrust, foreign
+      investment and industry approvals, sometimes with no burdensome condition attached.
+    canonical_terms:
+      - waiting period under the HSR Act shall have expired or been terminated
+      - Required Regulatory Approvals
+      - CFIUS Approval
+      - without the imposition of a Burdensome Condition
+    example_phrases:
+      - >-
+        The waiting period (and any extension thereof) applicable to the Merger under the HSR Act shall
+        have expired or been earlier terminated.
+      - >-
+        All Regulatory Approvals set forth on the Schedule shall have been obtained and shall be in full
+        force and effect.
+    exclusion_cues:
+      - The covenants to seek the approvals are under ma.nav.regulatory.
+      - A court or agency order that blocks the deal is ma.condition.no_legal_restraint.
+    value_schema:
+      status: stub
+      fields:
+        - name: approvals
+          type: 'list: hsr | foreign_antitrust | cfius | industry'
+        - name: burdensome_condition_qualifier
+          type: boolean
+    crosswalk:
+      section_v1:
+        - id: 3087dd753a88d7e5
+          relation: exact
+      section_v2:
+        - id: e2dd92cb9764f512
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.condition.no_legal_restraint
+    label: No Legal Restraint Condition
+    kind: provision
+    nav_parent: ma.nav.conditions.mutual
+    tier: label
+    wave: 1
+    description: Closing depends on there being no law, order or injunction that prohibits the deal.
+    canonical_terms:
+      - no injunction
+      - no Order or Law
+      - restraining, enjoining or otherwise prohibiting
+      - no restraints
+      - Legal Restraints
+    example_phrases:
+      - >-
+        No Governmental Authority of competent jurisdiction shall have enacted, issued, or enforced any
+        Law or Order (whether temporary, preliminary, or permanent) that is in effect and restrains, enjoins,
+        or otherwise prohibits consummation of the Merger.
+    exclusion_cues:
+      - A condition about pending suits, not orders, is ma.condition.no_litigation.
+    crosswalk:
+      section_v1:
+        - id: 425a6dec0146defe
+          relation: exact
+      section_v2:
+        - id: 42009cc7708b6875
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.condition.registration_listing
+    label: Registration Statement and Listing Condition
+    kind: provision
+    nav_parent: ma.nav.conditions.mutual
+    tier: label
+    wave: 1
+    description: >-
+      Closing depends on the Form S-4 being effective with no stop order, and on approval of the new shares
+      for listing.
+    canonical_terms:
+      - Form S-4 shall have become effective
+      - no stop order
+      - approved for listing
+      - subject to official notice of issuance
+    example_phrases:
+      - >-
+        The Registration Statement shall have been declared effective by the SEC and shall not be the
+        subject of any stop order or proceeding seeking a stop order.
+      - >-
+        The shares of Parent Common Stock to be issued in the Merger shall have been approved for listing
+        on the NYSE, subject to official notice of issuance.
+    crosswalk:
+      section_v2:
+        - id: 3be445493d6e135b
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.condition.reps_bringdown
+    label: Accuracy of Representations (Bring-Down)
+    kind: provision
+    nav_parent: ma.nav.conditions.party
+    tier: label
+    wave: 1
+    attributes:
+      party: tested_party
+    description: >-
+      Closing depends on the other party's representations being true at signing and at closing, under
+      a stated standard: in all respects, in all material respects, or except where the failure has no
+      material adverse effect.
+    canonical_terms:
+      - representations and warranties shall be true and correct
+      - as of the Closing Date as though made on such date
+      - without giving effect to any materiality or Material Adverse Effect qualifiers
+      - other than de minimis inaccuracies
+      - bring-down
+    example_phrases:
+      - >-
+        The representations and warranties of the Company set forth in Article [•] shall be true and correct
+        (without giving effect to any materiality or Material Adverse Effect qualifiers) as of the date
+        of this Agreement and as of the Closing Date as though made on the Closing Date, except where
+        the failure to be so true and correct would not, individually or in the aggregate, reasonably
+        be expected to have a Material Adverse Effect.
+      - >-
+        The Fundamental Representations shall be true and correct in all respects (other than de minimis
+        inaccuracies) as of the Closing Date.
+    exclusion_cues:
+      - The representations are under ma.nav.reps.
+      - >-
+        The separate condition that no material adverse effect has occurred is ma.condition.no_mae.
+      - The condition that the other party has performed its covenants is ma.condition.covenant_performance.
+      - The officer's certificate that confirms the conditions is ma.condition.other.
+    value_schema:
+      status: stub
+      fields:
+        - name: tiers
+          type: 'list: reps covered + standard'
+        - name: general_standard
+          type: 'enum: mae | material | all_respects'
+        - name: scrape
+          type: boolean
+    crosswalk:
+      section_v1:
+        - id: 7d48665e743cf70e
+          relation: exact
+      section_v2:
+        - id: 599e2650722eff66
+          relation: exact
+          party: target
+        - id: 375b798822ae7ee5
+          relation: exact
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.condition.covenant_performance
+    label: Performance of Covenants
+    kind: provision
+    nav_parent: ma.nav.conditions.party
+    tier: label
+    wave: 1
+    attributes:
+      party: tested_party
+    description: >-
+      Closing depends on the other party having performed its covenants, under a stated standard, usually
+      in all material respects. Some agreements let the party cure a failure before the condition fails.
+    canonical_terms:
+      - shall have performed in all material respects
+      - all obligations required to be performed by it
+      - at or prior to the Closing
+    example_phrases:
+      - >-
+        The Company shall have performed or complied in all material respects with all agreements and
+        covenants required by this Agreement to be performed or complied with by it on or prior to the
+        Closing Date.
+    exclusion_cues:
+      - The officer's certificate that confirms the conditions is ma.condition.other.
+      - The condition on the accuracy of representations is ma.condition.reps_bringdown.
+    value_schema:
+      status: stub
+      fields:
+        - name: covenant_standard
+          type: 'enum: all_respects | material | other'
+        - name: cure_right
+          type: boolean
+        - name: cure_period
+          type: Duration
+    crosswalk:
+      section_v1:
+        - id: 2f824e0e518c0009
+          relation: exact
+      section_v2:
+        - id: 452a003ee641f64b
+          relation: exact
+          party: target
+        - id: 949c5df3928699f5
+          relation: exact
+          party: buyer
+    introduced_in: '2026.1'
+
+  - id: ma.condition.no_mae
+    label: No Material Adverse Effect Condition
+    kind: provision
+    nav_parent: ma.nav.conditions.party
+    tier: label
+    wave: 1
+    attributes:
+      party: tested_party
+    description: Closing depends on no material adverse effect having occurred since signing.
+    canonical_terms:
+      - >-
+        since the date of this Agreement, there shall not have occurred any Material Adverse Effect
+      - no Company Material Adverse Effect
+    example_phrases:
+      - >-
+        Since the date of this Agreement, there shall not have occurred any Effect that has had or would
+        reasonably be expected to have, individually or in the aggregate, a Company Material Adverse Effect.
+      - >-
+        No Company Material Adverse Effect shall have occurred and be continuing as of the Closing Date.
+    exclusion_cues:
+      - The definition is ma.mae.definition (in wave 1, label its group ma.nav.definitions.key_terms).
+      - >-
+        The representation that none has occurred since the balance sheet date is ma.rep.absence_of_changes.
+    crosswalk:
+      section_v1:
+        - id: 1314b4b7cda311c9
+          relation: exact
+      section_v2:
+        - id: 77fc7df1fe850a90
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.condition.financing
+    label: Financing Condition
+    kind: provision
+    nav_parent: ma.nav.conditions.party
+    also_listed_under:
+      - ma.nav.financing.arrangements
+    tier: label
+    wave: 2
+    description: >-
+      Closing depends on the buyer receiving the proceeds of its financing. It is rare in public deals.
+      The condition must turn on the funding itself. A condition that a party deliver evidence of funds
+      or a budget is ma.condition.other. A condition that the target receive the proceeds of the buyer's
+      debt commitment letters, as in a recapitalization, is this concept too.
+    canonical_terms:
+      - financing condition
+      - Buyer shall have received the proceeds of the Financing
+      - funding of the Debt Financing
+    example_phrases:
+      - >-
+        The obligations of Parent shall be subject to Parent having received the proceeds of the Debt
+        Financing (or any Alternative Financing) on the terms set forth in the Commitment Letters.
+      - This condition shall be deemed satisfied upon funding of the Financing at the Closing.
+    exclusion_cues:
+      - The SPAC minimum cash condition is ma.spac.minimum_cash.
+      - >-
+        A statement that closing does not depend on financing is not this concept. In the buyer's
+        representations it is part of ma.rep.financing. In the financing covenant, or as a clause of its
+        own, it is part of ma.financing.buyer_covenant.
+    crosswalk:
+      section_v1:
+        - id: 38998387b6de4ce5
+          relation: exact
+      section_v2:
+        - id: f7721ad48affcb83
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.condition.dissenting_shares
+    label: Dissenting Shares Condition
+    kind: provision
+    nav_parent: ma.nav.conditions.party
+    tier: label
+    wave: 2
+    description: >-
+      Closing depends on holders of no more than a stated share of the stock having demanded appraisal.
+    canonical_terms:
+      - Dissenting Shares shall not exceed
+      - holders of not more than [•]% of the outstanding shares shall have demanded appraisal
+    example_phrases:
+      - >-
+        The holders of not more than [•]% of the outstanding shares of Company Common Stock shall have
+        exercised appraisal rights under Section 262 of the DGCL.
+    exclusion_cues:
+      - Treatment of the dissenting shares is ma.exchange.dissenting_shares.
+    value_schema:
+      status: stub
+      fields:
+        - name: threshold_pct
+          type: number
+    crosswalk:
+      section_v2:
+        - id: d6c13c12f0313084
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.condition.third_party_consents
+    label: Third-Party Consents Condition
+    kind: provision
+    nav_parent: ma.nav.conditions.party
+    tier: label
+    wave: 1
+    attributes:
+      party: tested_party
+    description: >-
+      Closing depends on receipt of listed consents from contract counterparties or other third parties.
+    canonical_terms:
+      - Required Consents
+      - consents set forth on Schedule [•] shall have been obtained
+    example_phrases:
+      - >-
+        All consents, waivers and approvals listed on Schedule [•] shall have been obtained and shall
+        be in full force and effect.
+    exclusion_cues:
+      - The covenant to seek them is ma.efforts.third_party_consents.
+      - Governmental approvals are ma.condition.regulatory_approval.
+    crosswalk:
+      section_v2:
+        - id: d6c13c12f0313084
+          relation: narrower
+        - id: 8e652eaa2ad91753
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.condition.no_litigation
+    label: No Pending Litigation Condition
+    kind: provision
+    nav_parent: ma.nav.conditions.party
+    tier: label
+    wave: 1
+    attributes:
+      party: tested_party
+    description: >-
+      Closing depends on there being no pending or threatened suit, usually by a governmental body, that
+      seeks to block the deal or to impose limits on the buyer.
+    canonical_terms:
+      - no Action pending by any Governmental Authority
+      - seeking to restrain or prohibit
+      - no pending or threatened litigation
+    example_phrases:
+      - >-
+        There shall not be pending any Action by any Governmental Authority seeking to restrain or prohibit
+        the consummation of the Merger.
+    exclusion_cues:
+      - An order already in force is ma.condition.no_legal_restraint.
+    crosswalk:
+      section_v2:
+        - id: d6c13c12f0313084
+          relation: narrower
+        - id: 8e652eaa2ad91753
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.condition.other
+    label: Other Closing Condition
+    kind: provision
+    nav_parent: ma.nav.conditions.party
+    tier: label
+    wave: 1
+    attributes:
+      party: tested_party
+    description: >-
+      A closing condition that has no concept of its own. The common ones are delivery of an officer's or
+      closing certificate, signed ancillary agreements, continued employment of key employees, a payoff
+      letter, and a limit on the target's net debt at closing.
+    canonical_terms:
+      - officer's certificate
+      - certificate signed by an executive officer
+      - Key Employees
+      - ancillary agreements shall have been executed
+      - closing certificate
+      - Net Indebtedness shall not exceed
+    example_phrases:
+      - >-
+        Parent shall have received a certificate signed by an executive officer of the Company certifying
+        that the conditions set forth in Sections [•] and [•] have been satisfied.
+    exclusion_cues:
+      - A tax opinion condition is tax.opinion.closing_condition.
+      - >-
+        The certificate condition stays here. The conditions that the certificate confirms take their own
+        concepts: ma.condition.reps_bringdown and ma.condition.covenant_performance.
+      - >-
+        The end of the HSR Act waiting period and other approvals by regulators are
+        ma.condition.regulatory_approval. The absence of an order or law that blocks the deal is
+        ma.condition.no_legal_restraint.
+      - >-
+        A SPAC condition on minimum cash after redemptions is ma.spac.minimum_cash (in wave 1, label its
+        group ma.nav.structure.spac). A condition that the SPAC keep net tangible assets of at least
+        $5,000,001 stays here.
+      - Entry of the sale order by a bankruptcy court is ma.bankruptcy.court_approval.
+      - >-
+        Court approval of a plan or scheme of arrangement under Canadian or UK-style law has no concept of
+        its own. A condition on the interim order or the final order stays here.
+      - The opening words of the conditions article that stand as a section of their own are ma.other.lead_in.
+    crosswalk:
+      section_v2:
+        - id: d6c13c12f0313084
+          relation: narrower
+        - id: 8e652eaa2ad91753
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.condition.frustration
+    label: Frustration of Closing Conditions
+    kind: provision
+    nav_parent: ma.nav.conditions.mutual
+    tier: label
+    wave: 1
+    description: >-
+      A party may not rely on the failure of a condition that its own breach caused. The rule applies
+      to every party's conditions.
+    canonical_terms:
+      - frustration of closing conditions
+      - may not rely on the failure of any condition
+      - if such failure was caused by such party's breach
+    example_phrases:
+      - >-
+        None of the parties may rely on the failure of any condition set forth in this Article to be satisfied
+        if such failure was caused by such party's failure to perform any of its obligations under this
+        Agreement.
+    exclusion_cues:
+      - >-
+        The same rule as a limit on a termination right is ma.termination.outside_date or
+        ma.termination.right.breach (in wave 1, label their group ma.nav.termination.rights).
+    introduced_in: '2026.1'

@@ -1,0 +1,164 @@
+# Text patterns for prevalence.py: concept <TAB> regex <TAB> optional filter name.
+# The text is lowercase. ripgrep runs in byte mode. Several rows may name one concept: their matches are joined.
+# The patterns are hand-written and unreviewed. They are evidence of presence, not labels.
+ma.approval.force_the_vote	(notwithstanding|whether or not|regardless of whether)[^.]*(adverse recommendation change|change of recommendation|change in recommendation|recommendation change|change of board recommendation)[^.]*(submit|meeting)|unless this agreement (is|has been|shall have been) (validly )?terminated[^.]*(submit|submitted)[^.]*(stockholders|shareholders)
+ma.conduct.negative_covenants	(shall not|will not|not to)[^.]*without the prior written consent of (the )?(parent|buyer|purchaser|acquiror|acquirer)|without the prior written consent of (the )?(parent|buyer|purchaser|acquiror|acquirer)[^.]*(shall not|will not|not to)
+ma.conduct.restriction.accounting	change[^.;]{0,60}(accounting (methods|principles|practices|policies)|methods? of accounting)	FILTER_CONDUCT
+ma.conduct.restriction.acquisitions_dispositions	acquire[^.;]{0,80}(by merger|business|person|entity|corporation|assets)|sell, (lease|transfer|license|assign)|(sell|lease|transfer)[^.;]{0,40}or otherwise dispose	FILTER_CONDUCT
+ma.conduct.restriction.compensation	increase[^.;]{0,60}(compensation|salary|salaries|wages|benefits)|grant any[^.;]{0,40}(severance|bonus|retention)	FILTER_CONDUCT
+ma.conduct.restriction.contracts	(enter into|amend|modify|terminate|waive)[^.;]{0,120}(material contract|company contract|material agreement)	FILTER_CONDUCT
+ma.conduct.restriction.dividends	declare[^.;]{0,40}(pay|set aside)[^.;]{0,40}(dividend|distribution)	FILTER_CONDUCT
+ma.conduct.restriction.equity_issuance	issue[^.;]{0,60}(sell|deliver|grant|pledge)[^.;]{0,120}(shares|capital stock|equity|securities)|issue any (shares|equity|capital stock|securities)	FILTER_CONDUCT
+ma.conduct.restriction.indebtedness	(incur|assume|guarantee)[^.;]{0,80}indebtedness	FILTER_CONDUCT
+ma.conduct.restriction.litigation_settlement	(settle|compromise)[^.;]{0,80}(action|claim|litigation|proceeding|suit)	FILTER_CONDUCT
+ma.conduct.restriction.organizational_documents	amend[^.;]{0,100}(certificate of incorporation|articles of incorporation|charter|organizational documents|bylaws|by-laws|governing documents)	FILTER_CONDUCT
+ma.conduct.restriction.capex	capital expenditure	FILTER_CONDUCT
+ma.def.acquisition_proposal	acquisition proposal|takeover proposal|competing proposal|alternative proposal|competing transaction|alternative transaction|acquisition transaction
+ma.def.burdensome_condition	burdensome condition|materially burdensome|burdensome regulatory|burdensome effect
+ma.def.fundamental_reps	fundamental representation|fundamental warrant
+ma.def.indebtedness	indebtedness.{0,3} (means|shall mean|of any person)
+ma.def.intervening_event	intervening event
+ma.def.losses	(losses|loss|damages).{0,3} (means|shall mean)
+ma.def.marketing_period	marketing period
+ma.def.ordinary_course	ordinary course( of business)?.{0,3} (means|shall mean)
+ma.def.superior_proposal	superior proposal|superior offer
+ma.def.transaction_expenses	(transaction expenses|selling expenses|transaction costs|seller expenses|company expenses).{0,3} (means|shall mean)
+ma.def.willful_breach	(willful breach|willful and material breach|intentional breach|knowing and intentional breach|willful and intentional breach|intentional and material breach).{0,3} (means|shall mean)
+ma.def.working_capital	working capital.{0,3} (means|shall mean)
+ma.def.permitted_liens	permitted (liens|encumbrances|exceptions).{0,3} (means|shall mean)
+ma.def.fraud	fraud.{0,3} (means|shall mean)
+ma.def.knowledge	knowledge[^.]{0,40} (means|shall mean)
+ma.employee.comp_benefits_continuation	no less favorable[^.]*(base salary|compensation|employee benefits|benefits)|(base salary|base compensation|wage rate)[^.]*no less favorable|substantially comparable in the aggregate|continuation period
+ma.employee.no_third_party_rights	(nothing|no provision)[^.]*(shall|will|is intended to)[^.]*(be (deemed|treated|construed)|constitute)[^.]*amendment (of|to)[^.]*plan|(nothing|no provision)[^.]*right to (continued )?employment
+ma.employee.comp_benefits_continuation	(credit|recognize|recognition|recognized)[^.]*(service with|years of service|prior service|service credit)|pre-existing condition
+ma.financing.cooperation_costs	reimburse[^.]*(financing|debt financing)[^.]*|(indemnify|indemnified|hold harmless)[^.]*(arrangement of the|in connection with the) (debt )?financing
+ma.financing.structure	commitment letters?
+ma.indemn.basket	\bbasket\b|deductible|threshold amount|until the aggregate (amount of )?(all )?(such )?(losses|damages)[^.]*exceeds?
+ma.indemn.cap	indemnif[^.]*(shall not exceed|in excess of|not exceed|maximum aggregate)|\bthe cap\b|indemnification cap|general cap|indemnity cap
+ma.mae.carveout	(general economic|economy generally|economic conditions|acts of war|acts of terrorism|changes? in gaap|changes? in (applicable )?laws?)	FILTER_MAE
+ma.mae.disproportionate_effect	disproportionate	FILTER_MAE
+ma.mae.definition	material adverse (effect|change)
+ma.noshop.notice_of_proposals	(promptly|within (24|48|twenty-four|forty-eight) hours|one business day)[^.]*(notify|advise|inform)[^.]*(acquisition proposal|takeover proposal|competing proposal|alternative proposal|inquiry|proposal or offer)
+ma.noshop.unsolicited_proposal_exception	reasonably (be expected|likely) to (lead to|result in) a superior (proposal|offer)|(unsolicited|bona fide)[^.]*(proposal)[^.]*(furnish|provide)[^.]*information
+ma.price_adjustment.closing_statement	closing statement|closing date statement|closing balance sheet|closing working capital statement|post-closing statement
+ma.recommendation.board_recommendation	(company|board|parent) (board )?recommendation|recommend(s|ed)? that the (company('s)? )?(stockholders|shareholders|holders)
+ma.recommendation.change_intervening_event	intervening event
+ma.recommendation.change_superior_proposal	adverse recommendation change|change of (board |company )?recommendation|change in (the )?(company |board )?recommendation|recommendation change|adverse change in recommendation|recommendation withdrawal
+ma.recommendation.match_right	business days[^.]*negotiat[^.]*(superior|no longer|cease|adjustment)|notice period[^.]*negotiat|negotiat[^.]*so that[^.]*(superior proposal|ceases to|no longer)
+ma.recommendation.permitted_disclosure	14e-2|14d-9\(f\)|stop,? look and listen|stop-look-and-listen
+ma.regulatory.litigation	(defend|contest|resist|litigat)[^.]*(antitrust laws?|competition laws?|hsr act)|(antitrust laws?|competition laws?|hsr act)[^.]*(defend|contest|resist|litigat)
+ma.regulatory.no_interfering_acquisitions	(shall not|will not|not to)[^.]*acquire or agree to acquire[^.]*(delay|waiting period|antitrust|governmental)
+ma.regulatory.strategy_control	(control|direct|lead|determine|devise)[^.]*(strategy)[^.]*(antitrust|regulatory|governmental|hsr|approval|clearance)|timing agreement|pull and refile|pull-and-refile
+ma.restrictive.confidentiality	(from and after|following|after) the closing[^.]*(hold|keep|maintain|treat)[^.]*(in confidence|confidential)
+ma.termination.collection_costs	(commences?|institutes?|brings?) a (suit|action|proceeding)[^.]*(costs and expenses|attorneys|interest)|prime rate[^.]*(termination fee|such payment|such amount)|(termination fee|such payment)[^.]*prime rate
+ma.termination.fee.target	termination fee|break-?up fee|termination payment
+ma.termination.fee.reverse	reverse termination fee|parent termination fee|buyer termination fee|purchaser termination fee|acquiror termination fee|reverse break|regulatory termination fee
+ma.termination.right.breach	(breach|breached|inaccura)[^;]*(cured|cure period|incapable of being cured|cannot be cured|curable|not capable of being cured)	FILTER_TERM
+ma.termination.right.failure_to_close	(fail|fails|failed) to (consummate|close)[^;]*(within|by the|on the date)|all (of the )?conditions[^;]*satisfied[^;]*(fail|fails|failed) to (consummate|close)	FILTER_TERM
+ma.termination.right.legal_restraint	final and non-?appealable|permanently (restrain|enjoin|prohibit)	FILTER_TERM
+ma.termination.right.recommendation_change	adverse recommendation change|change of (board |company )?recommendation|change in (the )?(company |board )?recommendation|recommendation change|(withdraw|withdrawn|withheld|modified)[^;]*recommendation	FILTER_TERM
+ma.termination.right.superior_proposal	(enter into|accept)[^;]*superior (proposal|offer)|superior (proposal|offer)[^;]*(definitive agreement|terminate)	FILTER_TERM
+ma.termination.right.vote_failure	(stockholder|shareholder|requisite|required) (approval|vote)[^;]*(shall not have been|not (have )?been|was not|is not) obtained|fail(s|ed|ure)? to obtain the[^;]{0,40}(stockholder|shareholder)	FILTER_TERM
+ma.termination.right.mutual_consent	mutual (written )?(consent|agreement)	FILTER_TERM
+ma.termination.outside_date	outside date|end date|termination date|drop.?dead date|long.?stop date|(shall not have (been consummated|occurred)|has not (been consummated|occurred)|not been consummated) (on or )?(before|prior to|by)	FILTER_TERM
+ma.termination.willful_breach_liability	(relieve|release)[^.]*(liability|liabilities|damages)[^.]*(willful|intentional|knowing|fraud|breach)|(willful|intentional|knowing)[^.]*breach	FILTER_TERM_EFFECT
+ma.termination.fee.exclusive_remedy	sole and exclusive remedy[^.]*(termination fee|termination payment)|(termination fee|termination payment)[^.]*sole and exclusive remedy|liquidated damages
+ma.termination.expense_reimbursement	expense reimbursement|(parent|company|buyer|purchaser) expenses|reimburse[^.]*(expenses|out-of-pocket)[^.]*terminat|terminat[^.]*reimburse[^.]*(expenses|out-of-pocket)
+ma.rep.banking	community reinvestment act|bank holding company act|allowance for loan|federal deposit insurance
+ma.condition.reps_bringdown	representations and warranties[^.]*(shall be|shall have been|are) true and correct[^.]*(closing|effective time)
+ma.spac.trust_account	trust account
+ma.rep.investment_company	investment company act
+ma.condition.regulatory_approval	(waiting period|hsr act|regulatory approvals?|governmental approvals?|requisite approvals?)[^.]*shall have (expired|been (obtained|terminated|received))
+ma.condition.covenant_performance	shall have (performed|complied)[^.]*in all material respects
+ma.takeover.rights_plan	rights plan|poison pill|(stockholder|shareholder|company|preferred share|preferred stock) rights (agreement|plan)|rights agent
+ma.rep.ownership_of_target_stock	interested stockholder|interested shareholder|(beneficially )?owns?[^.]{0,60}(any|no) shares of (company|target) (common|capital) stock
+ma.condition.no_legal_restraint	no (order|injunction|law|judgment|restraint|governmental)[^.]*(in effect|enacted|issued|entered)[^.]*(prohibit|enjoin|restrain|illegal)|temporary restraining order|preliminary or permanent injunction
+ma.asset.excluded_assets	excluded assets
+ma.dividend_coordination	coordinat[^.]*(dividend|distribution)|(two dividends|more than one dividend|fail to receive (one|a) dividend)
+ma.consideration.election_proration	cash election|stock election|election deadline|form of election|non-election
+ma.rule_145_affiliates	rule 145|pooling of interests|affiliate letter
+ma.wrong_pockets	wrong pocket|misdirected (payment|asset)|receives? any (payment|funds|amount)[^.]*(belong|properly due|for the account of|entitled)[^.]*(promptly|remit|deliver)
+ma.indemn.sandbagging	(shall not be|not be) (affected|limited|diminished|impaired|waived|deemed waived)[^.]*(investigation|knowledge)|regardless of any (investigation|knowledge)|sandbag
+ma.exchange.procedures	fractional share
+ma.rep.energy_natural_resources	hydrocarbons?|oil and gas (properties|leases|interests)|reserve report|federal energy regulatory
+ma.approval.written_consent	(stockholder|shareholder) written consent|written consent[^.]{0,60}(of|by) (the )?(company |requisite |required )?(stockholders|shareholders)[^.]*(deliver|obtain)|information statement
+ma.asset.excluded_liabilities	excluded liabilit|retained liabilit
+ma.transition_services	transition(al)? services
+ma.tender.offer	commence[^.]{0,80}(the|a tender) offer|schedule to\b|offer documents
+ma.asset.title_and_survey	title (commitment|insurance policy|insurance policies|company|defect)|title defect
+ma.financing.source_protections	(debt )?financing sources?|lender related part|financing parties|financing source parties|debt financing related parties
+ma.asset.nonassignable_assets	(non-?assignable|nonassignable|non-?transferable) (assets?|contracts?)|shall not constitute an? (agreement to )?(assign|assignment|transfer)
+ma.approval.voting_agreements	voting agreement|support agreement|voting and support|tender and support
+ma.tender.company_actions	14d-9
+ma.employee.section_280g	280g\(b\)\(5\)|(stockholder|shareholder) (approval|vote)[^.]*280g|280g[^.]*(stockholder|shareholder) (approval|vote)|parachute payment waiver|280g (vote|approval|waiver)
+ma.condition.no_mae	(since the date (of this agreement|hereof)|there shall not have (been|occurred)|no)[^.]*material adverse (effect|change)[^.]*(shall have occurred|occurred)|there shall not have (been|occurred)[^.]*material adverse (effect|change)
+ma.employee.comp_benefits_continuation	terminat[^.]*401\(k\)|401\(k\)[^.]*terminat
+ma.indemn.setoff	set-?off|setoff|offset against
+ma.spac.trust_account	(waive|waives|waiver)[^.]*trust account|trust account[^.]*(waive|no right, title|any claim)
+ma.rep.government_contracts	government contract|government bid|federal acquisition regulation
+ma.spac.pipe	pipe (investment|investors?|financing|shares|subscription)
+ma.asset.bulk_sales	bulk (sales|transfer)
+ma.condition.no_litigation	no (action|suit|proceeding|litigation)[^.]*(pending|threatened|instituted|commenced)[^.]*(restrain|prohibit|enjoin|challeng|damages)
+ma.access.schedule_updates	(supplement|amend|update)[^.]{0,80}(disclosure schedule|the schedules)|schedule (supplement|update)
+ma.indemn.mitigation	mitigate|mitigation
+ma.consideration.deposit	earnest money|deposit escrow|good faith deposit|deposit amount|the deposit\b
+ma.rep.valid_issuance	(when issued|upon issuance)[^.]*validly issued, fully paid
+ma.condition.stockholder_approval	(stockholder|shareholder|requisite|required)( (company|parent))? (approval|vote) shall have been (duly )?(obtained|received)
+ma.asset.purchased_assets	(purchased|acquired|transferred|conveyed) assets
+ma.exchange.payment_schedule	(allocation|payment|distribution|consideration|closing payment) (schedule|spreadsheet|certificate)
+ma.structure.alternative_structure	(change|revise|alter)[^.]{0,60}(method|structure) of effecting|alternative (transaction )?structure
+ma.asset.risk_of_loss	risk of loss|casualty or condemnation|condemnation or casualty|damaged or destroyed[^.]*prior to the closing
+ma.rep.insurance_business	insurance (regulator|department|commissioner)|statutory statements|actuarial
+ma.condition.registration_listing	(form s-4|registration statement)[^.]*shall have (become|been declared) effective|(approved|authorized) for listing
+ma.credit_support_release	(seller|parent|existing) (guarantees|guaranties|credit support)|credit support (obligations|instruments|arrangements)|support obligations|release[^.]{0,80}(guarantees|guaranties)
+ma.condition.third_party_consents	(consents?|approvals?)[^.]*(set forth|listed|identified) (on|in) schedule[^.]*shall have been (obtained|received)|required consents shall have been
+ma.equity.espp	employee stock purchase plan|\bespp\b|stock purchase plan
+ma.damages_waiver	(consequential|punitive|exemplary|special|incidental)[^.]{0,80}damages
+ma.conduct.integration_planning	(data processing|systems?) conversion|integration (planning|plan|committee|team)|transition (planning|committee|team)
+ma.records_access	(retain|preserve|retention of)[^.]{0,80}(books and records|records)[^.]*(years|period)|(after|following) the closing[^.]*access[^.]*(books|records)
+ma.employee.transfer	offers? of employment|transferred employees?|offer employment
+ma.employee.warn	(shall|will|agrees)[^.]*warn act|warn act[^.]*(shall|will be responsible|indemnif)
+ma.restrictive.non_solicit	(shall not|not to|will not)[^.]*(solicit|hire)[^.]*(employee|customer|client)|no-?hire
+ma.restrictive.non_compete	non-?compet|covenant not to compete|(shall not|not to|will not)[^.]*(engage in|compete with)[^.]*(competing business|restricted business|the business)
+ma.tender.company_actions	14d-10
+ma.regulatory.cfius	cfius|committee on foreign investment|defense production act
+ma.spac.redemption	(spac|acquiror|parent|purchaser|public) (stockholder|shareholder|share) redemptions?|redemption rights
+ma.indemn.specific	special indemnit|specific indemnit|indemnif[^.]*(set forth|listed|described) (on|in) schedule
+ma.tender.back_end_merger	251\(h\)|253 of the dgcl|short-?form merger
+ma.financing.debt_commitment	debt (commitment|financing)
+ma.spac.sponsor_support	sponsor (support|letter)
+ma.tender.top_up_option	top-?up (option|shares)
+ma.indemn.materiality_scrape	(without (giving effect|regard) to|disregarding|shall be disregarded)[^.]*(materiality|material adverse effect)|materiality scrape
+ma.conduct.emergency_exception	covid|pandemic measures|(imminent|emergency)[^.]*(threat|danger)[^.]*(health|safety|property)
+ma.financing.cooperation	(cooperation|cooperate|assistance)[^.]*(debt financing|the financing|arrangement of)|financing cooperation|required (financial )?information
+ma.noshop.standstill_waiver	standstill[^.]*(waive|release|terminate|not to enforce|amend)|(waive|release|terminate|enforce)[^.]*standstill
+ma.tender.company_actions	14f-1|section 14\(f\)
+ma.consideration.cvr	contingent value right|\bcvrs?\b
+ma.financing.equity_commitment	equity (commitment|financing)
+ma.consideration.exchange_ratio	exchange ratio
+ma.condition.financing	financing condition|not (subject to|conditioned (up)?on|contingent (up)?on)[^.]{0,80}financing
+ma.non_recourse	non-?recourse|no recourse|non-?party affiliates
+ma.consideration.rollover	rollover|roll-over
+ma.price_adjustment.dispute_resolution	(independent|neutral|arbitrating|accounting) (accountants?|accounting firm|arbiter|auditor|referee)|accounting referee
+ma.condition.dissenting_shares	(dissenting shares|appraisal rights|dissenters)[^.]*(shall not exceed|not more than|less than|no more than)[^.]{0,60}(%|percent)	FILTER_COND
+ma.noshop.go_shop	go-?shop|no-shop period start date|excluded party
+ma.consideration.seller_note	seller notes?|subordinated promissory note|promissory note[^.]*(purchase price|consideration)|deferred (purchase price|consideration)
+ma.spac.minimum_cash	minimum (available )?cash|available closing (spac |acquiror )?cash
+ma.regulatory.remedies	divest|hold separate|hell or high water
+ma.price_adjustment.escrow	adjustment escrow|working capital escrow
+ma.tender.offer_conditions	minimum (tender )?condition|offer conditions|conditions (to|of) the offer
+ma.regulatory.filing_fee_allocation	filing fees?[^.]*(hsr|antitrust|competition)|(hsr|antitrust|competition)[^.]*filing fees?
+ma.consideration.earnout	earn-?out|contingent (consideration|payment)|milestone payment
+ma.indemn.rwi	r&w (insurance|policy)|rwi policy|representations? and warrant(y|ies) (insurance|policy)|buyer-side (insurance|policy)
+ma.arbitration	(shall be|will be) (finally )?(settled|resolved|determined|submitted)[^.]*arbitration|binding arbitration|american arbitration association|\bjams\b
+ma.restrictive.non_compete	non-?competition|covenant not to compete
+ma.spac.extension	extension (proposal|meeting|amendment)|extend the (deadline|date|time|period)[^.]{0,120}business combination
+ma.spac.domestication	domestication
+ma.spac.public_filings	keep current and (accurately and )?timely file|timely file all (of its )?(public filings|reports required to be filed)[^.]{0,80}(sec|securities and exchange commission)[^.]*(through|until|prior to) the closing|(during the interim period|from the date hereof through the closing)[^.]{0,60}timely file
+ma.condition.frustration	frustration of (closing )?conditions|may (not )?rely[^.]{0,80}failure of any condition
+# Concepts added after the labeling trial of 2026-11-23.
+ma.rep.communications	federal communications commission|fcc licen[sc]es|communications act of 1934|communications laws
+ma.separation.shared_contracts	shared contracts?|commingled contracts?|mixed.use contracts?|enterprise.wide contracts?
+ma.separation.insurance_access	occurrence.based (insurance )?polic|cease to be (insured|covered)[^.]{0,160}(seller|parent)|(seller|parent)[^.]{0,80}insurance polic[^.]{0,240}(prior to|before|pre-)[^.]{0,20}closing[^.]{0,240}(claims?|occurrences?)
+ma.environmental.remediation	industrial site recovery act|\bisra\b|connecticut transfer act|(seller|sellers|buyer|purchaser|company) shall[^.]{0,160}(remediat|remedial action)|remedial action (work )?plan|response action outcome|no further action letter
+ma.bankruptcy.court_approval	sale order|bidding procedures order|section 363 of the bankruptcy code|bankruptcy court shall have entered

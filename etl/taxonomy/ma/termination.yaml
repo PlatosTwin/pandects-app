@@ -1,0 +1,620 @@
+# Pandects taxonomy, M&A pack (`ma`). Navigation branch: Termination.
+# Source of truth for these nodes. Field reference: etl/taxonomy/README.md.
+# Validate with: python -m etl.domain.taxonomy_pack
+pack: ma
+release: '2026.1'
+branch:
+  id: ma.nav.termination
+  label: Termination
+  kind: branch
+  order: 11
+  description: >-
+    When a party may end the agreement before closing, what follows, and the fees that become payable.
+  introduced_in: '2026.1'
+groups:
+
+  - id: ma.nav.termination.rights
+    label: Termination Rights
+    kind: group
+    nav_parent: ma.nav.termination
+    assignable: true
+    description: The grounds on which a party may terminate.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.termination.effect
+    label: Effect of Termination
+    kind: group
+    nav_parent: ma.nav.termination
+    assignable: true
+    description: What survives termination and what liability remains.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.termination.fees
+    label: Termination Fees and Expenses
+    kind: group
+    nav_parent: ma.nav.termination
+    assignable: true
+    description: Fees and expense reimbursement payable on termination.
+    introduced_in: '2026.1'
+concepts:
+
+  - id: ma.termination.right.mutual_consent
+    label: Termination by Mutual Consent
+    kind: provision
+    nav_parent: ma.nav.termination.rights
+    tier: label
+    wave: 1
+    description: The parties may terminate by mutual written consent.
+    canonical_terms:
+      - by mutual written consent
+      - termination by mutual consent
+    example_phrases:
+      - >-
+        This Agreement may be terminated at any time prior to the Effective Time by mutual written consent
+        of Parent and the Company.
+    crosswalk:
+      section_v1:
+        - id: 07f6697318f248d3
+          relation: narrower
+      section_v2:
+        - id: f63005f7753c27cd
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.termination.outside_date
+    label: Outside Date
+    kind: provision
+    nav_parent: ma.nav.termination.rights
+    tier: value
+    wave: 2
+    attributes:
+      party: holder
+    description: >-
+      The date after which either party may terminate if the deal has not closed, any extensions of that
+      date, and the rule that bars a party in breach from using the right.
+    canonical_terms:
+      - Outside Date
+      - End Date
+      - Termination Date
+      - Drop Dead Date
+      - shall not have been consummated on or before
+      - shall automatically be extended
+      - principal cause of the failure
+    example_phrases:
+      - >-
+        This Agreement may be terminated by either Parent or the Company if the Merger shall not have
+        been consummated on or before [•] (the "Outside Date"); provided that if the conditions in Section
+        [•] have not been satisfied, the Outside Date shall automatically be extended to [•].
+    exclusion_cues:
+      - >-
+        The fee payable after an outside-date termination is ma.termination.fee.target or ma.termination.fee.reverse.
+    value_schema:
+      status: piloted
+      version: '2.16'
+      source: span taxonomy plan, section 7.2 (https://github.com/PlatosTwin/pandects-app/pull/317)
+      fields:
+        - initial
+        - effect
+        - extensions
+        - breach_bar
+        - days_from_signing_computed
+    crosswalk:
+      section_v1:
+        - id: 07f6697318f248d3
+          relation: narrower
+      section_v2:
+        - id: f63005f7753c27cd
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.termination.right.legal_restraint
+    label: Termination for a Final Legal Restraint
+    kind: provision
+    nav_parent: ma.nav.termination.rights
+    tier: label
+    wave: 2
+    attributes:
+      party: holder
+    description: >-
+      Either party may terminate if a final and non-appealable order or law prohibits the deal.
+    canonical_terms:
+      - final and non-appealable
+      - Order permanently restraining, enjoining or otherwise prohibiting
+      - denial of a Requisite Regulatory Approval
+    example_phrases:
+      - >-
+        This Agreement may be terminated by either Parent or the Company if any Governmental Authority
+        shall have issued an Order permanently enjoining the Merger and such Order shall have become final
+        and non-appealable.
+    exclusion_cues:
+      - The closing condition that no order or law prohibits the deal is ma.condition.no_legal_restraint.
+      - Termination because the outside date has passed is ma.termination.outside_date.
+      - The duty to contest an order is ma.regulatory.litigation.
+    crosswalk:
+      section_v1:
+        - id: 07f6697318f248d3
+          relation: narrower
+      section_v2:
+        - id: f63005f7753c27cd
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.termination.right.vote_failure
+    label: Termination for Failure of the Stockholder Vote
+    kind: provision
+    nav_parent: ma.nav.termination.rights
+    tier: label
+    wave: 2
+    attributes:
+      party: holder
+    description: A party may terminate if the stockholders vote and do not approve the deal.
+    canonical_terms:
+      - Company Stockholder Approval shall not have been obtained
+      - at the Company Stockholders Meeting or any adjournment
+      - No-Vote Termination
+    example_phrases:
+      - >-
+        This Agreement may be terminated by either Parent or the Company if the Company Stockholder Approval
+        shall not have been obtained at the Company Stockholders Meeting at which a vote on the adoption
+        of this Agreement was taken.
+    value_schema:
+      status: stub
+      fields:
+        - name: whose_vote
+          type: PartyRole
+    crosswalk:
+      section_v1:
+        - id: 07f6697318f248d3
+          relation: narrower
+      section_v2:
+        - id: f63005f7753c27cd
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.termination.right.breach
+    label: Termination for Breach
+    kind: provision
+    nav_parent: ma.nav.termination.rights
+    tier: label
+    wave: 2
+    attributes:
+      party: holder
+    description: >-
+      A party may terminate if the other party breaches a representation or covenant so that a closing
+      condition would fail, and the breach is not cured within the cure period.
+    canonical_terms:
+      - breach of any representation, warranty, covenant or agreement
+      - would give rise to the failure of a condition
+      - not cured within 30 days
+      - incapable of being cured by the Outside Date
+    example_phrases:
+      - >-
+        This Agreement may be terminated by Parent if the Company shall have breached any of its representations,
+        warranties or covenants, which breach would give rise to the failure of a condition set forth
+        in Section [•] and is not cured within 30 days after written notice.
+    value_schema:
+      status: stub
+      fields:
+        - name: cure_period
+          type: Duration
+    crosswalk:
+      section_v1:
+        - id: 07f6697318f248d3
+          relation: narrower
+      section_v2:
+        - id: f63005f7753c27cd
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.termination.right.recommendation_change
+    label: Termination for a Change of Recommendation
+    kind: provision
+    nav_parent: ma.nav.termination.rights
+    tier: label
+    wave: 2
+    attributes:
+      party: holder
+    description: >-
+      The buyer may terminate if the target's board changes its recommendation, fails to reaffirm it,
+      or the target breaches the no-shop or meeting covenants.
+    canonical_terms:
+      - Adverse Recommendation Change shall have occurred
+      - failed to include the Company Board Recommendation
+      - Triggering Event
+      - willful breach of Section [•] (No Solicitation)
+    example_phrases:
+      - >-
+        This Agreement may be terminated by Parent, at any time prior to obtaining the Company Stockholder
+        Approval, if the Company Board shall have effected an Adverse Recommendation Change.
+    exclusion_cues:
+      - >-
+        The target's own right to terminate for a better bid is ma.termination.right.superior_proposal.
+    crosswalk:
+      section_v1:
+        - id: 07f6697318f248d3
+          relation: narrower
+      section_v2:
+        - id: f63005f7753c27cd
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.termination.right.superior_proposal
+    label: Termination to Accept a Superior Proposal
+    kind: provision
+    nav_parent: ma.nav.termination.rights
+    tier: label
+    wave: 2
+    attributes:
+      party: holder
+    description: >-
+      The target may terminate to enter into an agreement for a superior proposal, usually on payment
+      of the termination fee.
+    canonical_terms:
+      - in order to enter into a definitive agreement with respect to a Superior Proposal
+      - concurrently pays the Company Termination Fee
+      - fiduciary termination
+    example_phrases:
+      - >-
+        The Company may terminate this Agreement prior to obtaining the Company Stockholder Approval in
+        order to enter into a definitive agreement providing for a Superior Proposal, if the Company has
+        complied in all material respects with the No-Shop covenant and pays the Company Termination Fee
+        concurrently with or prior to such termination.
+    exclusion_cues:
+      - The board process that comes first is ma.recommendation.change_superior_proposal.
+    crosswalk:
+      section_v1:
+        - id: 4e18aa78e80883c1
+          relation: exact
+      section_v2:
+        - id: 05360ff078c08850
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.termination.right.failure_to_close
+    label: Termination for the Buyer's Failure to Close
+    kind: provision
+    nav_parent: ma.nav.termination.rights
+    tier: label
+    wave: 2
+    attributes:
+      party: holder
+    description: >-
+      The target may terminate if all conditions are satisfied, it stands ready to close, and the buyer
+      does not close within a set number of days.
+    canonical_terms:
+      - failed to consummate the Closing
+      - all conditions set forth in Section [•] have been satisfied
+      - stands ready, willing and able to consummate
+      - within three Business Days
+    example_phrases:
+      - >-
+        This Agreement may be terminated by the Company if all conditions in Section [•] have been satisfied,
+        the Company has confirmed that it is ready to close, and Parent fails to consummate the Closing
+        within three Business Days thereafter.
+    exclusion_cues:
+      - The fee that follows is ma.termination.fee.reverse.
+    crosswalk:
+      section_v1:
+        - id: 07f6697318f248d3
+          relation: narrower
+      section_v2:
+        - id: f63005f7753c27cd
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.termination.right.other
+    label: Other Termination Right
+    kind: provision
+    nav_parent: ma.nav.termination.rights
+    tier: label
+    wave: 2
+    attributes:
+      party: holder
+    description: >-
+      A termination right that fits no other concept, such as a due diligence out, a right for a material
+      adverse effect, a right when conditions become incapable of fulfillment, the expiry of a tender
+      offer, or a right tied to a specific event. Give one instance for each distinct trigger, so one
+      party may hold more than one. Watch the material adverse effect trigger: if the corpus run finds
+      it in many agreements, it may get a concept of its own.
+    exclusion_cues:
+      - A walk-away right tied to the buyer's stock price is ma.consideration.exchange_ratio.
+      - >-
+        A right for a breach that makes a condition fail is ma.termination.right.breach. Give both only when
+        the clause also covers conditions that cannot be fulfilled for another reason.
+    crosswalk:
+      section_v1:
+        - id: 07f6697318f248d3
+          relation: narrower
+      section_v2:
+        - id: f63005f7753c27cd
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.termination.effect
+    label: Effect of Termination; Notice of Termination
+    kind: provision
+    nav_parent: ma.nav.termination.effect
+    tier: label
+    wave: 1
+    description: >-
+      How a party exercises a termination right (written notice that names the provision relied on), and
+      the effect of termination: the agreement becomes void, except for listed provisions that survive.
+    canonical_terms:
+      - effect of termination
+      - shall forthwith become void and have no effect
+      - shall survive any termination
+      - without liability on the part of any party
+      - notice of termination
+      - written notice to the other party
+      - specifying the provision hereof pursuant to which such termination is made
+      - procedure for termination
+    example_phrases:
+      - >-
+        In the event of the termination of this Agreement pursuant to this Article, this Agreement shall
+        forthwith become void and there shall be no liability on the part of any party hereto, except
+        that the provisions of this Section, Section [•] (Confidentiality), Section [•] (Fees and Expenses),
+        and Article [•] (Miscellaneous) shall survive termination.
+      - >-
+        A party terminating this Agreement shall deliver written notice to the other parties specifying
+        the provision of this Agreement pursuant to which such termination is made.
+    exclusion_cues:
+      - >-
+        Liability that remains after termination for a willful breach or fraud is
+        ma.termination.willful_breach_liability (in wave 1, label its group ma.nav.termination.effect).
+    crosswalk:
+      section_v1:
+        - id: 84826dbe2b6940b8
+          relation: related
+      section_v2:
+        - id: 0329ef4a1239aa3f
+          relation: related
+    introduced_in: '2026.1'
+
+  - id: ma.termination.willful_breach_liability
+    label: Liability After Termination for Willful Breach or Fraud
+    kind: provision
+    nav_parent: ma.nav.termination.effect
+    tier: label
+    wave: 2
+    description: >-
+      Termination does not release a party from liability for fraud or for a willful or intentional breach.
+      It also covers a statement that damages may include the premium lost by stockholders.
+    canonical_terms:
+      - no such termination shall relieve any party from liability
+      - Willful Breach
+      - willful and material breach
+      - fraud
+      - benefit of the bargain lost by the stockholders
+    example_phrases:
+      - >-
+        No such termination shall relieve any party from liability for any Willful Breach of this Agreement
+        or for fraud, which liability may include the benefit of the bargain lost by the Company's stockholders.
+    exclusion_cues:
+      - The definition is ma.def.willful_breach.
+      - >-
+        The clause that makes a termination fee the only remedy is ma.termination.fee.exclusive_remedy.
+    value_schema:
+      status: stub
+      fields:
+        - name: standard
+          type: >-
+            enum: willful | willful_and_material | intentional | knowing_and_intentional | any_breach
+        - name: fraud_carveout
+          type: boolean
+        - name: lost_premium_damages
+          type: boolean
+    crosswalk:
+      section_v1:
+        - id: 84826dbe2b6940b8
+          relation: narrower
+      section_v2:
+        - id: 0329ef4a1239aa3f
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.termination.fee.target
+    label: Target Termination Fee
+    kind: provision
+    nav_parent: ma.nav.termination.fees
+    tier: value
+    wave: 2
+    description: >-
+      The fee the target pays the buyer on stated terminations: its amount, the triggers, the tail period,
+      and the timing of payment.
+    canonical_terms:
+      - Company Termination Fee
+      - Termination Fee
+      - break-up fee
+      - within twelve months after such termination
+      - by wire transfer of same-day funds
+      - in no event shall the Company be required to pay the Termination Fee on more than one occasion
+    example_phrases:
+      - The 'Company Termination Fee' means an amount equal to $[•].
+      - >-
+        The Company shall pay Parent the Company Termination Fee if this Agreement is terminated by the
+        Company to accept a Superior Proposal or by Parent following a Change of Recommendation.
+    exclusion_cues:
+      - A fee paid by the buyer is ma.termination.fee.reverse.
+      - Reimbursement of expenses is ma.termination.expense_reimbursement.
+    value_schema:
+      status: piloted
+      version: '2.16'
+      source: span taxonomy plan, section 7.2 (https://github.com/PlatosTwin/pandects-app/pull/317)
+      fields:
+        - payor
+        - payee
+        - tiers
+        - triggers
+        - payment_timing
+        - expense_reimbursement_credit
+        - pay_once_only
+        - pct_of_equity_value_computed
+    crosswalk:
+      section_v1:
+        - id: 4207f2e8f6698935
+          relation: narrower
+      section_v2:
+        - id: 009b6ef7aa32ba1f
+          relation: broader
+        - id: f1bfd9033ca1155f
+          relation: related
+    introduced_in: '2026.1'
+
+  - id: ma.termination.fee.reverse
+    label: Reverse Termination Fee
+    kind: provision
+    nav_parent: ma.nav.termination.fees
+    tier: value
+    wave: 1
+    description: >-
+      The fee the buyer pays the target on stated terminations, such as a failure to close, a financing
+      failure or a failure to obtain regulatory approval.
+    canonical_terms:
+      - Parent Termination Fee
+      - Reverse Termination Fee
+      - Regulatory Termination Fee
+      - Financing Failure
+    example_phrases:
+      - The 'Parent Termination Fee' means an amount equal to $[•].
+      - >-
+        Parent shall pay the Company the Parent Termination Fee if this Agreement is terminated as a result
+        of the failure to obtain the Regulatory Approvals or the entry of a permanent antitrust Order.
+    exclusion_cues:
+      - >-
+        A fee paid by the target is ma.termination.fee.target (in wave 1, label its group
+        ma.nav.termination.fees).
+      - The guarantee of the fee is ma.financing.limited_guarantee.
+    value_schema:
+      status: piloted
+      version: '2.16'
+      source: span taxonomy plan, section 7.2 (https://github.com/PlatosTwin/pandects-app/pull/317)
+      fields:
+        - payor
+        - payee
+        - tiers
+        - triggers
+        - kind
+        - guarantee
+        - liability_cap
+        - specific_performance_interaction
+    crosswalk:
+      section_v1:
+        - id: 4207f2e8f6698935
+          relation: narrower
+      section_v2:
+        - id: 0a1400c3405b72a3
+          relation: broader
+        - id: f1bfd9033ca1155f
+          relation: related
+    introduced_in: '2026.1'
+
+  - id: ma.termination.expense_reimbursement
+    label: Expense Reimbursement on Termination
+    kind: provision
+    nav_parent: ma.nav.termination.fees
+    tier: value
+    wave: 1
+    description: >-
+      A duty to reimburse the other party's deal expenses on stated terminations, usually up to a cap,
+      and whether the amount is credited against a later fee.
+    canonical_terms:
+      - Expense Reimbursement
+      - Parent Expenses
+      - reasonable and documented out-of-pocket expenses
+      - not to exceed $[•]
+      - credited against the Termination Fee
+    example_phrases:
+      - >-
+        If this Agreement is terminated pursuant to Section [•], the Company shall reimburse Parent for
+        its reasonable and documented out-of-pocket expenses incurred in connection with this Agreement,
+        in an amount not to exceed $[•].
+    exclusion_cues:
+      - >-
+        Costs of collecting an unpaid fee are ma.termination.collection_costs (in wave 1, label its group
+        ma.nav.termination.fees).
+      - >-
+        Costs of financing cooperation are ma.financing.cooperation_costs (in wave 1, label its parent
+        ma.financing.cooperation).
+      - >-
+        Regulatory filing fees are ma.regulatory.filing_fee_allocation (in wave 1, label its group
+        ma.nav.regulatory.antitrust).
+    value_schema:
+      status: piloted
+      version: '2.16'
+      source: span taxonomy plan, section 7.2 (https://github.com/PlatosTwin/pandects-app/pull/317)
+      fields:
+        - payor
+        - payee
+        - cap
+        - triggers
+        - credited_against_fee
+    crosswalk:
+      section_v1:
+        - id: 4207f2e8f6698935
+          relation: narrower
+      section_v2:
+        - id: f1bfd9033ca1155f
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.termination.fee.exclusive_remedy
+    label: Termination Fee as Exclusive Remedy; Liability Cap
+    kind: provision
+    nav_parent: ma.nav.termination.fees
+    tier: label
+    wave: 2
+    description: >-
+      A statement that payment of the fee is the only remedy of the party that receives it, and any dollar
+      cap on a party's total liability for damages before closing.
+    canonical_terms:
+      - sole and exclusive remedy
+      - liquidated damages and not a penalty
+      - maximum aggregate liability
+      - Parent Liability Cap
+    example_phrases:
+      - >-
+        Parent's right to receive the Company Termination Fee shall be the sole and exclusive remedy of
+        Parent and Merger Sub against the Company for any loss suffered as a result of the failure of
+        the Merger to be consummated.
+    exclusion_cues:
+      - >-
+        The exclusive remedy clause for post-closing indemnification is ma.indemn.exclusive_remedy.
+      - >-
+        Liability for willful breach after termination is ma.termination.willful_breach_liability.
+    crosswalk:
+      section_v1:
+        - id: 4207f2e8f6698935
+          relation: narrower
+      section_v2:
+        - id: f1bfd9033ca1155f
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.termination.collection_costs
+    label: Collection Costs and Interest on Unpaid Fees
+    kind: provision
+    nav_parent: ma.nav.termination.fees
+    tier: label
+    wave: 2
+    description: >-
+      If a party does not pay a fee when due and the other party sues, the paying party owes interest
+      and the costs of the suit.
+    canonical_terms:
+      - costs and expenses (including attorneys' fees) in connection with such suit
+      - together with interest
+      - at the prime rate
+    example_phrases:
+      - >-
+        If the Company fails to pay the Company Termination Fee when due and Parent commences a suit that
+        results in a judgment against the Company, the Company shall pay Parent its costs and expenses
+        in connection with such suit, together with interest at the prime rate.
+    exclusion_cues:
+      - A general prevailing-party fee clause is ma.attorneys_fees.
+    crosswalk:
+      section_v1:
+        - id: 4207f2e8f6698935
+          relation: narrower
+      section_v2:
+        - id: f1bfd9033ca1155f
+          relation: narrower
+    introduced_in: '2026.1'

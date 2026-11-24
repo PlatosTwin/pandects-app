@@ -1,0 +1,524 @@
+# Pandects taxonomy, tax pack (`tax`). Navigation branch: Tax Cooperation, Returns, Contests, and Refunds.
+# Structure and labels mirror tax_clause_taxonomy_l1/l2/l3, which was built with a tax professor.
+# Nodes marked `new_in_redesign: true` are additions to the legacy tax tree. The maintainer accepted them on 2026-11-22.
+# Field reference: etl/taxonomy/README.md. Validate with: python -m etl.domain.taxonomy_pack
+pack: tax
+release: '2026.1'
+branch:
+  id: tax.nav.compliance
+  label: Tax Cooperation, Returns, Contests, and Refunds
+  kind: branch
+  order: 4
+  assignable: true
+  description: >-
+    Who prepares tax returns, who controls tax contests, who gets refunds, and how the parties cooperate
+    on tax matters before and after closing.
+  also_listed_under:
+    - ma.nav.covenants.tax
+  crosswalk:
+    tax_v1:
+      - id: tax.4
+        relation: exact
+    section_v2:
+      - id: 6c5f2590fc80b4a8
+        relation: narrower
+  introduced_in: '2026.1'
+groups:
+
+  - id: tax.nav.compliance.returns
+    label: Tax Return Preparation
+    kind: group
+    nav_parent: tax.nav.compliance
+    assignable: true
+    description: Preparation and filing of tax returns for periods before and across closing.
+    crosswalk:
+      tax_v1:
+        - id: tax.4.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.nav.compliance.contests
+    label: Tax Contests
+    kind: group
+    nav_parent: tax.nav.compliance
+    assignable: true
+    description: Control of audits and other tax proceedings.
+    crosswalk:
+      tax_v1:
+        - id: tax.4.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.nav.compliance.refunds
+    label: Refunds and Credits
+    kind: group
+    nav_parent: tax.nav.compliance
+    assignable: true
+    description: Entitlement to tax refunds and credits.
+    crosswalk:
+      tax_v1:
+        - id: tax.4.3
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.nav.compliance.pre_closing_cooperation
+    label: Pre-Closing Cooperation
+    kind: group
+    nav_parent: tax.nav.compliance
+    assignable: true
+    description: Tax cooperation between signing and closing.
+    crosswalk:
+      tax_v1:
+        - id: tax.4.4
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.nav.compliance.post_closing_cooperation
+    label: Post-Closing Cooperation and Records
+    kind: group
+    nav_parent: tax.nav.compliance
+    assignable: true
+    description: Tax cooperation and record keeping after closing.
+    crosswalk:
+      tax_v1:
+        - id: tax.4.5
+          relation: exact
+    introduced_in: '2026.1'
+concepts:
+
+  - id: tax.returns.pre_closing
+    label: Pre-Closing Return Responsibility
+    kind: provision
+    nav_parent: tax.nav.compliance.returns
+    tier: label
+    description: >-
+      Which party prepares and files tax returns for periods that end on or before the closing date.
+    canonical_terms:
+      - Pre-Closing Tax Period
+      - Seller shall prepare
+      - Tax Returns for periods ending on or before the Closing Date
+    example_phrases:
+      - >-
+        Seller shall prepare, or cause to be prepared, all Tax Returns of the Company for all Pre-Closing
+        Tax Periods.
+    crosswalk:
+      tax_v1:
+        - id: tax.4.1.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.returns.straddle
+    label: Straddle Return Preparation
+    kind: provision
+    nav_parent: tax.nav.compliance.returns
+    tier: label
+    description: Which party prepares and files tax returns for a straddle period.
+    canonical_terms:
+      - Straddle Period
+      - Buyer shall prepare
+      - Straddle Period Tax Returns
+    example_phrases:
+      - >-
+        Buyer shall prepare and timely file all Tax Returns of the Company for any Straddle Period.
+    exclusion_cues:
+      - The rule that splits the tax of a straddle period is under tax.nav.indemnity.straddle.
+    crosswalk:
+      tax_v1:
+        - id: tax.4.1.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.returns.review_rights
+    label: Review / Comment / Consent Rights on Returns
+    kind: provision
+    nav_parent: tax.nav.compliance.returns
+    tier: label
+    description: >-
+      The other party's right to review, comment on or consent to a tax return before it is filed, and
+      how disputes about a return are settled.
+    canonical_terms:
+      - review and comment
+      - at least [•] days prior to the due date
+      - reasonable comments
+      - consent not to be unreasonably withheld
+    example_phrases:
+      - >-
+        Buyer shall deliver each such Tax Return to Seller for review and comment at least 30 days before
+        its due date and shall consider Seller's reasonable comments in good faith.
+    crosswalk:
+      tax_v1:
+        - id: tax.4.1.3
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.returns.past_practice
+    label: Preparation Consistency / Past Practice
+    kind: provision
+    nav_parent: tax.nav.compliance.returns
+    tier: label
+    description: >-
+      A requirement that tax returns be prepared in line with past practice unless the law requires otherwise.
+    canonical_terms:
+      - consistent with past practice
+      - unless otherwise required by applicable Law
+    example_phrases:
+      - >-
+        Such Tax Returns shall be prepared in a manner consistent with the past practice of the Company,
+        except as otherwise required by applicable Law.
+    exclusion_cues:
+      - >-
+        The interim covenant to keep existing elections and methods, and to prepare returns in line with
+        past practice, before closing is tax.interim.maintain_elections.
+    crosswalk:
+      tax_v1:
+        - id: tax.4.1.4
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.contest.pre_closing_control
+    label: Control of Pre-Closing Tax Contest
+    kind: provision
+    nav_parent: tax.nav.compliance.contests
+    tier: label
+    description: Which party controls an audit or other tax proceeding for a pre-closing period.
+    canonical_terms:
+      - Tax Contest
+      - Seller shall have the right to control
+      - Pre-Closing Tax Period
+    example_phrases:
+      - >-
+        Seller shall have the right to control, at its own expense, any Tax Contest relating to a Pre-Closing
+        Tax Period.
+    exclusion_cues:
+      - >-
+        The general procedure for indemnity claims and third-party claims is ma.indemn.claims_procedure.
+        A clause on the control of an audit or other tax proceeding takes this concept, also when it sits
+        in the indemnification article.
+      - >-
+        A statement that the tax section, not the general claims procedure, governs tax contests is tax.indemnity.exclusive_remedy.
+    crosswalk:
+      tax_v1:
+        - id: tax.4.2.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.contest.straddle_control
+    label: Control of Straddle / Shared Period Tax Contest
+    kind: provision
+    nav_parent: tax.nav.compliance.contests
+    tier: label
+    description: >-
+      Which party controls a tax proceeding for a straddle period or a period for which both sides may
+      be liable.
+    canonical_terms:
+      - Straddle Period
+      - jointly control
+      - Buyer shall control
+    example_phrases:
+      - >-
+        Buyer shall control any Tax Contest relating to a Straddle Period, and Seller may participate
+        at its own expense.
+    exclusion_cues:
+      - >-
+        The general procedure for indemnity claims and third-party claims is ma.indemn.claims_procedure.
+        A clause on the control of an audit or other tax proceeding takes this concept, also when it sits
+        in the indemnification article.
+    crosswalk:
+      tax_v1:
+        - id: tax.4.2.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.contest.participation_settlement
+    label: Notice, Participation, and Settlement Rights
+    kind: provision
+    nav_parent: tax.nav.compliance.contests
+    tier: label
+    description: >-
+      The non-controlling party's rights in a tax proceeding: notice of the claim, participation, and
+      consent to a settlement.
+    canonical_terms:
+      - prompt notice of any Tax Claim
+      - participate at its own expense
+      - shall not settle without consent
+    example_phrases:
+      - >-
+        The controlling party shall not settle any Tax Contest without the prior written consent of the
+        other party, which shall not be unreasonably withheld.
+    exclusion_cues:
+      - >-
+        The interim covenant not to settle tax claims before closing is tax.interim.no_settlement.
+      - >-
+        Notice, defense and settlement rules for indemnity claims in general, including third-party claims,
+        are ma.indemn.claims_procedure. Notice, participation and settlement rights in an audit or other
+        tax proceeding take this concept, also when they sit in the indemnification article.
+    crosswalk:
+      tax_v1:
+        - id: tax.4.2.3
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.refund.ownership
+    label: Ownership of Tax Refunds
+    kind: provision
+    nav_parent: tax.nav.compliance.refunds
+    tier: label
+    description: Which party is entitled to refunds of taxes for pre-closing periods.
+    canonical_terms:
+      - Tax refunds
+      - for the account of Seller
+      - refund or credit of Taxes
+    example_phrases:
+      - >-
+        Any refund of Taxes of the Company for any Pre-Closing Tax Period shall be for the account of
+        Seller.
+    crosswalk:
+      tax_v1:
+        - id: tax.4.3.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.refund.carryback
+    label: Carryback / Carryforward Refund Rights
+    kind: provision
+    nav_parent: tax.nav.compliance.refunds
+    tier: label
+    description: >-
+      Rules on carrying a loss or credit back to a pre-closing period or forward to a later period, and
+      who gets the resulting refund.
+    canonical_terms:
+      - carryback
+      - carryforward
+      - waive any carryback
+    example_phrases:
+      - >-
+        Buyer shall cause the Company to waive any carryback of a net operating loss from a Post-Closing
+        Tax Period to a Pre-Closing Tax Period, to the extent permitted by Law.
+    exclusion_cues:
+      - Provisions on the losses themselves are tax.attribute.nol.
+    crosswalk:
+      tax_v1:
+        - id: tax.4.3.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.refund.payment_mechanics
+    label: Refund Application / Payment Mechanics
+    kind: provision
+    nav_parent: tax.nav.compliance.refunds
+    tier: label
+    description: How and when a refund is paid over to the party entitled to it, net of costs and taxes.
+    canonical_terms:
+      - pay over within [•] days
+      - net of reasonable out-of-pocket costs
+      - credit against Taxes in lieu of a refund
+    example_phrases:
+      - >-
+        Buyer shall pay over any such refund to Seller within ten days after receipt, net of any reasonable
+        out-of-pocket costs and Taxes incurred in obtaining it.
+    crosswalk:
+      tax_v1:
+        - id: tax.4.3.3
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.cooperation.audit_notice
+    label: Notice of Tax Audits / Proceedings
+    kind: provision
+    nav_parent: tax.nav.compliance.pre_closing_cooperation
+    tier: label
+    description: >-
+      A duty to give notice of a tax audit or proceeding that starts between signing and closing.
+    canonical_terms:
+      - promptly notify Parent of any Tax audit
+      - notice of any claim for Taxes
+    example_phrases:
+      - >-
+        The Company shall promptly notify Parent of any material audit or proceeding in respect of Taxes
+        that is commenced before the Closing.
+    exclusion_cues:
+      - Notice rights in a post-closing contest are tax.contest.participation_settlement.
+    crosswalk:
+      tax_v1:
+        - id: tax.4.4.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.cooperation.records_access
+    label: Access to Tax Records and Workpapers
+    kind: provision
+    nav_parent: tax.nav.compliance.pre_closing_cooperation
+    tier: label
+    description: Access before closing to tax records, tax returns and workpapers.
+    canonical_terms:
+      - access to Tax records
+      - workpapers
+      - Tax Returns and related documents
+    example_phrases:
+      - >-
+        Prior to the Closing, the Company shall provide Parent with reasonable access to its Tax Returns,
+        Tax records and related workpapers.
+    exclusion_cues:
+      - General access to information before closing is ma.access.information.
+      - Access after closing to the books and records of the business is ma.records_access.
+      - >-
+        Access after closing to tax information for a tax filing or audit is tax.cooperation.filing_information.
+    crosswalk:
+      tax_v1:
+        - id: tax.4.4.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.cooperation.interim
+    label: Interim Cooperation on Tax Matters
+    kind: provision
+    nav_parent: tax.nav.compliance.pre_closing_cooperation
+    tier: label
+    description: >-
+      General cooperation on tax matters between signing and closing, including tax planning for the deal.
+    canonical_terms:
+      - cooperate in good faith on Tax matters
+      - prior to the Closing
+    example_phrases:
+      - >-
+        Prior to the Closing, the parties shall cooperate in good faith with respect to Tax matters relating
+        to the transactions.
+    exclusion_cues:
+      - >-
+        Cooperation to obtain a tax clearance certificate before closing has no concept of its own. It takes
+        this concept.
+    crosswalk:
+      tax_v1:
+        - id: tax.4.4.3
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.cooperation.record_retention
+    label: Record Retention
+    kind: provision
+    nav_parent: tax.nav.compliance.post_closing_cooperation
+    tier: label
+    description: A duty to keep tax records for a set period after closing.
+    canonical_terms:
+      - retain all books and records with respect to Tax matters
+      - until the expiration of the statute of limitations
+      - seven years
+    example_phrases:
+      - >-
+        Each party shall retain all books and records with respect to Tax matters of the Company until
+        the expiration of the applicable statute of limitations.
+    exclusion_cues:
+      - Retention of general business records is ma.records_access.
+      - >-
+        A standard cooperation clause that names the retention of records as one form of cooperation
+        is tax.cooperation.post_closing. This concept takes a clause that is specifically about keeping
+        tax records, such as one that sets the retention period.
+    crosswalk:
+      tax_v1:
+        - id: tax.4.5.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.cooperation.post_closing
+    label: Mutual Cooperation After Closing
+    kind: provision
+    nav_parent: tax.nav.compliance.post_closing_cooperation
+    tier: label
+    description: >-
+      Mutual cooperation on tax matters after closing. The standard cooperation clause takes this concept
+      as a whole, also when it names the retention and provision of records and information, or making
+      employees available, as forms of cooperation.
+    canonical_terms:
+      - cooperate fully in connection with the filing of Tax Returns
+      - any audit, litigation or other proceeding with respect to Taxes
+      - such cooperation shall include the retention and provision of records and information
+      - making employees available on a mutually convenient basis
+    example_phrases:
+      - >-
+        Buyer and Seller shall cooperate fully, as and to the extent reasonably requested by the other,
+        in connection with the filing of Tax Returns and any Tax proceeding.
+    exclusion_cues:
+      - >-
+        A clause that is specifically about giving information for a tax filing or audit is tax.cooperation.filing_information.
+      - >-
+        A clause that is specifically about keeping tax records, such as one that sets the retention period,
+        is tax.cooperation.record_retention.
+      - Cooperation on tax matters before closing is tax.cooperation.interim.
+    crosswalk:
+      tax_v1:
+        - id: tax.4.5.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.cooperation.filing_information
+    label: Access to Information for Tax Filings and Audits
+    kind: provision
+    nav_parent: tax.nav.compliance.post_closing_cooperation
+    tier: label
+    description: >-
+      A duty to give the other party information it needs for tax filings and audits after closing.
+    canonical_terms:
+      - furnish such information
+      - information reasonably necessary for the filing of any Tax Return
+      - information reasonably requested in connection with any Tax audit
+    example_phrases:
+      - >-
+        Each party shall furnish to the other such information relating to the Company as is reasonably
+        necessary for the filing of any Tax Return.
+    exclusion_cues:
+      - >-
+        A standard cooperation clause that names the provision of information as one form of cooperation
+        is tax.cooperation.post_closing. This concept takes a clause that is specifically about information
+        for tax filings and audits.
+      - Access before closing to tax records is tax.cooperation.records_access.
+    crosswalk:
+      tax_v1:
+        - id: tax.4.5.3
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.cooperation.post_closing_actions
+    label: Restrictions on Post-Closing Tax Actions
+    kind: provision
+    nav_parent: tax.nav.compliance.post_closing_cooperation
+    new_in_redesign: true
+    tier: label
+    description: >-
+      A covenant that limits what the buyer may do after closing for pre-closing periods without the seller's
+      consent: amend returns, make or change elections, start voluntary disclosures or extend a statute
+      of limitations.
+    canonical_terms:
+      - Buyer shall not amend any Tax Return for a Pre-Closing Tax Period
+      - voluntary disclosure
+      - without the prior written consent of Seller
+      - make or change any Tax election with retroactive effect
+    example_phrases:
+      - >-
+        After the Closing, Buyer shall not, without the prior written consent of Seller, amend any Tax
+        Return of the Company for a Pre-Closing Tax Period.
+    exclusion_cues:
+      - The target's own interim covenants before closing are under tax.nav.interim.
+      - A ban on a Section 338 or Section 336(e) election is tax.election.338h10.
+      - The rule for acts on the closing date after the closing is tax.straddle.closing_date_convention.
+    introduced_in: '2026.1'
+
+  - id: tax.cooperation.tax_sharing_termination
+    label: Termination of Tax Sharing Agreements
+    kind: provision
+    nav_parent: tax.nav.compliance.post_closing_cooperation
+    new_in_redesign: true
+    tier: label
+    description: >-
+      A covenant that all tax sharing, allocation and indemnity agreements between the target and the
+      seller group end at closing with no further liability.
+    canonical_terms:
+      - Tax sharing agreements shall be terminated
+      - as of the Closing Date
+      - no further rights or liabilities thereunder
+    example_phrases:
+      - >-
+        All Tax sharing agreements between the Company, on the one hand, and Seller or its Affiliates,
+        on the other hand, shall be terminated as of the Closing Date.
+    exclusion_cues:
+      - The representation that no such agreement exists is tax.rep.tax_sharing_group.
+    introduced_in: '2026.1'

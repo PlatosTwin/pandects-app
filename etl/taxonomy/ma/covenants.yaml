@@ -1,0 +1,785 @@
+# Pandects taxonomy, M&A pack (`ma`). Navigation branch: Other Covenants.
+# Source of truth for these nodes. Field reference: etl/taxonomy/README.md.
+# Validate with: python -m etl.domain.taxonomy_pack
+pack: ma
+release: '2026.1'
+branch:
+  id: ma.nav.covenants
+  label: Other Covenants
+  kind: branch
+  order: 9
+  description: >-
+    Covenants that fit no other branch: directors and officers, listing, deal litigation, post-closing
+    and separation covenants, and tax matters.
+  introduced_in: '2026.1'
+groups:
+
+  - id: ma.nav.covenants.governance
+    label: Directors, Officers and Governance
+    kind: group
+    nav_parent: ma.nav.covenants
+    description: >-
+      Protection of the target's directors and officers, and governance of the combined company.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.covenants.securities_litigation
+    label: Securities, Listing and Deal Litigation
+    kind: group
+    nav_parent: ma.nav.covenants
+    description: Stock exchange listing, dividends before closing and stockholder suits.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.covenants.post_closing
+    label: Post-Closing and Separation
+    kind: group
+    nav_parent: ma.nav.covenants
+    assignable: true
+    description: >-
+      Covenants that run after closing, found mostly in private deals and carve-outs, and covenants on
+      separation and environmental clean-up, which may also run before closing.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.covenants.tax
+    label: Tax Matters
+    kind: group
+    nav_parent: ma.nav.covenants
+    description: Tax covenants. The tax pack owns these concepts. Its branches are listed here.
+    introduced_in: '2026.1'
+concepts:
+
+  - id: ma.dando.indemnification
+    label: D&O Indemnification
+    kind: provision
+    nav_parent: ma.nav.covenants.governance
+    tier: label
+    wave: 1
+    attributes:
+      party: obligor
+    description: >-
+      The surviving company's duty to keep indemnifying the target's directors and officers for acts before
+      closing, to advance their expenses, and to keep the charter and bylaw protections for a set period.
+    canonical_terms:
+      - Indemnified Parties
+      - indemnification, advancement of expenses and exculpation
+      - for a period of six years
+      - directors and officers
+    example_phrases:
+      - >-
+        From and after the Effective Time, Parent shall cause the Surviving Corporation to honor and fulfill
+        the obligations of the Company under its existing indemnification and exculpation provisions and
+        any indemnification agreements with its current or former directors and officers.
+      - >-
+        For a period of six years after the Effective Time, the Surviving Corporation shall indemnify
+        and hold harmless, and provide advancement of expenses to, each Indemnified Person to the fullest
+        extent permitted by Law for acts or omissions occurring at or prior to the Effective Time.
+    exclusion_cues:
+      - The insurance policy is ma.dando.tail_insurance.
+      - Indemnification between the buyer and the sellers is under ma.nav.indemnification.
+    value_schema:
+      status: stub
+      fields:
+        - name: period
+          type: Duration
+    crosswalk:
+      section_v1:
+        - id: 91d9ddfe45872d7a
+          relation: narrower
+      section_v2:
+        - id: 9078d910f23d3f13
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.dando.tail_insurance
+    label: D&O Tail Insurance
+    kind: provision
+    nav_parent: ma.nav.covenants.governance
+    tier: label
+    wave: 1
+    attributes:
+      party: obligor
+    description: >-
+      The duty to keep or buy directors' and officers' liability insurance for claims about acts before
+      closing, usually a six-year tail policy with a cap on the premium.
+    canonical_terms:
+      - tail policy
+      - run-off
+      - directors' and officers' liability insurance
+      - 300% of the current annual premium
+      - six-year
+    example_phrases:
+      - >-
+        The Surviving Corporation shall maintain for six years after the Effective Time directors' and
+        officers' liability insurance no less favorable than the Company's existing policy; provided that
+        it shall not be required to pay annual premiums in excess of 300% of the current annual premium.
+    value_schema:
+      status: stub
+      fields:
+        - name: period
+          type: Duration
+        - name: premium_cap_pct
+          type: number
+    crosswalk:
+      section_v1:
+        - id: 91d9ddfe45872d7a
+          relation: narrower
+      section_v2:
+        - id: dc39c0827248d3be
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.governance.post_closing
+    label: Governance of the Combined Company
+    kind: provision
+    nav_parent: ma.nav.covenants.governance
+    tier: label
+    wave: 1
+    description: >-
+      Agreements on the combined company after closing: board seats, the chair and chief executive, headquarters,
+      name and ticker symbol.
+    canonical_terms:
+      - board of directors of Parent
+      - shall be appointed to the Parent Board
+      - headquarters
+      - name of the combined company
+      - Chief Executive Officer
+    example_phrases:
+      - >-
+        Parent shall take all actions necessary so that, as of the Effective Time, the Parent Board consists
+        of [•] directors, of whom [•] shall be designated by the Company.
+    exclusion_cues:
+      - Directors and officers of the merged subsidiary are ma.structure.effective_time.
+    value_schema:
+      status: stub
+      fields:
+        - name: target_board_seats
+          type: number
+        - name: ceo
+          type: text
+        - name: headquarters
+          type: text
+    introduced_in: '2026.1'
+
+  - id: ma.governance.resignations
+    label: Resignations of Directors and Officers
+    kind: provision
+    nav_parent: ma.nav.covenants.governance
+    tier: label
+    wave: 1
+    description: >-
+      The duty to deliver resignations of the target's directors and officers, effective at closing.
+    canonical_terms:
+      - resignations
+      - resignation of each director
+      - effective as of the Effective Time
+    example_phrases:
+      - >-
+        The Company shall use its reasonable best efforts to deliver to Parent the resignation of each
+        director of the Company and its Subsidiaries, effective as of the Effective Time.
+    introduced_in: '2026.1'
+
+  - id: ma.governance.section_16
+    label: Section 16 Matters
+    kind: provision
+    nav_parent: ma.nav.covenants.governance
+    tier: label
+    wave: 1
+    description: >-
+      Board action so that dispositions and acquisitions of equity by insiders in the deal are exempt
+      under Rule 16b-3.
+    canonical_terms:
+      - Section 16
+      - Rule 16b-3
+      - exempt under Rule 16b-3
+      - Section 16(b)
+    example_phrases:
+      - >-
+        Prior to the Effective Time, the Company shall take all steps required to cause any dispositions
+        of Company Common Stock resulting from the Merger by each individual subject to Section 16(a)
+        of the Exchange Act to be exempt under Rule 16b-3.
+    crosswalk:
+      section_v2:
+        - id: 2ba79d8226115fb6
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.listing.stock_exchange
+    label: Stock Exchange Listing; Delisting
+    kind: provision
+    nav_parent: ma.nav.covenants.securities_litigation
+    tier: label
+    wave: 1
+    description: >-
+      Listing of the buyer shares issued in the deal, and delisting and deregistration of the target's
+      shares after closing.
+    canonical_terms:
+      - stock exchange listing
+      - approved for listing on the NYSE
+      - Nasdaq
+      - delisting
+      - deregistration under the Exchange Act
+    example_phrases:
+      - >-
+        Parent shall use reasonable best efforts to cause the shares of Parent Common Stock to be issued
+        in the Merger to be approved for listing on the NYSE prior to the Effective Time, subject to official
+        notice of issuance.
+      - >-
+        Prior to or as promptly as practicable after the Effective Time, the Surviving Corporation shall
+        cooperate with Parent to cause the Company Common Stock to be delisted from the Nasdaq Stock Market
+        and deregistered under the Exchange Act.
+    exclusion_cues:
+      - The closing condition on listing is ma.condition.registration_listing.
+      - >-
+        A SPAC's promise to keep its existing securities listed until closing, with its SEC reports current,
+        is ma.spac.public_filings.
+    crosswalk:
+      section_v1:
+        - id: b4beeb0f987294fe
+          relation: exact
+      section_v2:
+        - id: 1428ea6d01b75d67
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.dividend_coordination
+    label: Coordination of Dividends
+    kind: provision
+    nav_parent: ma.nav.covenants.securities_litigation
+    tier: label
+    wave: 1
+    description: >-
+      Coordination of the record and payment dates of the two parties' dividends so that holders do not
+      receive two dividends, or miss one, for the same quarter.
+    canonical_terms:
+      - coordination of dividends
+      - record dates and payment dates
+      - shall not receive two dividends, or fail to receive one dividend
+    example_phrases:
+      - >-
+        The parties shall coordinate the declaration, record dates and payment dates of dividends so that
+        holders of Company Common Stock do not receive two dividends, or fail to receive one dividend,
+        for any quarter.
+    exclusion_cues:
+      - >-
+        The interim limit on paying dividends is ma.conduct.restriction.dividends (in wave 1, label its
+        parent ma.conduct.negative_covenants).
+    introduced_in: '2026.1'
+
+  - id: ma.rule_145_affiliates
+    label: Rule 145 Affiliates; Affiliate Letters
+    kind: provision
+    nav_parent: ma.nav.covenants.securities_litigation
+    tier: label
+    wave: 1
+    description: >-
+      In older stock deals, the target's duty to list its affiliates under Rule 145 and to obtain their
+      letters agreeing to limits on resale of the buyer shares they receive. It also covers covenants
+      tied to pooling-of-interests accounting.
+    canonical_terms:
+      - Rule 145
+      - affiliates
+      - Affiliate Letter
+      - Affiliate Agreement
+      - pooling of interests
+    example_phrases:
+      - >-
+        The Company shall deliver to Parent a letter identifying all Persons who may be deemed to be "affiliates"
+        of the Company for purposes of Rule 145 under the Securities Act, and shall use its reasonable
+        best efforts to cause each such Person to deliver an Affiliate Letter.
+    exclusion_cues:
+      - The representation on dealings with affiliates is ma.rep.affiliate_transactions.
+      - Lock-up terms in a private deal are ma.consideration.buyer_securities.
+    introduced_in: '2026.1'
+
+  - id: ma.transaction_litigation
+    label: Transaction Litigation
+    kind: provision
+    nav_parent: ma.nav.covenants.securities_litigation
+    tier: label
+    wave: 1
+    description: >-
+      Handling of stockholder suits about the deal: notice, the buyer's right to take part in the defense,
+      and its consent to any settlement.
+    canonical_terms:
+      - stockholder litigation
+      - Transaction Litigation
+      - opportunity to participate in the defense
+      - no settlement without Parent's consent
+    example_phrases:
+      - >-
+        The Company shall promptly notify Parent of any litigation brought or threatened against the Company
+        or its directors relating to this Agreement or the transactions ('Transaction Litigation').
+      - >-
+        The Company shall give Parent the opportunity to participate in (but not control) the defense
+        of any Transaction Litigation and shall consult with Parent with respect to the defense and settlement
+        thereof.
+    exclusion_cues:
+      - >-
+        The interim limit on settling other claims is ma.conduct.restriction.litigation_settlement (in wave
+        1, label its parent ma.conduct.negative_covenants).
+    crosswalk:
+      section_v2:
+        - id: aa9042c38b62daf4
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.restrictive.non_compete
+    label: Non-Competition
+    kind: provision
+    nav_parent: ma.nav.covenants.post_closing
+    tier: label
+    wave: 1
+    attributes:
+      party: obligor
+    description: >-
+      The seller's promise not to compete with the sold business for a stated period and in a stated territory.
+    canonical_terms:
+      - non-competition
+      - Restricted Period
+      - Competing Business
+      - shall not, directly or indirectly, engage in
+      - Restricted Territory
+    example_phrases:
+      - >-
+        For a period of five years after the Closing Date (the "Restricted Period"), Seller shall not,
+        directly or indirectly, engage in any Competing Business in the Restricted Territory.
+    exclusion_cues:
+      - Promises not to hire employees or solicit customers are ma.restrictive.non_solicit.
+    value_schema:
+      status: stub
+      fields:
+        - name: period
+          type: Duration
+        - name: territory
+          type: text
+        - name: carveouts
+          type: list
+    introduced_in: '2026.1'
+
+  - id: ma.restrictive.non_solicit
+    label: Non-Solicitation of Employees and Customers
+    kind: provision
+    nav_parent: ma.nav.covenants.post_closing
+    tier: label
+    wave: 1
+    attributes:
+      party: obligor
+    description: >-
+      A promise not to solicit or hire the other side's employees, or to solicit its customers or suppliers,
+      for a stated period. It also covers a promise not to disparage the other party.
+    canonical_terms:
+      - shall not solicit for employment or hire
+      - no-hire
+      - solicit any customer or supplier
+      - non-disparagement
+    example_phrases:
+      - >-
+        During the Restricted Period, Seller shall not solicit for employment or hire any employee of
+        the Company, other than through general solicitations not targeted at such employees.
+    exclusion_cues:
+      - The no-shop covenant on competing bids is ma.noshop.non_solicitation.
+    value_schema:
+      status: stub
+      fields:
+        - name: period
+          type: Duration
+    introduced_in: '2026.1'
+
+  - id: ma.restrictive.confidentiality
+    label: Post-Closing Confidentiality of the Sellers
+    kind: provision
+    nav_parent: ma.nav.covenants.post_closing
+    tier: label
+    wave: 2
+    attributes:
+      party: obligor
+    description: >-
+      A seller's promise, after closing, to keep information about the sold business confidential and
+      not to use it. It is drafted with the non-compete and has its own period and exceptions.
+    canonical_terms:
+      - from and after the Closing
+      - shall hold in confidence
+      - confidential information concerning the Business
+      - except as required by Law
+    example_phrases:
+      - >-
+        From and after the Closing, Seller shall, and shall cause its Affiliates to, hold in confidence
+        all confidential information concerning the Company and the Business, except to the extent that
+        such information is or becomes generally available to the public other than through a breach of
+        this Section.
+    exclusion_cues:
+      - >-
+        Confidentiality before closing, including an existing confidentiality agreement, is ma.access.confidentiality.
+      - The promise not to compete is ma.restrictive.non_compete.
+    value_schema:
+      status: stub
+      fields:
+        - name: period
+          type: Duration
+    introduced_in: '2026.1'
+
+  - id: ma.release
+    label: Release of Claims
+    kind: provision
+    nav_parent: ma.nav.covenants.post_closing
+    tier: label
+    wave: 1
+    attributes:
+      party: obligor
+    description: >-
+      A general release by the sellers, or by both sides, of claims against the target and its officers
+      and directors that arose before closing. It also covers the sellers' waiver of any right of contribution
+      or indemnity against the target for their own indemnity payments.
+    canonical_terms:
+      - release
+      - releases and forever discharges
+      - Released Claims
+      - Releasing Parties
+      - Section 1542
+      - no right of contribution
+    example_phrases:
+      - >-
+        Effective as of the Closing, each Seller, on behalf of itself and its Affiliates, hereby releases
+        and forever discharges the Company from any and all claims arising on or prior to the Closing
+        Date.
+    exclusion_cues:
+      - The waiver of claims against a SPAC trust is ma.spac.trust_account.
+      - The promise to indemnify is ma.indemn.obligation.
+    introduced_in: '2026.1'
+
+  - id: ma.further_assurances
+    label: Further Assurances
+    kind: provision
+    nav_parent: ma.nav.covenants.post_closing
+    tier: label
+    wave: 1
+    description: >-
+      The duty to execute and deliver further instruments and take further actions reasonably necessary
+      to carry out the purposes of the agreement.
+    canonical_terms:
+      - further assurances
+      - further action
+      - execute and deliver such further instruments
+      - as may be reasonably requested
+    example_phrases:
+      - >-
+        From time to time, whether at or after the Closing, each party shall, at the request of the other,
+        execute and deliver such additional instruments of conveyance and assignment and take such other
+        actions as may be reasonably necessary to consummate the transactions and to vest in Purchaser
+        good title to the Purchased Assets.
+    exclusion_cues:
+      - The pre-closing efforts covenant is ma.efforts.general.
+      - The return of an asset that went to the wrong party is ma.wrong_pockets.
+    crosswalk:
+      section_v1:
+        - id: fff743810be2e1d2
+          relation: narrower
+      section_v2:
+        - id: d942732d2a73374a
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.records_access
+    label: Post-Closing Access to Records; Litigation Support
+    kind: provision
+    nav_parent: ma.nav.covenants.post_closing
+    tier: label
+    wave: 1
+    description: >-
+      The duty to keep the business's books and records for a set period after closing, to give the other
+      side access to them, and to help with later claims and audits.
+    canonical_terms:
+      - preserve and keep the books and records
+      - for a period of seven years
+      - access to books and records
+      - litigation support
+    example_phrases:
+      - >-
+        For a period of seven years after the Closing Date, Buyer shall preserve the books and records
+        of the Company relating to periods prior to the Closing and shall give Seller reasonable access
+        to them.
+    exclusion_cues:
+      - Access before closing is ma.access.information.
+      - Retention of tax records is tax.cooperation.record_retention.
+      - >-
+        Access after closing to tax information for a tax filing or audit is
+        tax.cooperation.filing_information.
+    crosswalk:
+      section_v1:
+        - id: fff743810be2e1d2
+          relation: narrower
+      section_v2:
+        - id: d942732d2a73374a
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.wrong_pockets
+    label: Wrong Pockets; Misdirected Payments
+    kind: provision
+    nav_parent: ma.nav.covenants.post_closing
+    tier: label
+    wave: 1
+    description: The duty to hand over assets, payments or mail that reach the wrong party after closing.
+    canonical_terms:
+      - wrong pockets
+      - misdirected payments
+      - shall promptly remit
+      - held in trust for
+    example_phrases:
+      - >-
+        If, after the Closing, Seller receives any payment that belongs to Buyer, Seller shall hold it
+        in trust for Buyer and promptly remit it to Buyer.
+    exclusion_cues:
+      - Contracts that could not be assigned at closing are ma.asset.nonassignable_assets.
+    introduced_in: '2026.1'
+
+  - id: ma.use_of_name
+    label: Use of Seller Names and Marks
+    kind: provision
+    nav_parent: ma.nav.covenants.post_closing
+    tier: label
+    wave: 1
+    description: >-
+      The buyer's duty to stop using the seller's names and marks after a transition period, or the seller's
+      duty to change its name.
+    canonical_terms:
+      - use of name
+      - Seller Marks
+      - Retained Names
+      - cease using
+      - change its corporate name
+    example_phrases:
+      - >-
+        Within 90 days after the Closing Date, Buyer shall cause the Company to cease using the Seller
+        Marks.
+    value_schema:
+      status: stub
+      fields:
+        - name: transition_period
+          type: Duration
+    introduced_in: '2026.1'
+
+  - id: ma.transition_services
+    label: Transition Services
+    kind: provision
+    nav_parent: ma.nav.covenants.post_closing
+    tier: label
+    wave: 1
+    description: >-
+      The duty to enter into a transition services agreement or to provide services for a time after closing.
+    canonical_terms:
+      - Transition Services Agreement
+      - TSA
+      - transition services
+    example_phrases:
+      - >-
+        At the Closing, Seller and Buyer shall enter into the Transition Services Agreement in the form
+        attached as Exhibit [•].
+    exclusion_cues:
+      - The split or shared use of contracts and assets after a carve-out is ma.separation.shared_contracts.
+    introduced_in: '2026.1'
+
+  - id: ma.intercompany_termination
+    label: Termination of Affiliate Agreements; Intercompany Accounts
+    kind: provision
+    nav_parent: ma.nav.covenants.post_closing
+    tier: label
+    wave: 1
+    description: >-
+      The duty to end contracts between the target and the seller group at closing and to settle intercompany
+      balances.
+    canonical_terms:
+      - termination of affiliate agreements
+      - Intercompany Agreements
+      - intercompany accounts shall be settled
+      - termination of certain agreements
+    example_phrases:
+      - >-
+        Prior to the Closing, Seller shall cause all Contracts between the Company, on the one hand, and
+        Seller or its Affiliates, on the other hand, to be terminated without any further liability to
+        the Company.
+    exclusion_cues:
+      - The representation on affiliate dealings is ma.rep.affiliate_transactions.
+      - Ending tax sharing agreements is tax.cooperation.tax_sharing_termination.
+    introduced_in: '2026.1'
+
+  - id: ma.credit_support_release
+    label: Release of Seller Guarantees and Credit Support
+    kind: provision
+    nav_parent: ma.nav.covenants.post_closing
+    tier: label
+    wave: 1
+    attributes:
+      party: obligor
+    description: >-
+      The buyer's promise to replace, or to obtain the release of, guarantees, letters of credit, bonds
+      and other credit support that the seller group gave for the sold business, and to indemnify the
+      seller until that happens.
+    canonical_terms:
+      - Seller Guarantees
+      - Credit Support
+      - Support Obligations
+      - release of guarantees
+      - letters of credit, surety bonds
+    example_phrases:
+      - >-
+        Buyer shall use its reasonable best efforts to cause Seller and its Affiliates to be released,
+        effective as of the Closing, from all Seller Guarantees, and shall indemnify Seller for any amount
+        paid under a Seller Guarantee after the Closing.
+    exclusion_cues:
+      - >-
+        A guarantee of the buyer's own obligations by its parent or sponsor is ma.financing.limited_guarantee.
+      - The end of contracts between the target and the seller group is ma.intercompany_termination.
+    introduced_in: '2026.1'
+
+  - id: ma.separation.shared_contracts
+    label: Shared Contracts and Shared Assets
+    kind: provision
+    nav_parent: ma.nav.covenants.post_closing
+    tier: label
+    wave: 1
+    description: >-
+      In a carve-out, what happens to contracts, equipment, real estate and other assets that both the
+      sold business and the seller's retained business use: a split or a copy of the contract, a pass-through
+      of its benefits, or continued shared use for a time.
+    canonical_terms:
+      - Shared Contracts
+      - Commingled Contracts
+      - Mixed-Use Contracts
+      - shared assets
+      - separate or replicate
+      - both the Business and the Retained Business
+    example_phrases:
+      - >-
+        With respect to each Shared Contract, the parties shall use commercially reasonable efforts to
+        cause the counterparty to enter into a separate contract with Buyer on substantially the same
+        terms as they relate to the Business, and until then Seller shall pass through to Buyer the benefits
+        and burdens of the portion that relates to the Business.
+    exclusion_cues:
+      - >-
+        A contract that belongs wholly to the sold business and cannot be assigned without a consent
+        is ma.asset.nonassignable_assets.
+      - Services that the seller provides for a time after closing are ma.transition_services.
+      - Assets or payments that reach the wrong party after closing are ma.wrong_pockets.
+      - The end of contracts between the target and the seller group is ma.intercompany_termination.
+      - >-
+        The buyer's access to the seller's insurance policies is ma.separation.insurance_access (in wave
+        1, label its group ma.nav.covenants.post_closing).
+    introduced_in: '2026.1'
+
+  - id: ma.separation.insurance_access
+    label: Post-Closing Access to Seller Insurance
+    kind: provision
+    nav_parent: ma.nav.covenants.post_closing
+    tier: label
+    wave: 2
+    description: >-
+      What happens to the seller group's insurance for the sold business after closing: coverage under
+      the seller's policies ends at closing, and the buyer may or may not make claims under the seller's
+      occurrence-based policies for events before closing, with the seller's help.
+    canonical_terms:
+      - occurrence-based policies
+      - Seller Insurance Policies
+      - coverage shall cease as of the Closing
+      - pre-Closing occurrences
+      - claims under the insurance policies of Seller
+    example_phrases:
+      - >-
+        From and after the Closing, the Company shall cease to be insured by any insurance policy of Seller
+        or its Affiliates, except that Buyer may make claims under Seller's occurrence-based policies
+        for losses arising from events that occurred prior to the Closing, and Seller shall use commercially
+        reasonable efforts to pursue such claims on Buyer's behalf.
+    exclusion_cues:
+      - The representation that the business's insurance is in force is ma.rep.insurance.
+      - Tail insurance for directors and officers is ma.dando.tail_insurance.
+      - A representation and warranty insurance policy is ma.indemn.rwi.
+      - Reduction of an indemnity claim for insurance proceeds is ma.indemn.recovery_offsets.
+    introduced_in: '2026.1'
+
+  - id: ma.environmental.remediation
+    label: Environmental Remediation and Transfer Statutes
+    kind: provision
+    nav_parent: ma.nav.covenants.post_closing
+    tier: label
+    wave: 1
+    attributes:
+      party: obligor
+    description: >-
+      Covenants on known or suspected contamination: who must investigate and clean up a site, to what
+      standard, who controls the work and who pays for it. It also covers compliance with a property
+      transfer statute, such as the New Jersey Industrial Site Recovery Act or the Connecticut Transfer
+      Act, and with an existing environmental consent order.
+    canonical_terms:
+      - Remedial Action
+      - remediation
+      - ISRA
+      - Industrial Site Recovery Act
+      - Connecticut Transfer Act
+      - Phase II
+      - consent order
+      - No Further Action letter
+    example_phrases:
+      - >-
+        Seller shall, at its sole cost and expense, perform all Remedial Action required under ISRA in
+        connection with the transactions, and shall obtain the approval of the environmental agency that
+        permits the Closing to occur.
+      - >-
+        Seller shall control the investigation and remediation of the Identified Environmental Conditions
+        and shall remediate them to the least stringent standard that Environmental Law permits for industrial
+        use of the property.
+    exclusion_cues:
+      - The representation on environmental compliance and releases is ma.rep.environmental.
+      - >-
+        The promise to pay the other side's losses from an environmental condition is ma.indemn.specific
+        (in wave 1, label its parent ma.indemn.obligation). The covenant to do, control or pay for the
+        clean-up stays here.
+      - >-
+        The buyer's right before closing to inspect a property and to claim an environmental defect against
+        the price is ma.asset.title_and_survey. An assessment whose findings trigger a duty to remediate
+        is this concept.
+      - >-
+        Which environmental liabilities the buyer takes over in an asset deal is ma.asset.assumed_liabilities
+        or ma.asset.excluded_liabilities.
+    introduced_in: '2026.1'
+
+  - id: ma.covenant.other
+    label: Other Covenant
+    kind: provision
+    nav_parent: ma.nav.covenants.post_closing
+    tier: label
+    wave: 1
+    attributes:
+      party: obligor
+    description: >-
+      A covenant on a topic that no other concept covers. Check the covenant concepts of every branch first.
+      Covenants that have no concept of their own belong here, for example a promise not to trade in a
+      SPAC's securities and the court steps of a plan or scheme of arrangement under Canadian or UK-style law.
+    canonical_terms:
+      - no trading
+      - shall not engage in any transactions involving the securities of Acquiror
+      - Interim Order
+    exclusion_cues:
+      - >-
+        A SPAC's promise to keep its SEC reports current and its securities listed until closing is
+        ma.spac.public_filings.
+      - >-
+        The buyer's duty to reimburse and indemnify the target for financing cooperation is
+        ma.financing.cooperation_costs (in wave 1, label its parent ma.financing.cooperation).
+      - >-
+        The duty to hold the stockholder vote after a change of recommendation is ma.approval.force_the_vote
+        (in wave 1, label its parent ma.approval.stockholder_meeting).
+      - >-
+        The statement that the employee covenants give employees no rights is
+        ma.employee.no_third_party_rights (in wave 1, label its parent
+        ma.employee.comp_benefits_continuation).
+      - >-
+        A statement that the buyer does not control the target's business before closing is
+        ma.conduct.no_control. Efforts to obtain consents under contracts are
+        ma.efforts.third_party_consents. Stockholder suits about the deal are ma.transaction_litigation. The
+        end of contracts with the seller group is ma.intercompany_termination.
+      - >-
+        Clean-up duties and transfer statutes are ma.environmental.remediation. Shared contracts and assets
+        in a carve-out are ma.separation.shared_contracts. The buyer's access to the seller's insurance is
+        ma.separation.insurance_access (in wave 1, label its group ma.nav.covenants.post_closing).
+      - The duty to seek the orders of a bankruptcy court is ma.bankruptcy.court_approval.
+      - The opening words of a covenants article that stand as a section of their own are ma.other.lead_in.
+    introduced_in: '2026.1'

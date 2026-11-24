@@ -1,0 +1,453 @@
+# Pandects taxonomy, M&A pack (`ma`). Navigation branch: General Provisions.
+# Source of truth for these nodes. Field reference: etl/taxonomy/README.md.
+# Validate with: python -m etl.domain.taxonomy_pack
+pack: ma
+release: '2026.1'
+branch:
+  id: ma.nav.general
+  label: General Provisions
+  kind: branch
+  order: 15
+  description: Standard terms on the agreement itself, costs and the parties.
+  introduced_in: '2026.1'
+groups:
+
+  - id: ma.nav.general.agreement
+    label: The Agreement
+    kind: group
+    nav_parent: ma.nav.general
+    description: Notices, integration, amendment, waiver, assignment and similar terms.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.general.costs
+    label: Costs and Parties
+    kind: group
+    nav_parent: ma.nav.general
+    description: >-
+      Who pays deal costs and other terms about the parties. Transfer taxes are listed here from the tax
+      pack.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.general.other
+    label: Other
+    kind: group
+    nav_parent: ma.nav.general
+    description: Catch-all concepts.
+    introduced_in: '2026.1'
+concepts:
+
+  - id: ma.notices
+    label: Notices
+    kind: provision
+    nav_parent: ma.nav.general.agreement
+    tier: label
+    wave: 1
+    description: How notices under the agreement must be given and when they take effect.
+    canonical_terms:
+      - notices
+      - shall be in writing
+      - delivered personally, by email or by overnight courier
+      - with a copy to
+    example_phrases:
+      - >-
+        All notices, requests, consents, and other communications hereunder shall be in writing and shall
+        be deemed duly given (i) when delivered personally, (ii) one Business Day after being sent by
+        reputable overnight courier, or (iii) when sent by email (with confirmation of transmission),
+        in each case to the addresses set forth below.
+      - >-
+        If to the Company: [address]; with a copy (which shall not constitute notice) to its counsel at
+        [address].
+    crosswalk:
+      section_v1:
+        - id: d75eeddb4839a607
+          relation: exact
+      section_v2:
+        - id: 45e396494397aa1a
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.entire_agreement
+    label: Entire Agreement
+    kind: provision
+    nav_parent: ma.nav.general.agreement
+    tier: label
+    wave: 1
+    description: >-
+      The agreement and the named related documents are the whole agreement of the parties and replace
+      earlier ones.
+    canonical_terms:
+      - entire agreement
+      - integration
+      - supersedes all prior agreements and understandings
+      - complete agreement
+    example_phrases:
+      - >-
+        This Agreement, together with the Disclosure Schedules, the Exhibits, and the Confidentiality
+        Agreement, constitutes the entire agreement among the parties with respect to the subject matter
+        hereof and supersedes all prior and contemporaneous agreements, representations, warranties, and
+        understandings, both written and oral.
+    exclusion_cues:
+      - A statement that a party relied on nothing outside the agreement is ma.rep.non_reliance.
+    crosswalk:
+      section_v1:
+        - id: e63ceec3215c234b
+          relation: narrower
+      section_v2:
+        - id: 9bfdbe24e1314cb3
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.amendment
+    label: Amendment; Waiver; Extension
+    kind: provision
+    nav_parent: ma.nav.general.agreement
+    tier: label
+    wave: 1
+    description: >-
+      How the agreement may be amended, including limits on amendments after the stockholder vote, and how
+      a party may waive a right or extend the time for performance. It also covers a clause that requires
+      the approval of a special committee of the board for an amendment, a waiver or another action of
+      the company under the agreement.
+    canonical_terms:
+      - amendment
+      - modification
+      - may be amended only by an instrument in writing
+      - after receipt of the Company Stockholder Approval
+      - waiver
+      - extension; waiver
+      - no failure or delay shall operate as a waiver
+      - extend the time for the performance
+      - Special Committee
+      - approval of the Special Committee
+    example_phrases:
+      - >-
+        This Agreement may be amended, modified, or supplemented only by a written instrument duly executed
+        by or on behalf of each party hereto.
+      - >-
+        After the Company Stockholder Approval has been obtained, no amendment shall be made that by Law
+        requires further approval of the Company's stockholders without such approval.
+      - >-
+        Any agreement on the part of a party to any extension or waiver shall be valid only if set forth
+        in a written instrument signed on behalf of such party.
+      - >-
+        No failure or delay by any party in exercising any right, power, or privilege hereunder shall
+        operate as a waiver thereof, nor shall any single or partial exercise thereof preclude any other
+        or further exercise thereof.
+    exclusion_cues:
+      - >-
+        A carve-out or protection for the Financing Sources inside this section, such as a bar on amending
+        the lender clauses without the lenders' consent, also gets ma.financing.source_protections. The rest
+        of the section keeps this label.
+    crosswalk:
+      section_v1:
+        - id: 5fddb016bfeff147
+          relation: exact
+      section_v2:
+        - id: 5a37b2bc58e3784b
+          relation: broader
+        - id: 78fd5d5468f81aa4
+          relation: broader
+    introduced_in: '2026.1'
+
+  - id: ma.assignment
+    label: Assignment; Successors and Assigns
+    kind: provision
+    nav_parent: ma.nav.general.agreement
+    tier: label
+    wave: 1
+    description: >-
+      Whether a party may assign the agreement, the exceptions, and that the agreement binds successors.
+    canonical_terms:
+      - assignment
+      - successors and assigns
+      - binding effect
+      - may not be assigned without the prior written consent
+    example_phrases:
+      - >-
+        Neither this Agreement nor any of the rights, interests, or obligations hereunder may be assigned
+        by any party (whether by operation of law or otherwise) without the prior written consent of the
+        other parties, and any purported assignment without such consent shall be null and void.
+      - >-
+        Notwithstanding the foregoing, Parent may assign its rights and obligations to any wholly owned
+        Subsidiary and may collaterally assign its rights to the Financing Sources, in each case without
+        relieving Parent of its obligations.
+    crosswalk:
+      section_v1:
+        - id: 679b4920063265f9
+          relation: exact
+      section_v2:
+        - id: bc9ef8b45c800b0c
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.third_party_beneficiaries
+    label: No Third-Party Beneficiaries
+    kind: provision
+    nav_parent: ma.nav.general.agreement
+    tier: label
+    wave: 1
+    description: >-
+      The agreement gives rights only to the parties, with listed exceptions such as indemnified directors
+      and officers.
+    canonical_terms:
+      - no third-party beneficiaries
+      - parties in interest
+      - not intended to confer upon any Person other than the parties
+      - third party beneficiaries
+    example_phrases:
+      - >-
+        This Agreement is for the sole benefit of the parties hereto and their permitted successors and
+        assigns and nothing herein, express or implied, is intended to or shall confer upon any other
+        Person any legal or equitable right, benefit, or remedy of any nature whatsoever.
+      - >-
+        Notwithstanding the foregoing, (i) the D&O Indemnified Persons are intended third-party beneficiaries
+        of Section [•], (ii) the Financing Sources are intended third-party beneficiaries of the provisions
+        referenced in Section [•], and (iii) from and after the Effective Time, the holders of Shares
+        are intended third-party beneficiaries of the right to receive the Merger Consideration.
+    exclusion_cues:
+      - >-
+        A carve-out or protection for the Financing Sources inside this section, such as a sentence that
+        makes the lenders third-party beneficiaries, also gets ma.financing.source_protections. The rest of
+        the section keeps this label.
+      - >-
+        A statement inside the employee covenants that they give employees no rights and amend no plan is
+        ma.employee.no_third_party_rights (in wave 1, label its parent
+        ma.employee.comp_benefits_continuation). It does not take this concept.
+    crosswalk:
+      section_v1:
+        - id: e63ceec3215c234b
+          relation: narrower
+      section_v2:
+        - id: 66b59f33e17688fa
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.severability
+    label: Severability; Counterparts
+    kind: provision
+    nav_parent: ma.nav.general.agreement
+    tier: label
+    wave: 1
+    description: >-
+      Two standard clauses. An invalid term does not affect the rest of the agreement. The agreement may
+      be signed in counterparts and by electronic means.
+    canonical_terms:
+      - severability
+      - invalid, illegal or incapable of being enforced
+      - remain in full force and effect
+      - counterparts
+      - electronic signature
+      - facsimile
+      - .pdf
+      - effectiveness
+      - to be unenforceable
+      - considered amended
+      - deemed reformed
+      - blue pencil
+    example_phrases:
+      - >-
+        If any term or other provision of this Agreement is held to be invalid, illegal, or incapable
+        of being enforced by any rule of Law or public policy, all other terms and provisions of this
+        Agreement shall nevertheless remain in full force and effect.
+      - >-
+        Upon a determination that any term or provision is invalid, illegal, or incapable of being enforced,
+        the parties shall negotiate in good faith to modify this Agreement so as to effect the original
+        intent of the parties as closely as possible in an acceptable manner.
+      - >-
+        This Agreement may be executed in two or more counterparts, each of which shall be deemed an original,
+        but all of which together shall constitute one and the same instrument.
+      - >-
+        Delivery of an executed counterpart of a signature page by facsimile or by email in .pdf or other
+        electronic format shall be as effective as delivery of a manually executed counterpart.
+    exclusion_cues:
+      - The clause that remedies are cumulative is ma.specific_performance.
+    crosswalk:
+      section_v1:
+        - id: e63ceec3215c234b
+          relation: narrower
+      section_v2:
+        - id: 0d45fa1a398d6a35
+          relation: broader
+        - id: 83418c5cdc530887
+          relation: broader
+    introduced_in: '2026.1'
+
+  - id: ma.expenses
+    label: Fees and Expenses
+    kind: provision
+    nav_parent: ma.nav.general.costs
+    tier: label
+    wave: 1
+    description: >-
+      The general rule on who pays the costs of the deal, usually each party its own, with listed exceptions.
+    canonical_terms:
+      - expenses
+      - fees and expenses
+      - shall be paid by the party incurring such fees or expenses
+      - whether or not the Merger is consummated
+    example_phrases:
+      - >-
+        Except as otherwise expressly set forth herein, all fees and expenses incurred in connection with
+        this Agreement shall be paid by the party incurring such fees and expenses, whether or not the
+        Merger is consummated.
+    exclusion_cues:
+      - Reimbursement of expenses on termination is ma.termination.expense_reimbursement.
+      - Transfer taxes are tax.transfer.allocation.
+      - >-
+        Regulatory filing fees are ma.regulatory.filing_fee_allocation (in wave 1, label its group
+        ma.nav.regulatory.antitrust).
+    crosswalk:
+      section_v1:
+        - id: 426429d401a47a6b
+          relation: exact
+      section_v2:
+        - id: 54b5db7d36480690
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.merger_sub_obligations
+    label: Obligations of Merger Sub; Parent Undertaking
+    kind: provision
+    nav_parent: ma.nav.general.costs
+    tier: label
+    wave: 1
+    description: >-
+      The buyer's promise to cause its merger subsidiary to perform, its guarantee of the subsidiary's
+      duties, and its vote as the subsidiary's sole stockholder.
+    canonical_terms:
+      - obligations of Merger Sub
+      - Parent shall cause Merger Sub to perform
+      - sole stockholder of Merger Sub
+      - Parent vote
+      - performance guaranty
+    example_phrases:
+      - >-
+        Parent shall cause Merger Sub to perform its obligations under this Agreement and to consummate
+        the Merger on the terms and subject to the conditions set forth herein.
+    exclusion_cues:
+      - A sponsor's limited guarantee is ma.financing.limited_guarantee.
+      - >-
+        A guarantee of the buyer's own duties by its parent company or by a sponsor is
+        ma.financing.limited_guarantee, also when the heading says Parent Guarantee.
+    introduced_in: '2026.1'
+
+  - id: ma.legal_representation
+    label: Legal Representation; Privilege
+    kind: provision
+    nav_parent: ma.nav.general.costs
+    tier: label
+    wave: 1
+    description: >-
+      Waiver of conflicts so that the sellers' law firm may act for them after closing, and the rule that
+      pre-closing privileged communications about the deal stay with the sellers.
+    canonical_terms:
+      - legal representation
+      - waiver of conflicts
+      - attorney-client privilege
+      - Privileged Communications
+      - conflicts and privilege
+    example_phrases:
+      - >-
+        All communications between the Sellers and [Law Firm] relating to the negotiation of this Agreement
+        shall be deemed attorney-client privileged, and the privilege shall belong solely to the Sellers
+        and shall not pass to Buyer or the Company.
+    introduced_in: '2026.1'
+
+  - id: ma.misc.other
+    label: Other General Provision
+    kind: provision
+    nav_parent: ma.nav.general.other
+    tier: label
+    wave: 1
+    description: >-
+      A standard term that fits no other concept, such as time of the essence, currency, or a statement
+      about a party's capacity.
+    canonical_terms:
+      - time is of the essence
+      - currency
+      - all references to dollars
+    crosswalk:
+      section_v2:
+        - id: b268cb6c8e2ec84a
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.other.lead_in
+    label: Article or Section Lead-In
+    kind: provision
+    nav_parent: ma.nav.general.other
+    tier: label
+    wave: 1
+    description: >-
+      The opening words of an article, or of a section that holds a list, when they stand as a section
+      of their own and state no term: who represents and warrants to whom, or that a party's obligations
+      are subject to the conditions that follow. Use it only when the section holds nothing else.
+    canonical_terms:
+      - represents and warrants to Parent as follows
+      - hereby represent and warrant
+      - except as set forth in the Disclosure Schedule
+      - subject to the satisfaction or waiver of the following conditions
+      - covenants and agrees as follows
+    example_phrases:
+      - >-
+        Except as set forth in the Company Disclosure Schedule, the Company represents and warrants to
+        Parent and Merger Sub as follows:
+      - >-
+        The obligations of Parent and Merger Sub to effect the Merger are subject to the satisfaction
+        or waiver at or prior to the Closing of the following conditions:
+    exclusion_cues:
+      - >-
+        A lead-in that says how the disclosure schedules or the party's SEC filings qualify the statements
+        (for example, which filings count, or that an item disclosed in one section counts for others)
+        also gets ma.interpretation.disclosure_schedules. A bare "except as set forth in the Disclosure
+        Schedule" does not.
+      - >-
+        A section that holds the lead-in and the statements themselves takes the concepts of the statements
+        only. Do not add this label.
+      - A placeholder with no text, such as "[Reserved]", is ma.other.reserved.
+      - >-
+        Operative text that fits no concept takes the catch-all of its family: ma.rep.other, ma.covenant.other,
+        ma.condition.other or ma.misc.other. Text that fits nowhere is ma.other.unclassified.
+      - The preamble and the recitals of the agreement are ma.recitals.
+    introduced_in: '2026.1'
+
+  - id: ma.other.reserved
+    label: Reserved; Intentionally Omitted
+    kind: provision
+    nav_parent: ma.nav.general.other
+    tier: label
+    wave: 1
+    description: A placeholder section with no operative text.
+    canonical_terms:
+      - '[Reserved]'
+      - Intentionally Omitted
+      - '[Intentionally Deleted]'
+    exclusion_cues:
+      - An opening sentence that leads into an article or a list is ma.other.lead_in.
+    introduced_in: '2026.1'
+
+  - id: ma.other.unclassified
+    label: Other / Unclassified
+    kind: provision
+    nav_parent: ma.nav.general.other
+    tier: label
+    wave: 1
+    description: >-
+      Text that fits no concept in the M&A pack or the tax pack. Use it rarely, and review what lands
+      here to find gaps.
+    exclusion_cues:
+      - >-
+        The opening words of an article that stand as a section of their own, such as "The Company
+        represents and warrants as follows", are ma.other.lead_in.
+      - A placeholder with no text is ma.other.reserved.
+      - >-
+        Check the catch-all of the family first: ma.rep.other, ma.covenant.other, ma.condition.other or
+        ma.misc.other.
+    crosswalk:
+      section_v1:
+        - id: fa5e1a0374f222f5
+          relation: exact
+      section_v2:
+        - id: 0d22dae73bc55b01
+          relation: exact
+    introduced_in: '2026.1'

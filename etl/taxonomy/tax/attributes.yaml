@@ -1,0 +1,241 @@
+# Pandects taxonomy, tax pack (`tax`). Navigation branch: Tax Attributes.
+# Structure and labels mirror tax_clause_taxonomy_l1/l2/l3, which was built with a tax professor.
+# Nodes marked `new_in_redesign: true` are additions to the legacy tax tree. The maintainer accepted them on 2026-11-22.
+# Field reference: etl/taxonomy/README.md. Validate with: python -m etl.domain.taxonomy_pack
+pack: tax
+release: '2026.1'
+branch:
+  id: tax.nav.attributes
+  label: Tax Attributes
+  kind: branch
+  order: 8
+  assignable: true
+  description: >-
+    Provisions about tax attributes: net operating losses, credits, basis, and earnings and profits.
+  also_listed_under:
+    - ma.nav.covenants.tax
+  crosswalk:
+    tax_v1:
+      - id: tax.8
+        relation: exact
+  introduced_in: '2026.1'
+groups:
+
+  - id: tax.nav.attributes.nol
+    label: Net Operating Losses and Section 382
+    kind: group
+    nav_parent: tax.nav.attributes
+    assignable: true
+    description: Net operating losses and the Section 382 limit.
+    crosswalk:
+      tax_v1:
+        - id: tax.8.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.nav.attributes.credits
+    label: Tax Credits and Section 383
+    kind: group
+    nav_parent: tax.nav.attributes
+    assignable: true
+    description: Tax credits and the Section 383 limit.
+    crosswalk:
+      tax_v1:
+        - id: tax.8.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.nav.attributes.basis
+    label: Basis
+    kind: group
+    nav_parent: tax.nav.attributes
+    assignable: true
+    description: Tax basis.
+    crosswalk:
+      tax_v1:
+        - id: tax.8.3
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.nav.attributes.earnings_profits
+    label: Earnings and Profits
+    kind: group
+    nav_parent: tax.nav.attributes
+    assignable: true
+    description: Earnings and profits.
+    crosswalk:
+      tax_v1:
+        - id: tax.8.4
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.nav.attributes.other
+    label: Other Tax Attributes
+    kind: group
+    nav_parent: tax.nav.attributes
+    assignable: true
+    description: Other tax attributes.
+    crosswalk:
+      tax_v1:
+        - id: tax.8.5
+          relation: exact
+    introduced_in: '2026.1'
+concepts:
+
+  - id: tax.attribute.nol
+    label: Net Operating Losses
+    kind: provision
+    nav_parent: tax.nav.attributes.nol
+    tier: label
+    description: >-
+      Provisions on net operating losses, such as covenants to preserve them or price terms tied to them.
+    canonical_terms:
+      - net operating losses
+      - NOLs
+      - net operating loss carryforward
+    example_phrases:
+      - >-
+        The parties acknowledge that the Company has net operating loss carryforwards and agree to the
+        treatment of such losses set forth in this Section.
+    exclusion_cues:
+      - A representation on the amount of NOLs is tax.rep.attribute_availability.
+    crosswalk:
+      tax_v1:
+        - id: tax.8.1.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.attribute.section_382
+    label: Section 382 Limitation Matters
+    kind: provision
+    nav_parent: tax.nav.attributes.nol
+    tier: label
+    description: >-
+      Provisions on the Section 382 limit, including ownership-change covenants and tax benefit preservation
+      plans.
+    canonical_terms:
+      - Section 382
+      - ownership change
+      - Tax Benefit Preservation Plan
+    example_phrases:
+      - >-
+        Prior to the Closing, the Company shall not take any action that would reasonably be expected to
+        result in an "ownership change" within the meaning of Section 382 of the Code.
+    exclusion_cues:
+      - >-
+        A representation that the losses are not limited, or that no ownership change has occurred, is
+        tax.rep.attribute_availability.
+      - >-
+        A statement that a Tax Benefit Preservation Plan or other rights plan has been amended, or does
+        not apply, so that the deal does not trigger it is ma.takeover.rights_plan. This concept takes such
+        a plan only when the clause is about protecting the losses under Section 382, such as a duty to
+        keep the plan in effect.
+    crosswalk:
+      tax_v1:
+        - id: tax.8.1.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.attribute.credits
+    label: Tax Credits
+    kind: provision
+    nav_parent: tax.nav.attributes.credits
+    tier: label
+    description: Provisions on tax credits and their transfer or use.
+    canonical_terms:
+      - Tax credits
+      - research credit
+      - transferability of credits
+    example_phrases:
+      - >-
+        Buyer shall be entitled to all Tax credits of the Company attributable to periods after the Closing.
+    crosswalk:
+      tax_v1:
+        - id: tax.8.2.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.attribute.section_383
+    label: Section 383 Limitation Matters
+    kind: provision
+    nav_parent: tax.nav.attributes.credits
+    tier: label
+    description: Provisions on the Section 383 limit on credits.
+    canonical_terms:
+      - Section 383
+      - limitation on credits
+    example_phrases:
+      - >-
+        Buyer acknowledges that the Tax credits of the Company may be subject to limitation under Section
+        383 of the Code as a result of the transactions, and the Purchase Price shall not be adjusted
+        for any such limitation.
+    exclusion_cues:
+      - A representation that the credits are not limited is tax.rep.attribute_availability.
+    crosswalk:
+      tax_v1:
+        - id: tax.8.2.2
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.attribute.basis
+    label: Basis
+    kind: provision
+    nav_parent: tax.nav.attributes.basis
+    tier: label
+    description: Provisions on tax basis, such as a basis step-up or basis schedules.
+    canonical_terms:
+      - Tax basis
+      - step-up in basis
+      - adjusted basis
+    example_phrases:
+      - >-
+        Seller shall deliver to Buyer a schedule of the Tax basis of the assets of the Company as of the
+        Closing Date.
+    crosswalk:
+      tax_v1:
+        - id: tax.8.3.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.attribute.earnings_profits
+    label: Earnings and Profits
+    kind: provision
+    nav_parent: tax.nav.attributes.earnings_profits
+    tier: label
+    description: >-
+      Provisions on earnings and profits, such as an E&P study or a pre-closing distribution of E&P.
+    canonical_terms:
+      - earnings and profits
+      - E&P study
+      - Section 316
+    example_phrases:
+      - >-
+        Prior to the Closing, the Company shall declare a dividend in an amount at least equal to its
+        accumulated earnings and profits.
+    crosswalk:
+      tax_v1:
+        - id: tax.8.4.1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: tax.attribute.other
+    label: Other Tax Attributes
+    kind: provision
+    nav_parent: tax.nav.attributes.other
+    tier: label
+    description: >-
+      Provisions on other tax attributes, such as capital loss carryforwards, tax holidays or transaction
+      tax deductions.
+    canonical_terms:
+      - Transaction Tax Deductions
+      - tax holiday
+      - capital loss carryforward
+    example_phrases:
+      - >-
+        All Transaction Tax Deductions shall be treated as deductible in the Pre-Closing Tax Period to
+        the extent permitted by Law.
+    crosswalk:
+      tax_v1:
+        - id: tax.8.5.1
+          relation: exact
+    introduced_in: '2026.1'

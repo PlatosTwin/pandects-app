@@ -1,0 +1,864 @@
+# Snapshot of the live section taxonomy (taxonomy_l1/l2/l3: 12 / 61 / 99), taken read-only
+# from the local pdx database on 2026-11-22. Used only to check crosswalk ids. Do not edit.
+scheme: section_v1
+nodes:
+- id: 92b34e0ce6d3e1d1
+  level: l1
+  label: Conditions to Closing
+  parent: null
+  leaf: false
+- id: a44ce05729b14ccd
+  level: l1
+  label: Covenants and Agreements
+  parent: null
+  leaf: false
+- id: 4e325f8fadb83ad5
+  level: l1
+  label: Definitions and Interpretation
+  parent: null
+  leaf: false
+- id: 962b883776517c2d
+  level: l1
+  label: Dispute Resolution and Enforcement
+  parent: null
+  leaf: false
+- id: 897f18078ba03830
+  level: l1
+  label: Financing
+  parent: null
+  leaf: false
+- id: 361f27537fa70d8e
+  level: l1
+  label: Indemnification and Insurance
+  parent: null
+  leaf: false
+- id: 8297054ba16edb77
+  level: l1
+  label: Miscellaneous and General Provisions
+  parent: null
+  leaf: false
+- id: 0ad1b84683b8ee41
+  level: l1
+  label: Other / Unclassified
+  parent: null
+  leaf: false
+- id: c6054a3ac1c537fd
+  level: l1
+  label: Representations and Warranties (Buyer/Parent)
+  parent: null
+  leaf: false
+- id: 53a1f57c2606271a
+  level: l1
+  label: Representations and Warranties (Company/Seller)
+  parent: null
+  leaf: false
+- id: fe2f63338a1eaf30
+  level: l1
+  label: Termination
+  parent: null
+  leaf: false
+- id: cbecda6a2d08f164
+  level: l1
+  label: Transaction Mechanics and Consideration
+  parent: null
+  leaf: false
+- id: ac8a64aae2422f24
+  level: l2
+  label: Amendment and Waiver
+  parent: 8297054ba16edb77
+  leaf: false
+- id: d7dff953d10b1728
+  level: l2
+  label: Assets
+  parent: 53a1f57c2606271a
+  leaf: false
+- id: dede3b5cdbbfccdc
+  level: l2
+  label: Assets
+  parent: c6054a3ac1c537fd
+  leaf: false
+- id: d0176a34a3743c8f
+  level: l2
+  label: Assignment and Successors
+  parent: 8297054ba16edb77
+  leaf: false
+- id: caeb29fc0021e538
+  level: l2
+  label: Brokers
+  parent: 53a1f57c2606271a
+  leaf: false
+- id: ff34c610bec32f8c
+  level: l2
+  label: Brokers
+  parent: c6054a3ac1c537fd
+  leaf: false
+- id: 3957312eb47fc32d
+  level: l2
+  label: Buyer/Parent Conditions
+  parent: 92b34e0ce6d3e1d1
+  leaf: false
+- id: 22d57249e2ad0d5b
+  level: l2
+  label: Choice of Law and Forum
+  parent: 962b883776517c2d
+  leaf: false
+- id: fccfa1f7d2fb7b43
+  level: l2
+  label: Closing Mechanics
+  parent: cbecda6a2d08f164
+  leaf: false
+- id: 1f3a235b61b327ca
+  level: l2
+  label: Commercial
+  parent: 53a1f57c2606271a
+  leaf: false
+- id: 474938a358c96822
+  level: l2
+  label: Commercial
+  parent: c6054a3ac1c537fd
+  leaf: false
+- id: 7c032fbdc523ac50
+  level: l2
+  label: Consideration
+  parent: cbecda6a2d08f164
+  leaf: false
+- id: 075cf5355250e550
+  level: l2
+  label: D&O and Insurance
+  parent: 361f27537fa70d8e
+  leaf: false
+- id: d422eebfa5274e02
+  level: l2
+  label: Damages Limitations
+  parent: 962b883776517c2d
+  leaf: false
+- id: 38e6657d2985af59
+  level: l2
+  label: Deal Process
+  parent: a44ce05729b14ccd
+  leaf: false
+- id: 0f9e190d927f0fa6
+  level: l2
+  label: Deal Structure
+  parent: cbecda6a2d08f164
+  leaf: false
+- id: e388ff8a89052b45
+  level: l2
+  label: Definitions
+  parent: 4e325f8fadb83ad5
+  leaf: false
+- id: 44202d290f68a860
+  level: l2
+  label: Disclaimers
+  parent: 53a1f57c2606271a
+  leaf: false
+- id: d17ef7d59c31a5bf
+  level: l2
+  label: Disclaimers
+  parent: c6054a3ac1c537fd
+  leaf: false
+- id: 2485e2f4a3cc0542
+  level: l2
+  label: Disclosure and Communications
+  parent: a44ce05729b14ccd
+  leaf: false
+- id: 39f0094efca1c3b3
+  level: l2
+  label: Employees
+  parent: c6054a3ac1c537fd
+  leaf: false
+- id: c308bec096a590d8
+  level: l2
+  label: Employees
+  parent: 53a1f57c2606271a
+  leaf: false
+- id: aff07dee7c73d82d
+  level: l2
+  label: Employees and Benefits
+  parent: a44ce05729b14ccd
+  leaf: false
+- id: c04fa650e49d8de9
+  level: l2
+  label: Entire Agreement and Miscellaneous
+  parent: 8297054ba16edb77
+  leaf: false
+- id: 269fe635b26e6f8e
+  level: l2
+  label: Environmental
+  parent: c6054a3ac1c537fd
+  leaf: false
+- id: ac22aa861da2a9d9
+  level: l2
+  label: Environmental
+  parent: 53a1f57c2606271a
+  leaf: false
+- id: 0eba83194989bf8d
+  level: l2
+  label: Equitable Relief
+  parent: 962b883776517c2d
+  leaf: false
+- id: 785ade1aa6694837
+  level: l2
+  label: Fees and Expenses
+  parent: cbecda6a2d08f164
+  leaf: false
+- id: 64ea9c85fa42537c
+  level: l2
+  label: Financial
+  parent: 53a1f57c2606271a
+  leaf: false
+- id: ced0a25361a576e6
+  level: l2
+  label: Financial
+  parent: c6054a3ac1c537fd
+  leaf: false
+- id: a413285e10c5a8ea
+  level: l2
+  label: Financing
+  parent: c6054a3ac1c537fd
+  leaf: false
+- id: 8ad23a1f760be856
+  level: l2
+  label: Financing Arrangements
+  parent: 897f18078ba03830
+  leaf: false
+- id: 2d5f1a0118bfc8d7
+  level: l2
+  label: Financing Covenants
+  parent: 897f18078ba03830
+  leaf: false
+- id: e3da29a965001b16
+  level: l2
+  label: Financing Sources Protections
+  parent: 897f18078ba03830
+  leaf: false
+- id: 7d2026d94b761ecb
+  level: l2
+  label: Fundamental
+  parent: c6054a3ac1c537fd
+  leaf: false
+- id: b225494684636d60
+  level: l2
+  label: Fundamental
+  parent: 53a1f57c2606271a
+  leaf: false
+- id: 46c233a22b6668bc
+  level: l2
+  label: IP and Technology
+  parent: c6054a3ac1c537fd
+  leaf: false
+- id: 666f06f374465b10
+  level: l2
+  label: IP and Technology
+  parent: 53a1f57c2606271a
+  leaf: false
+- id: bdd9ba432b6d444b
+  level: l2
+  label: Indemnification Procedures
+  parent: 361f27537fa70d8e
+  leaf: false
+- id: 9882cf2db47afb4f
+  level: l2
+  label: Indemnification Scope
+  parent: 361f27537fa70d8e
+  leaf: false
+- id: 2e613f8ff341eecc
+  level: l2
+  label: Indemnification Terms
+  parent: 361f27537fa70d8e
+  leaf: false
+- id: f7ddb4a58b2d44a4
+  level: l2
+  label: Information and Access
+  parent: a44ce05729b14ccd
+  leaf: false
+- id: 2a436a68afe4de27
+  level: l2
+  label: Insurance
+  parent: c6054a3ac1c537fd
+  leaf: false
+- id: f1fec677245daedd
+  level: l2
+  label: Insurance
+  parent: 53a1f57c2606271a
+  leaf: false
+- id: d85ebc941b0bca72
+  level: l2
+  label: Interim Operating Covenants
+  parent: a44ce05729b14ccd
+  leaf: false
+- id: a3b210aa66a3b911
+  level: l2
+  label: Interpretation and Disclosure Materials
+  parent: 4e325f8fadb83ad5
+  leaf: false
+- id: 8a6e1c9efb49398d
+  level: l2
+  label: Legal and Compliance
+  parent: c6054a3ac1c537fd
+  leaf: false
+- id: d892cf2f5a7a4e53
+  level: l2
+  label: Legal and Compliance
+  parent: 53a1f57c2606271a
+  leaf: false
+- id: ef43f896d6eac0ad
+  level: l2
+  label: Mutual Conditions
+  parent: 92b34e0ce6d3e1d1
+  leaf: false
+- id: 98e16c4d96f129d4
+  level: l2
+  label: Notices
+  parent: 8297054ba16edb77
+  leaf: false
+- id: 633a81b264d881bd
+  level: l2
+  label: Other / Unclassified
+  parent: 0ad1b84683b8ee41
+  leaf: false
+- id: 40f449c0e85c602f
+  level: l2
+  label: Post-Closing
+  parent: a44ce05729b14ccd
+  leaf: false
+- id: b690c9418f6ecdf7
+  level: l2
+  label: R&W Insurance
+  parent: 361f27537fa70d8e
+  leaf: false
+- id: a8c6398fd334965d
+  level: l2
+  label: Regulatory
+  parent: a44ce05729b14ccd
+  leaf: false
+- id: 995e9572ab58dcb5
+  level: l2
+  label: Stockholder Approval Process
+  parent: a44ce05729b14ccd
+  leaf: false
+- id: 09078a59f54873ef
+  level: l2
+  label: Tax
+  parent: c6054a3ac1c537fd
+  leaf: false
+- id: a87067d8c07a0fab
+  level: l2
+  label: Tax
+  parent: 53a1f57c2606271a
+  leaf: false
+- id: 6655f3bf5d437b73
+  level: l2
+  label: Taxes
+  parent: a44ce05729b14ccd
+  leaf: false
+- id: e9184442eda28dac
+  level: l2
+  label: Termination Economics
+  parent: fe2f63338a1eaf30
+  leaf: false
+- id: 3610baf15b1aea90
+  level: l2
+  label: Termination Effects
+  parent: fe2f63338a1eaf30
+  leaf: false
+- id: df17e4ee1d533f87
+  level: l2
+  label: Termination Rights
+  parent: fe2f63338a1eaf30
+  leaf: false
+- id: 5183a719286b2453
+  level: l3
+  label: Absence of Certain Changes; No MAE (rep)
+  parent: 64ea9c85fa42537c
+  leaf: true
+- id: 7d38121617c8fc25
+  level: l3
+  label: Absence of Certain Changes; No MAE (rep)
+  parent: ced0a25361a576e6
+  leaf: true
+- id: afcc6ccd44a07703
+  level: l3
+  label: Absence of Undisclosed Liabilities
+  parent: 64ea9c85fa42537c
+  leaf: true
+- id: cb6db2189bc722cc
+  level: l3
+  label: Absence of Undisclosed Liabilities
+  parent: ced0a25361a576e6
+  leaf: true
+- id: 0ab494ebbb3e6862
+  level: l3
+  label: Access to Information; Notice of Breaches/Events
+  parent: f7ddb4a58b2d44a4
+  leaf: true
+- id: 7d48665e743cf70e
+  level: l3
+  label: Accuracy / Bring-Down of Representations (condition)
+  parent: ef43f896d6eac0ad
+  leaf: true
+- id: 5fddb016bfeff147
+  level: l3
+  label: Amendments; Waivers; No Waiver
+  parent: ac8a64aae2422f24
+  leaf: true
+- id: 95db5a813fc055c9
+  level: l3
+  label: Antitrust / Regulatory Filings and Approvals (incl. CFIUS if titled)
+  parent: a8c6398fd334965d
+  leaf: true
+- id: 14d8323b1e627e9b
+  level: l3
+  label: Antitrust Remedies / Divestitures / Regulatory Litigation Cooperation
+  parent: a8c6398fd334965d
+  leaf: true
+- id: 6362a96baf9df82b
+  level: l3
+  label: Appraisal Rights; Dissenters' Rights
+  parent: 7c032fbdc523ac50
+  leaf: true
+- id: 679b4920063265f9
+  level: l3
+  label: Assignment; Binding Effect; Successors
+  parent: d0176a34a3743c8f
+  leaf: true
+- id: 6069a2d0ab1b2e82
+  level: l3
+  label: Capitalization; Subsidiaries
+  parent: b225494684636d60
+  leaf: true
+- id: 9b01dbbf243c5aeb
+  level: l3
+  label: Capitalization; Subsidiaries
+  parent: 7d2026d94b761ecb
+  leaf: true
+- id: 361e70447fa67575
+  level: l3
+  label: Claims Procedure; Notice; Defense/Control
+  parent: bdd9ba432b6d444b
+  leaf: true
+- id: d74d26190df0db97
+  level: l3
+  label: Closing; Deliveries; Closing Documents
+  parent: fccfa1f7d2fb7b43
+  leaf: true
+- id: 4c7da302bfebee05
+  level: l3
+  label: Compliance with Law; Permits
+  parent: 8a6e1c9efb49398d
+  leaf: true
+- id: 585d491efa6b84bc
+  level: l3
+  label: Compliance with Law; Permits
+  parent: d892cf2f5a7a4e53
+  leaf: true
+- id: 4703077b83eea31c
+  level: l3
+  label: Conduct of Business; Ordinary Course; Interim Restrictions
+  parent: d85ebc941b0bca72
+  leaf: true
+- id: 1496473e2c8d9589
+  level: l3
+  label: Consequential / Punitive / Special Damages Waiver; Limitation of Liability (non-indemnity)
+  parent: d422eebfa5274e02
+  leaf: true
+- id: 91d9ddfe45872d7a
+  level: l3
+  label: D&O Indemnification; Advancement; Run-Off / Tail Insurance
+  parent: 075cf5355250e550
+  leaf: true
+- id: 84bca32082127902
+  level: l3
+  label: Data Privacy; Cybersecurity; IT Systems (rep)
+  parent: 46c233a22b6668bc
+  leaf: true
+- id: e05efd4f67c59554
+  level: l3
+  label: Data Privacy; Cybersecurity; IT Systems (rep)
+  parent: 666f06f374465b10
+  leaf: true
+- id: 6a2f9e016a48367a
+  level: l3
+  label: Debt / Equity Financing; Commitment Letters
+  parent: 8ad23a1f760be856
+  leaf: true
+- id: e6b7de6f04a01f5b
+  level: l3
+  label: Defined Terms
+  parent: e388ff8a89052b45
+  leaf: true
+- id: 93dc2f35e87d9015
+  level: l3
+  label: Earn-Out / Contingent Consideration
+  parent: 7c032fbdc523ac50
+  leaf: true
+- id: 84826dbe2b6940b8
+  level: l3
+  label: Effect of Termination; Survival of Provisions
+  parent: 3610baf15b1aea90
+  leaf: true
+- id: 92d4aee1b80c2134
+  level: l3
+  label: Effective Time; Merger Effects; Certificate of Merger / Surviving Charter & Bylaws
+  parent: 0f9e190d927f0fa6
+  leaf: true
+- id: fadbc4454a842009
+  level: l3
+  label: Efforts to Consummate; Cooperation (consummation)
+  parent: 38e6657d2985af59
+  leaf: true
+- id: 09cecc7b4c746f45
+  level: l3
+  label: Employee Benefit Plans / ERISA (rep)
+  parent: c308bec096a590d8
+  leaf: true
+- id: 3ba3af3cb10af71a
+  level: l3
+  label: Employee Benefit Plans / ERISA (rep)
+  parent: 39f0094efca1c3b3
+  leaf: true
+- id: 079056f26925e599
+  level: l3
+  label: Employee Matters and Benefits (covenants)
+  parent: aff07dee7c73d82d
+  leaf: true
+- id: e63ceec3215c234b
+  level: l3
+  label: Entire Agreement; Severability; Counterparts; Electronic Signatures; No Third-Party Beneficiaries (general)
+  parent: c04fa650e49d8de9
+  leaf: true
+- id: 140ea12576e6e7f0
+  level: l3
+  label: Environmental Matters (rep)
+  parent: 269fe635b26e6f8e
+  leaf: true
+- id: d027088109f28e79
+  level: l3
+  label: Environmental Matters (rep)
+  parent: ac22aa861da2a9d9
+  leaf: true
+- id: f75af7009288819a
+  level: l3
+  label: Escrow / Holdback; Setoff / Recoupment
+  parent: bdd9ba432b6d444b
+  leaf: true
+- id: c3edef551bf719ae
+  level: l3
+  label: Exclusive Remedy; Sandbagging / Anti-Sandbagging
+  parent: 2e613f8ff341eecc
+  leaf: true
+- id: 3b7a157321c3876f
+  level: l3
+  label: Fiduciary Out; Superior Proposal; Change of Recommendation
+  parent: 38e6657d2985af59
+  leaf: true
+- id: 0da9daafa2623ea4
+  level: l3
+  label: Financial Statements; Books and Records; Internal Controls
+  parent: 64ea9c85fa42537c
+  leaf: true
+- id: 5f45e2164f10b6e4
+  level: l3
+  label: Financial Statements; Books and Records; Internal Controls
+  parent: ced0a25361a576e6
+  leaf: true
+- id: 5685fa4f8c2af577
+  level: l3
+  label: Financing / Availability of Funds (rep)
+  parent: a413285e10c5a8ea
+  leaf: true
+- id: c523ce22f3ead335
+  level: l3
+  label: Financing Cooperation Covenant
+  parent: 2d5f1a0118bfc8d7
+  leaf: true
+- id: 38998387b6de4ce5
+  level: l3
+  label: Financing Funding Condition (if present)
+  parent: 3957312eb47fc32d
+  leaf: true
+- id: f758e6a8d32690bd
+  level: l3
+  label: Forum Selection / Venue; Submission to Jurisdiction
+  parent: 22d57249e2ad0d5b
+  leaf: true
+- id: fff743810be2e1d2
+  level: l3
+  label: Further Assurances; Post-Closing Cooperation
+  parent: 40f449c0e85c602f
+  leaf: true
+- id: 5e59453aaa9255c4
+  level: l3
+  label: Governing Law
+  parent: 22d57249e2ad0d5b
+  leaf: true
+- id: ef994612a273fa90
+  level: l3
+  label: Indemnification Scope; Covered Losses; Parties
+  parent: 9882cf2db47afb4f
+  leaf: true
+- id: 261083e783b5a952
+  level: l3
+  label: Insurance (rep)
+  parent: f1fec677245daedd
+  leaf: true
+- id: 7aaae73ebdd10bf3
+  level: l3
+  label: Insurance (rep)
+  parent: 2a436a68afe4de27
+  leaf: true
+- id: 05dde158dc6c6642
+  level: l3
+  label: Intellectual Property (rep)
+  parent: 46c233a22b6668bc
+  leaf: true
+- id: ead6261d2d138a58
+  level: l3
+  label: Intellectual Property (rep)
+  parent: 666f06f374465b10
+  leaf: true
+- id: 38bef0ddbf034071
+  level: l3
+  label: Interpretation; Disclosure Schedules / Disclosure Letter
+  parent: a3b210aa66a3b911
+  leaf: true
+- id: 4af62e74bcacadb4
+  level: l3
+  label: Labor and Employment (rep)
+  parent: c308bec096a590d8
+  leaf: true
+- id: df709e4a49b013a6
+  level: l3
+  label: Labor and Employment (rep)
+  parent: 39f0094efca1c3b3
+  leaf: true
+- id: 701339e794fa70ce
+  level: l3
+  label: 'Limitations: Caps, Baskets, Deductibles, Thresholds'
+  parent: 2e613f8ff341eecc
+  leaf: true
+- id: 0023564e1a34f3f3
+  level: l3
+  label: Litigation; Investigations; Orders
+  parent: d892cf2f5a7a4e53
+  leaf: true
+- id: b96e95c8312c6880
+  level: l3
+  label: Litigation; Investigations; Orders
+  parent: 8a6e1c9efb49398d
+  leaf: true
+- id: 1314b4b7cda311c9
+  level: l3
+  label: Material Adverse Effect (MAE) Condition
+  parent: ef43f896d6eac0ad
+  leaf: true
+- id: d72c6fb8b8a7bef1
+  level: l3
+  label: Material Contracts (rep)
+  parent: 474938a358c96822
+  leaf: true
+- id: dd4d8822a65b2b6e
+  level: l3
+  label: Material Contracts (rep)
+  parent: 1f3a235b61b327ca
+  leaf: true
+- id: 4030ad087c7df49e
+  level: l3
+  label: Merger Consideration; Exchange Ratio / Per Share Amount
+  parent: 7c032fbdc523ac50
+  leaf: true
+- id: c394b106699bd8fe
+  level: l3
+  label: No Brokers / No Finder’s Fees (rep)
+  parent: caeb29fc0021e538
+  leaf: true
+- id: f0e1aa390dc4763c
+  level: l3
+  label: No Brokers / No Finder’s Fees (rep)
+  parent: ff34c610bec32f8c
+  leaf: true
+- id: 1b47e9b79ea6c6b6
+  level: l3
+  label: No Conflicts; Consents; Approvals
+  parent: 7d2026d94b761ecb
+  leaf: true
+- id: 7aa7be7c5d9555c2
+  level: l3
+  label: No Conflicts; Consents; Approvals
+  parent: b225494684636d60
+  leaf: true
+- id: 425a6dec0146defe
+  level: l3
+  label: No Injunction; Legality; Governmental Order
+  parent: ef43f896d6eac0ad
+  leaf: true
+- id: a5ff5f6c1fb0d1cd
+  level: l3
+  label: No Other Representations; Disclaimer; No-Reliance (Big Boy)
+  parent: 44202d290f68a860
+  leaf: true
+- id: d85b9718366d99a5
+  level: l3
+  label: No Other Representations; Disclaimer; No-Reliance (Big Boy)
+  parent: d17ef7d59c31a5bf
+  leaf: true
+- id: 7d58f12156f0d034
+  level: l3
+  label: No Recourse / No Equitable Relief Against Financing Sources
+  parent: e3da29a965001b16
+  leaf: true
+- id: 1a7aeab47932d0d4
+  level: l3
+  label: No-Shop / Non-Solicitation
+  parent: 38e6657d2985af59
+  leaf: true
+- id: d75eeddb4839a607
+  level: l3
+  label: Notices
+  parent: 98e16c4d96f129d4
+  leaf: true
+- id: 402f00af1acdc5d8
+  level: l3
+  label: Organization; Authority; Due Authorization; Enforceability
+  parent: 7d2026d94b761ecb
+  leaf: true
+- id: c73a2e77f18750ae
+  level: l3
+  label: Organization; Authority; Due Authorization; Enforceability
+  parent: b225494684636d60
+  leaf: true
+- id: fa5e1a0374f222f5
+  level: l3
+  label: Other / Unclassified
+  parent: 633a81b264d881bd
+  leaf: true
+- id: e6472f83aba370e6
+  level: l3
+  label: Paying Agent; Exchange Procedures; Withholding
+  parent: 7c032fbdc523ac50
+  leaf: true
+- id: 2f824e0e518c0009
+  level: l3
+  label: Performance / Compliance with Covenants (condition)
+  parent: ef43f896d6eac0ad
+  leaf: true
+- id: e7baf74d263421c0
+  level: l3
+  label: Proxy Statement / SEC Filings; Stockholder Meeting (covenant)
+  parent: 995e9572ab58dcb5
+  leaf: true
+- id: 73332e4818b3522e
+  level: l3
+  label: Public Announcements; Confidentiality (covenants)
+  parent: 2485e2f4a3cc0542
+  leaf: true
+- id: 9f84dd4792f499a1
+  level: l3
+  label: Purchase Price Adjustments / Closing Statement
+  parent: 7c032fbdc523ac50
+  leaf: true
+- id: 3a5662babadfaa7b
+  level: l3
+  label: Real Property; Leases; Title / No Liens; Sufficiency of Assets (rep)
+  parent: dede3b5cdbbfccdc
+  leaf: true
+- id: 53829149d9782b80
+  level: l3
+  label: Real Property; Leases; Title / No Liens; Sufficiency of Assets (rep)
+  parent: d7dff953d10b1728
+  leaf: true
+- id: 3087dd753a88d7e5
+  level: l3
+  label: Regulatory Approvals / Waiting Periods (HSR, etc.)
+  parent: ef43f896d6eac0ad
+  leaf: true
+- id: 15bafa002ee2792e
+  level: l3
+  label: Representation & Warranty Insurance (RWI)
+  parent: b690c9418f6ecdf7
+  leaf: true
+- id: 1e8533df50fcc2fd
+  level: l3
+  label: Specific Performance; Injunction; Equitable Relief
+  parent: 0eba83194989bf8d
+  leaf: true
+- id: b4beeb0f987294fe
+  level: l3
+  label: Stock Exchange Listing / Delisting; Exchange Notices
+  parent: a8c6398fd334965d
+  leaf: true
+- id: 900e438cada817c3
+  level: l3
+  label: Stockholder Approval Condition (if titled as a condition)
+  parent: ef43f896d6eac0ad
+  leaf: true
+- id: 4e18aa78e80883c1
+  level: l3
+  label: Superior Proposal / Fiduciary Out Termination
+  parent: df17e4ee1d533f87
+  leaf: true
+- id: 1333a485313cb368
+  level: l3
+  label: Support / Voting Agreements; Tender Support; Force-the-Vote
+  parent: 38e6657d2985af59
+  leaf: true
+- id: 275322efa4672793
+  level: l3
+  label: Survival of Reps; Survival Periods
+  parent: 2e613f8ff341eecc
+  leaf: true
+- id: 6d1ca58b2fed8a2d
+  level: l3
+  label: Takeover Statutes / Anti-Takeover
+  parent: 0f9e190d927f0fa6
+  leaf: true
+- id: c232a01100673b01
+  level: l3
+  label: Tax Treatment of the Transaction; Tax Elections
+  parent: 6655f3bf5d437b73
+  leaf: true
+- id: ad8a74d3130549ee
+  level: l3
+  label: Taxes (rep)
+  parent: a87067d8c07a0fab
+  leaf: true
+- id: dd38791fcfcd469e
+  level: l3
+  label: Taxes (rep)
+  parent: 09078a59f54873ef
+  leaf: true
+- id: 07f6697318f248d3
+  level: l3
+  label: Termination Events; Outside Date; Extensions
+  parent: df17e4ee1d533f87
+  leaf: true
+- id: 4207f2e8f6698935
+  level: l3
+  label: Termination Fee / Reverse Termination Fee; Expense Reimbursement
+  parent: e9184442eda28dac
+  leaf: true
+- id: 5df6ee674091f8ed
+  level: l3
+  label: Third-Party Beneficiaries; Lender Protections
+  parent: e3da29a965001b16
+  leaf: true
+- id: 426429d401a47a6b
+  level: l3
+  label: Transaction Expenses; Fees and Expenses (allocation)
+  parent: 785ade1aa6694837
+  leaf: true
+- id: 8224a27287811951
+  level: l3
+  label: Transaction Structure; Merger Sub; Constituent Corporations
+  parent: 0f9e190d927f0fa6
+  leaf: true
+- id: d0c5431584506154
+  level: l3
+  label: Treatment of Equity Awards (options/RSUs)
+  parent: 7c032fbdc523ac50
+  leaf: true
+- id: 667489f40c7f2961
+  level: l3
+  label: Waiver of Jury Trial
+  parent: 22d57249e2ad0d5b
+  leaf: true

@@ -1,0 +1,652 @@
+# Pandects taxonomy, M&A pack (`ma`). Navigation branch: Conduct of Business and Access.
+# Source of truth for these nodes. Field reference: etl/taxonomy/README.md.
+# Validate with: python -m etl.domain.taxonomy_pack
+pack: ma
+release: '2026.1'
+branch:
+  id: ma.nav.conduct
+  label: Conduct of Business and Access
+  kind: branch
+  order: 4
+  description: >-
+    What a party may and may not do between signing and closing, and the information each side gives the
+    other.
+  introduced_in: '2026.1'
+groups:
+
+  - id: ma.nav.conduct.interim
+    label: Interim Operations
+    kind: group
+    nav_parent: ma.nav.conduct
+    description: >-
+      The ordinary course covenant and the interim restrictions (forbearances). Tax interim covenants are listed
+      here from the tax pack.
+    introduced_in: '2026.1'
+
+  - id: ma.nav.conduct.access
+    label: Information, Confidentiality and Publicity
+    kind: group
+    nav_parent: ma.nav.conduct
+    description: Access to information, notices, confidentiality and public statements.
+    introduced_in: '2026.1'
+concepts:
+
+  - id: ma.conduct.ordinary_course
+    label: Ordinary Course Covenant
+    kind: provision
+    nav_parent: ma.nav.conduct.interim
+    tier: label
+    wave: 1
+    attributes:
+      party: obligor
+    description: >-
+      The affirmative promise to run the business in the ordinary course and to preserve its organization,
+      relationships and assets until closing.
+    canonical_terms:
+      - conduct of business
+      - in the ordinary course of business consistent with past practice
+      - preserve intact its business organization
+      - commercially reasonable efforts to maintain
+    example_phrases:
+      - >-
+        From the date of this Agreement until the Effective Time, except as required by Law or as consented
+        to by Parent in writing, the Company shall, and shall cause each of its Subsidiaries to, conduct
+        its business in the ordinary course consistent with past practice and use reasonable best efforts
+        to preserve substantially intact its business organization and relationships.
+    exclusion_cues:
+      - The list of actions that need consent is ma.conduct.negative_covenants.
+      - >-
+        The definition of the term is ma.def.ordinary_course (in wave 1, label its group
+        ma.nav.definitions.key_terms).
+      - >-
+        In wave 1 this label also covers its part ma.conduct.emergency_exception, which wave 2 marks inside
+        its text: the carve-out for emergency, pandemic or legally required measures.
+    value_schema:
+      status: stub
+      fields:
+        - name: efforts_standard
+          type: enum
+        - name: past_practice_required
+          type: boolean
+    crosswalk:
+      section_v1:
+        - id: 4703077b83eea31c
+          relation: narrower
+      section_v2:
+        - id: 5a6e23589cf6c269
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.conduct.negative_covenants
+    label: Negative Covenants; Forbearances
+    kind: provision
+    nav_parent: ma.nav.conduct.interim
+    tier: label
+    wave: 1
+    attributes:
+      party: obligor
+    description: >-
+      The list of actions a party may not take before closing without the other party's consent. Use this
+      concept for the list as a whole, its lead-in and, in wave 1, each listed restriction. Wave 2 marks one
+      listed restriction with a component.
+    canonical_terms:
+      - shall not, without the prior written consent of Parent
+      - which consent shall not be unreasonably withheld, conditioned or delayed
+      - except as set forth in Section [•] of the Disclosure Schedule
+      - forbearances
+    example_phrases:
+      - >-
+        Without the prior written consent of Parent (not to be unreasonably withheld, conditioned, or
+        delayed), the Company shall not: (a) declare or pay any dividend; (b) issue or sell any shares
+        of capital stock; (c) incur any Indebtedness in excess of $[•]; or (d) acquire any business or
+        material assets.
+    exclusion_cues:
+      - Tax restrictions in the list belong to the tax pack under tax.nav.interim.
+      - The no-shop covenant is ma.noshop.non_solicitation.
+      - >-
+        In wave 1 this label also covers each listed restriction. Wave 2 marks the ten parts inside its
+        text: ma.conduct.restriction.dividends, ma.conduct.restriction.equity_issuance,
+        ma.conduct.restriction.indebtedness, ma.conduct.restriction.capex,
+        ma.conduct.restriction.acquisitions_dispositions, ma.conduct.restriction.compensation,
+        ma.conduct.restriction.organizational_documents, ma.conduct.restriction.contracts,
+        ma.conduct.restriction.litigation_settlement and ma.conduct.restriction.accounting.
+    crosswalk:
+      section_v1:
+        - id: 4703077b83eea31c
+          relation: narrower
+      section_v2:
+        - id: 5a6e23589cf6c269
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.conduct.restriction.dividends
+    label: Restriction on Dividends and Repurchases
+    kind: component
+    nav_parent: ma.nav.conduct.interim
+    parent: ma.conduct.negative_covenants
+    tier: label
+    wave: 2
+    attributes:
+      party: obligor
+    description: >-
+      No dividends, distributions, share repurchases or redemptions, with stated exceptions such as regular
+      quarterly dividends.
+    canonical_terms:
+      - declare, set aside or pay any dividend
+      - repurchase, redeem or otherwise acquire
+      - regular quarterly cash dividends
+    example_phrases:
+      - >-
+        (a) declare, set aside or pay any dividend or other distribution in respect of its capital stock,
+        other than regular quarterly cash dividends not to exceed $[•] per share;
+    exclusion_cues:
+      - Coordination of the two parties' dividend dates is ma.dividend_coordination.
+    value_schema:
+      status: stub
+      fields:
+        - name: permitted_dividend
+          type: Money
+    crosswalk:
+      section_v2:
+        - id: 5a6e23589cf6c269
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.conduct.restriction.equity_issuance
+    label: Restriction on Issuing Equity
+    kind: component
+    nav_parent: ma.nav.conduct.interim
+    parent: ma.conduct.negative_covenants
+    tier: label
+    wave: 2
+    attributes:
+      party: obligor
+    description: >-
+      No issuance, sale or grant of shares, options or other equity, and no split or reclassification,
+      with exceptions for existing awards.
+    canonical_terms:
+      - issue, sell, pledge or grant
+      - any shares of capital stock
+      - split, combine or reclassify
+    example_phrases:
+      - >-
+        (b) issue, sell, pledge or grant any shares of its capital stock or any securities convertible
+        into such shares, other than upon the exercise of Company Options outstanding on the date hereof;
+    crosswalk:
+      section_v2:
+        - id: 5a6e23589cf6c269
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.conduct.restriction.indebtedness
+    label: Restriction on Indebtedness and Liens
+    kind: component
+    nav_parent: ma.nav.conduct.interim
+    parent: ma.conduct.negative_covenants
+    tier: label
+    wave: 2
+    attributes:
+      party: obligor
+    description: No new debt, guarantees, loans or liens above a stated amount.
+    canonical_terms:
+      - incur any Indebtedness
+      - guarantee
+      - make any loans or advances
+      - create any Lien
+      - in excess of $[•]
+    example_phrases:
+      - >-
+        (c) incur any Indebtedness for borrowed money or guarantee any such Indebtedness, other than borrowings
+        under the existing credit facility not to exceed $[•] in the aggregate;
+    value_schema:
+      status: stub
+      fields:
+        - name: threshold
+          type: Money
+    crosswalk:
+      section_v2:
+        - id: 5a6e23589cf6c269
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.conduct.restriction.capex
+    label: Restriction on Capital Expenditures
+    kind: component
+    nav_parent: ma.nav.conduct.interim
+    parent: ma.conduct.negative_covenants
+    tier: label
+    wave: 2
+    attributes:
+      party: obligor
+    description: No capital expenditures above the budget or a stated amount.
+    canonical_terms:
+      - capital expenditures
+      - in excess of the capital expenditure budget
+      - individually or in the aggregate
+    example_phrases:
+      - >-
+        (d) make any capital expenditures in excess of $[•] individually or $[•] in the aggregate, other
+        than as set forth in the capital budget made available to Parent;
+    value_schema:
+      status: stub
+      fields:
+        - name: threshold
+          type: Money
+    crosswalk:
+      section_v2:
+        - id: 5a6e23589cf6c269
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.conduct.restriction.acquisitions_dispositions
+    label: Restriction on Acquisitions and Dispositions
+    kind: component
+    nav_parent: ma.nav.conduct.interim
+    parent: ma.conduct.negative_covenants
+    tier: label
+    wave: 2
+    attributes:
+      party: obligor
+    description: >-
+      No acquisition of a business, and no sale, lease or license of material assets, above a stated amount.
+    canonical_terms:
+      - acquire by merger or consolidation
+      - sell, lease, license or otherwise dispose of
+      - any business or division
+      - material assets
+    example_phrases:
+      - >-
+        (e) acquire any business or any corporation, partnership or other business organization, or sell,
+        lease or otherwise dispose of any material assets, other than sales of inventory in the ordinary
+        course;
+    value_schema:
+      status: stub
+      fields:
+        - name: threshold
+          type: Money
+    crosswalk:
+      section_v2:
+        - id: 5a6e23589cf6c269
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.conduct.restriction.compensation
+    label: Restriction on Compensation and Benefits
+    kind: component
+    nav_parent: ma.nav.conduct.interim
+    parent: ma.conduct.negative_covenants
+    tier: label
+    wave: 2
+    attributes:
+      party: obligor
+    description: >-
+      No increases in pay or benefits, no new or amended benefit plans, and no hiring or firing above
+      a stated level, with exceptions for existing plans and the ordinary course.
+    canonical_terms:
+      - increase the compensation or benefits
+      - adopt, amend or terminate any Company Benefit Plan
+      - hire or terminate
+      - grant any severance or retention
+    example_phrases:
+      - >-
+        (f) increase the compensation or benefits payable to any director, officer or employee, or adopt
+        or amend any Company Benefit Plan, except as required by the terms of a Company Benefit Plan in
+        effect on the date hereof;
+    exclusion_cues:
+      - >-
+        Benefits the buyer must provide after closing are ma.employee.comp_benefits_continuation.
+    crosswalk:
+      section_v2:
+        - id: 5a6e23589cf6c269
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.conduct.restriction.organizational_documents
+    label: Restriction on Charter and Structural Changes
+    kind: component
+    nav_parent: ma.nav.conduct.interim
+    parent: ma.conduct.negative_covenants
+    tier: label
+    wave: 2
+    attributes:
+      party: obligor
+    description: >-
+      No amendment of organizational documents, and no merger, liquidation, dissolution or restructuring.
+    canonical_terms:
+      - amend its certificate of incorporation or bylaws
+      - plan of complete or partial liquidation
+      - merge or consolidate
+    example_phrases:
+      - >-
+        (g) amend its certificate of incorporation or bylaws, or adopt a plan of complete or partial liquidation
+        or dissolution;
+    crosswalk:
+      section_v2:
+        - id: 5a6e23589cf6c269
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.conduct.restriction.contracts
+    label: Restriction on Material Contracts
+    kind: component
+    nav_parent: ma.nav.conduct.interim
+    parent: ma.conduct.negative_covenants
+    tier: label
+    wave: 2
+    attributes:
+      party: obligor
+    description: >-
+      No entry into, material amendment of, or termination of a material contract, and no waiver of material
+      rights under one.
+    canonical_terms:
+      - enter into, materially amend or terminate any Material Contract
+      - waive any material right
+    example_phrases:
+      - >-
+        (h) enter into, materially amend, or terminate any Company Material Contract, or waive any material
+        right thereunder, other than in the ordinary course of business;
+    crosswalk:
+      section_v2:
+        - id: 5a6e23589cf6c269
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.conduct.restriction.litigation_settlement
+    label: Restriction on Settling Claims
+    kind: component
+    nav_parent: ma.nav.conduct.interim
+    parent: ma.conduct.negative_covenants
+    tier: label
+    wave: 2
+    attributes:
+      party: obligor
+    description: >-
+      No settlement or waiver of claims or litigation above a stated amount or with non-monetary terms.
+    canonical_terms:
+      - settle or compromise any Action
+      - waive, release or assign any claims
+      - in excess of $[•]
+    example_phrases:
+      - >-
+        (i) settle or compromise any Action, other than settlements that involve only the payment of money
+        damages not in excess of $[•] individually;
+    exclusion_cues:
+      - Settlement of tax claims is tax.interim.no_settlement.
+      - Settlement of stockholder suits about the deal is ma.transaction_litigation.
+    value_schema:
+      status: stub
+      fields:
+        - name: threshold
+          type: Money
+    crosswalk:
+      section_v2:
+        - id: 5a6e23589cf6c269
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.conduct.restriction.accounting
+    label: Restriction on Accounting Changes
+    kind: component
+    nav_parent: ma.nav.conduct.interim
+    parent: ma.conduct.negative_covenants
+    tier: label
+    wave: 2
+    attributes:
+      party: obligor
+    description: No change in financial accounting methods or policies, except as GAAP requires.
+    canonical_terms:
+      - change its methods of accounting
+      - except as required by GAAP
+      - accounting policies or practices
+    example_phrases:
+      - >-
+        (j) make any change in its financial accounting methods, principles or practices, except as required
+        by a change in GAAP;
+    exclusion_cues:
+      - A change to a tax accounting method or tax election is tax.interim.no_new_elections.
+    crosswalk:
+      section_v2:
+        - id: 5a6e23589cf6c269
+          relation: narrower
+    introduced_in: '2026.1'
+
+  - id: ma.conduct.emergency_exception
+    label: Emergency and Pandemic Exception
+    kind: modifier
+    nav_parent: ma.nav.conduct.interim
+    parent: ma.conduct.ordinary_course
+    tier: label
+    wave: 2
+    attributes:
+      party: obligor
+    description: >-
+      A carve-out that lets a party act outside the ordinary course in response to an emergency, a pandemic
+      or a legal requirement, sometimes with notice to the other party.
+    canonical_terms:
+      - COVID-19 Measures
+      - in response to any emergency
+      - to protect the health and safety of employees
+      - required by applicable Law
+    example_phrases:
+      - >-
+        Nothing in this Section shall prevent the Company from taking any commercially reasonable action
+        in good faith in response to COVID-19 or any COVID-19 Measures.
+    introduced_in: '2026.1'
+
+  - id: ma.conduct.no_control
+    label: No Control of the Other Party's Business
+    kind: provision
+    nav_parent: ma.nav.conduct.interim
+    tier: label
+    wave: 1
+    description: >-
+      A statement that the agreement gives the buyer no right to control or direct the target's operations
+      before closing.
+    canonical_terms:
+      - no control of other party's business
+      - shall not give Parent the right to control or direct the operations
+      - complete control and supervision
+    example_phrases:
+      - >-
+        Nothing contained in this Agreement shall give Parent, directly or indirectly, the right to control
+        or direct the operations of the Company prior to the Effective Time.
+    introduced_in: '2026.1'
+
+  - id: ma.conduct.integration_planning
+    label: Integration Planning; Systems Conversion
+    kind: provision
+    nav_parent: ma.nav.conduct.interim
+    tier: label
+    wave: 1
+    description: >-
+      Cooperation before closing to plan the integration of the two businesses, such as the conversion
+      of data processing systems in a bank merger.
+    canonical_terms:
+      - integration planning
+      - systems conversion
+      - operating functions
+      - data processing conversion
+      - transition planning
+    example_phrases:
+      - >-
+        The Company shall cooperate with Parent in planning the conversion of the Company's data processing
+        and related electronic information systems to those used by Parent, to be completed at or after
+        the Effective Time.
+    exclusion_cues:
+      - Services one side provides to the other after closing are ma.transition_services.
+    introduced_in: '2026.1'
+
+  - id: ma.access.information
+    label: Access to Information
+    kind: provision
+    nav_parent: ma.nav.conduct.access
+    tier: label
+    wave: 1
+    attributes:
+      party: obligor
+    description: >-
+      The duty to give the other party and its representatives access to properties, books, records and
+      personnel before closing, with exceptions for privilege, law and competitively sensitive information.
+    canonical_terms:
+      - access to information
+      - reasonable access during normal business hours
+      - books and records
+      - attorney-client privilege
+      - Representatives
+    example_phrases:
+      - >-
+        From the date hereof until the Effective Time, the Company shall afford to Parent and its Representatives
+        reasonable access, during normal business hours and upon reasonable advance notice, to the offices,
+        properties, books, and records of the Company.
+      - >-
+        Such access shall not unreasonably interfere with the conduct of the business of the Company.
+    exclusion_cues:
+      - Access to records after closing is ma.records_access.
+      - Access to tax records is tax.cooperation.records_access.
+    crosswalk:
+      section_v1:
+        - id: 0ab494ebbb3e6862
+          relation: narrower
+      section_v2:
+        - id: 29229cf809e696c3
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.access.notification
+    label: Notice of Certain Events
+    kind: provision
+    nav_parent: ma.nav.conduct.access
+    tier: label
+    wave: 1
+    attributes:
+      party: obligor
+    description: >-
+      The duty to tell the other party promptly of specified events before closing, such as a breach,
+      a material adverse effect, a governmental notice or litigation.
+    canonical_terms:
+      - notification of certain matters
+      - notice of certain events
+      - advice of changes
+      - shall give prompt notice
+    example_phrases:
+      - >-
+        The Company shall give prompt written notice to Parent of (i) any notice received from any Person
+        alleging that its consent is required in connection with the transactions, and (ii) any Action
+        commenced or threatened relating to the transactions.
+      - >-
+        Each party shall promptly notify the other of any event, condition, or development that has caused
+        or would reasonably be expected to cause any of its representations and warranties to be untrue
+        or any covenant not to be complied with.
+    exclusion_cues:
+      - >-
+        Notice of a competing proposal is ma.noshop.notice_of_proposals (in wave 1, label its parent
+        ma.noshop.non_solicitation).
+      - The right to update the disclosure schedules is ma.access.schedule_updates.
+    crosswalk:
+      section_v1:
+        - id: 0ab494ebbb3e6862
+          relation: narrower
+      section_v2:
+        - id: 7eb144cca478bfc1
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.access.schedule_updates
+    label: Disclosure Schedule Updates
+    kind: provision
+    nav_parent: ma.nav.conduct.access
+    tier: label
+    wave: 1
+    description: >-
+      A right or duty to supplement the disclosure schedules before closing, and whether an update cures
+      a breach for the closing condition or for indemnification.
+    canonical_terms:
+      - supplement or amend the Disclosure Schedules
+      - Schedule Supplement
+      - shall not be deemed to cure
+    example_phrases:
+      - >-
+        From time to time prior to the Closing, Seller may supplement or amend the Disclosure Schedules
+        with respect to any matter hereafter arising (each a "Schedule Supplement").
+    value_schema:
+      status: stub
+      fields:
+        - name: cures_for_closing_condition
+          type: boolean
+        - name: cures_for_indemnity
+          type: boolean
+    introduced_in: '2026.1'
+
+  - id: ma.access.confidentiality
+    label: Confidentiality
+    kind: provision
+    nav_parent: ma.nav.conduct.access
+    tier: label
+    wave: 1
+    description: >-
+      The duty to keep information confidential before closing, including the statement that an existing
+      confidentiality agreement stays in force.
+    canonical_terms:
+      - confidentiality
+      - Confidentiality Agreement shall remain in full force and effect
+      - confidential information
+      - shall hold in confidence
+    example_phrases:
+      - >-
+        Each party shall, and shall cause its Representatives to, hold in confidence all non-public information
+        furnished in connection with the transactions in accordance with the terms of the Confidentiality
+        Agreement.
+      - >-
+        Parent shall use any Evaluation Material solely for the purpose of evaluating and consummating
+        the transactions and shall not disclose such information except as permitted by the Confidentiality
+        Agreement.
+    exclusion_cues:
+      - Limits on press releases are ma.access.public_announcements.
+      - >-
+        A seller's duty to keep information about the sold business confidential after closing is
+        ma.restrictive.confidentiality (in wave 1, label its group ma.nav.covenants.post_closing). It is
+        drafted with the non-compete and runs from the closing. Do not use this concept for it.
+    crosswalk:
+      section_v1:
+        - id: 73332e4818b3522e
+          relation: narrower
+      section_v2:
+        - id: 0f6da6e437b9fdf7
+          relation: exact
+    introduced_in: '2026.1'
+
+  - id: ma.access.public_announcements
+    label: Public Announcements
+    kind: provision
+    nav_parent: ma.nav.conduct.access
+    tier: label
+    wave: 1
+    description: >-
+      Limits on press releases and other public statements about the deal, usually a duty to consult the
+      other party first, with exceptions for legal requirements and for a change of recommendation.
+    canonical_terms:
+      - public announcements
+      - press release
+      - publicity
+      - consult with each other before issuing
+      - joint press release
+    example_phrases:
+      - >-
+        The initial press release with respect to the execution of this Agreement shall be a joint press
+        release in a form mutually agreed by Parent and the Company.
+      - >-
+        Thereafter, no party shall issue any press release or make any public announcement concerning
+        the transactions without the prior written consent of the other party, except as such party may
+        reasonably determine is required by applicable Law or the rules of any stock exchange.
+    exclusion_cues:
+      - >-
+        A SPAC's promise to keep its SEC reports current until closing, often headed "Public Filings", is
+        ma.spac.public_filings.
+    crosswalk:
+      section_v1:
+        - id: 73332e4818b3522e
+          relation: narrower
+      section_v2:
+        - id: d15905045d20e6a6
+          relation: exact
+    introduced_in: '2026.1'
