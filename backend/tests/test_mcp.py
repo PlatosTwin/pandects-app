@@ -3501,7 +3501,7 @@ class McpTests(unittest.TestCase):
         self.assertEqual(server_info["feedback_tool"], "submit_feedback")
         self.assertIn("submit_feedback", cast(str, server_info["feedback_note"]))
         workflow_names = [w["name"] for w in cast("list[dict[str, object]]", capabilities["workflows"])]
-        self.assertIn("report friction or gaps you encountered", workflow_names)
+        self.assertIn("report friction or gaps when the user asks", workflow_names)
 
     def test_missing_scope_is_403(self):
         client = self.app.test_client()

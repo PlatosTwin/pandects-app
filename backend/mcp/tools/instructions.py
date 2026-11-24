@@ -46,6 +46,5 @@ count is not a deal count. Dataset and schema changes are summarized in the \
 changelog section of get_server_capabilities; check it when results seem to have changed \
 across sessions.
 
-When you hit friction, missing capabilities, or data-quality issues, or when something \
-works notably well, report it with submit_feedback as it happens, and consider a short \
-wrap-up submission at the end of the session; the maintainer reads every report."""
+If the user wants to report a problem with these tools or the data, or agrees when you \
+offer, send it with submit_feedback; the maintainer reads every report."""

@@ -5,6 +5,8 @@ it needs the maintainer's decision. Each has a recommendation and, where useful,
 
 ## P1. Make feedback user-initiated
 
+**Status.** Done in the P1/P2 PR, which is not merged yet.
+
 **Problem.** The server `instructions` (`backend/mcp/tools/instructions.py`, last paragraph),
 the `submit_feedback` description, the `feedback_note` in `get_server_capabilities`
 (`backend/mcp/tools/__init__.py`) and the `submit_feedback` result message all ask the model to
@@ -45,6 +47,11 @@ you." The `feedback_note` in capabilities would match. The snapshot fixtures and
 instructions test change with it.
 
 ## P2. Privacy policy section for the MCP server
+
+**Status.** Done in the P1/P2 PR, which is not merged yet. The shipped text in
+`frontend/public/legal/privacy-policy.md` (section 3.E) replaces the draft below. It answers
+the open question from the code: the per-call log holds no arguments, nothing logs request
+bodies, and only an unexpected-error traceback can hold part of a request.
 
 **Problem.** Both programs require a privacy policy that covers the connector's data. The
 current policy (`frontend/public/legal/privacy-policy.md`) covers accounts, server logs and API

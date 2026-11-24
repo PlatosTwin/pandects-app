@@ -1,6 +1,6 @@
 # Pandects Privacy Policy
 
-Effective date: **March 11, 2026**
+Effective date: **November 23, 2026**
 
 **In short**
 - We use cookies and similar storage for authentication, security, analytics, and certain site preferences.
@@ -80,6 +80,17 @@ We currently use third-party providers such as:
 
 These providers may process information according to their own terms and privacy policies, in addition to processing information on our behalf in connection with the Service.
 
+### E. MCP server
+
+When you connect an AI client, such as Claude, ChatGPT, Codex or Claude Code, to the Pandects MCP server at `https://api.pandects.org/mcp`, you sign in with your Pandects account and approve the client. The client then receives an access token for your account.
+
+- **Tool usage records:** for each hour, we record which tools your account called, through which client registration, how many calls succeeded or failed, how long they took, and the total size of the requests and responses. We use these records to operate the Service, prevent abuse, and enforce rate limits.
+- **Tool arguments:** the arguments your client sends with a tool call, such as a search phrase, are used to answer that call. We do not store them in the usage records. Our server logs record the tool name, outcome and timing of each call, not its arguments. When a call fails with an unexpected error, the error log can hold part of the request. Our hosting provider keeps server logs for a limited time.
+- **Conversations:** we do not receive or store your conversations with your AI client. We receive only the tool calls your client sends.
+- **Feedback notes:** if you ask your AI client to send feedback with the `submit_feedback` tool, we store the note (summary, detail, suggestions, and a short context object) with your account ID, the client registration and the token's scopes. Only the maintainer reads feedback notes. Do not include personal data in feedback.
+
+We do not sell this information. We do not share it with the provider of your AI client, beyond the tool results your client requests. You can disconnect a client at any time in that client.
+
 ## 4. How We Use Information
 
 We use information we collect to:
@@ -111,6 +122,7 @@ Examples:
 - **Account information** is retained until you request deletion, subject to legal and operational requirements.
 - **Legal acceptance and sign-in records** may be retained to document assent, account history, security events, and compliance.
 - **API usage and security logs** may be retained to prevent abuse, enforce rate limits, and maintain system integrity.
+- **MCP tool usage records and feedback notes** are retained until you ask us to delete them. If you delete your account, these records stay linked only to an account ID that no longer holds your email address, and you can ask us to remove them.
 - **Analytics and telemetry data** are retained according to operational needs and the retention settings of our service providers.
 - **Browser-side cached data** may remain on your device until cleared by you or overwritten by the application.
 
@@ -122,6 +134,7 @@ Depending on your location and how you use the Service, you may have the right t
 
 - Request access to, correction of, or deletion of your account information.
 - Request deactivation of your account and revocation of API keys.
+- Disconnect an AI client from the MCP server in that client, and ask us to delete your MCP tool usage records and feedback notes.
 - Clear cookies, localStorage, sessionStorage, or similar browser-side data from your device.
 - Limit some analytics by blocking cookies or using browser or device controls.
 

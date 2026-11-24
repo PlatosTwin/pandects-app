@@ -20,7 +20,8 @@ Items still NOT MET or UNCLEAR, in the order to do them. "Maintainer" means only
 can do it (an account, a decision, legal text, or a production change).
 
 Audit totals ([audit.md](audit.md)): Anthropic connector 15 MET, 4 NOT MET, 3 UNCLEAR (plus one
-item needed only on request); OpenAI plugin 17 MET, 7 NOT MET, 3 UNCLEAR.
+item needed only on request); OpenAI plugin 17 MET, 7 NOT MET, 3 UNCLEAR. After the P1/P2 PR
+merges: Anthropic 18 MET, 3 NOT MET, 1 UNCLEAR; OpenAI 19 MET, 6 NOT MET, 2 UNCLEAR.
 
 Before submitting to either program:
 
@@ -31,12 +32,12 @@ Before submitting to either program:
 - [ ] Merge the PR that added this folder, so the setup docs for Claude and ChatGPT, the
       per-tool `securitySchemes` and the OpenAI verification route go live. (Maintainer; a
       merge deploys to production.)
-- [ ] Decide on [P1](proposals.md#p1-make-feedback-user-initiated): make `submit_feedback`
-      user-initiated. Both reviews check for tools that act or collect session data without a
-      user request. (Maintainer)
-- [ ] Add an MCP section to the privacy policy ([P2](proposals.md#p2-privacy-policy-section-for-the-mcp-server)
-      has a draft). Both programs require the policy to cover the data the connector handles.
-      (Maintainer; legal text)
+- [ ] Merge the P1/P2 PR. It makes `submit_feedback` user-initiated
+      ([P1](proposals.md#p1-make-feedback-user-initiated)) and adds the MCP section to the
+      privacy policy ([P2](proposals.md#p2-privacy-policy-section-for-the-mcp-server)). It bumps
+      the privacy-policy version, so every existing user re-accepts once at next sign-in.
+      After it merges, update `LEGAL_DOCS` in the pre-authorization script to the new privacy
+      version and hash. (Maintainer; a merge deploys to production)
 - [ ] Create a dedicated reviewer account: email-verified, no MFA, password sign-in, works from
       outside your network. While the lockdown is on, create it with the pre-authorization
       script, not through signup. OpenAI requires it at submission; Anthropic asks for it only
