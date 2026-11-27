@@ -8,13 +8,13 @@ dependencies = [
     "beautifulsoup4>=4.15.0",
     "pandas>=3.1.1",
     "numpy>=2.4.6",
-    "torch>=2.14,<2.15",
+    "torch>=2.15.0,<2.16",
     "pytorch-lightning>=2.5",
     "lightning>=2.5",
     # Held below 1.9: 1.9 cannot unpickle the live page-classifier review model
     # (GradientBoostingClassifier saved under 1.8; "No module named '_loss'").
     # Lift only after retraining and re-saving that model.
-    "scikit-learn>=1.8,<1.9",
+    "scikit-learn>=1.9.1,<1.10",
     "scipy>=1.17.1",
     "requests>=2.34.2",
     "joblib>=1.6.0",
